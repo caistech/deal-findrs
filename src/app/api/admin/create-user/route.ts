@@ -9,19 +9,24 @@ const supabaseAdmin = createClient(
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, firstName, lastName, companyId } = await request.json()
+    const { email, password, firstName, lastName, role, companyId } = await request.json()
 
-    // TODO: Add your own auth check here to ensure only admins can call this
-    // e.g., verify the requesting user is an admin
+    // Validate required fields
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400 }
+      )
+    }
 
-    // Create user with auto-confirm (no invite email)
+    // Create user with auto-confirm (no invite email needed)
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,  // Skip email verification
+      email_confirm: true,
       user_metadata: {
-        first_name: firstName,
-        last_name: lastName,
+        first_name: firstName || '',
+        last_name: lastName || '',
       }
     })
 
@@ -29,20 +34,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: userError.message }, { status: 400 })
     }
 
-    // Optionally update the profile with company_id
-    if (companyId && userData.user) {
-      await supabaseAdmin
-        .from('profiles')
-        .update({ company_id: companyId })
-        .eq('id', userData.user.id)
+    // Update the profile with additional fields
+    if (userData.user) {
+      const updateData: Record<string, unknown> = {}
+      if (companyId) updateData.company_id = companyId
+      if (role) updateData.role = role
+
+      if (Object.keys(updateData).length > 0) {
+        const { error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .update(updateData)
+          .eq('id', userData.user.id)
+
+        if (profileError) {
+          console.error('Profile update error:', profileError)
+        }
+      }
     }
 
     return NextResponse.json({
       success: true,
-      user: userData.user
+      user: {
+        id: userData.user?.id,
+        email: userData.user?.email,
+      },
+      message: 'User created successfully. They can now log in with the provided credentials.'
     })
 
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
+    console.error('Create user error:', error)
+    return NextResponse.json(
+      { error: 'Failed to create user' },
+      { status: 500 }
+    )
   }
 }
