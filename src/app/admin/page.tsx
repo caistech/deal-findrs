@@ -1,71 +1,111 @@
-import { createClient } from '@supabase/supabase-js'
-import { NextRequest, NextResponse } from 'next/server'
+'use client'
 
-// Admin client with service role key - server-side only
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import Link from 'next/link'
+import { ArrowLeft, Mic, CreditCard, Users } from 'lucide-react'
 
-export async function POST(request: NextRequest) {
-  try {
-    const { email, password, firstName, lastName, role, companyId } = await request.json()
+const ADMIN_LINKS = [
+  {
+    href: '/admin/users',
+    icon: Users,
+    title: 'User Management',
+    description: 'Create and manage user accounts',
+    color: 'green',
+  },
+  {
+    href: '/admin/elevenlabs',
+    icon: Mic,
+    title: 'ElevenLabs Voice Agents',
+    description: 'Create and manage voice assistant agents',
+    color: 'violet',
+  },
+  {
+    href: '/admin/stripe',
+    icon: CreditCard,
+    title: 'Stripe Products',
+    description: 'Set up subscription plans and pricing',
+    color: 'blue',
+  },
+]
 
-    // Validate required fields
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      )
-    }
+export default function AdminPage() {
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-3xl mx-auto px-6">
+        <Link href="/settings" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6">
+          <ArrowLeft className="w-4 h-4" /> Back to Settings
+        </Link>
 
-    // Create user with auto-confirm (no invite email needed)
-    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
-        first_name: firstName || '',
-        last_name: lastName || '',
-      }
-    })
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Setup</h1>
+          <p className="text-gray-600">Configure third-party integrations and services</p>
+        </div>
 
-    if (userError) {
-      return NextResponse.json({ error: userError.message }, { status: 400 })
-    }
+        <div className="grid gap-4">
+          {ADMIN_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="bg-white rounded-2xl border border-gray-200 p-6 hover:shadow-lg transition-all group"
+            >
+              <div className="flex items-start gap-4">
+                <div className={`p-3 rounded-xl ${
+                  link.color === 'green' ? 'bg-green-100' :
+                  link.color === 'violet' ? 'bg-violet-100' :
+                  'bg-blue-100'
+                }`}>
+                  <link.icon className={`w-6 h-6 ${
+                    link.color === 'green' ? 'text-green-600' :
+                    link.color === 'violet' ? 'text-violet-600' :
+                    'text-blue-600'
+                  }`} />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-lg font-bold text-gray-900 group-hover:text-violet-600 transition-colors">
+                    {link.title}
+                  </h2>
+                  <p className="text-gray-600 mt-1">{link.description}</p>
+                </div>
+                <span className="text-gray-400 group-hover:text-gray-600">→</span>
+              </div>
+            </Link>
+          ))}
+        </div>
 
-    // Update the profile with additional fields
-    if (userData.user) {
-      const updateData: Record<string, unknown> = {}
-      if (companyId) updateData.company_id = companyId
-      if (role) updateData.role = role
-
-      if (Object.keys(updateData).length > 0) {
-        const { error: profileError } = await supabaseAdmin
-          .from('profiles')
-          .update(updateData)
-          .eq('id', userData.user.id)
-
-        if (profileError) {
-          console.error('Profile update error:', profileError)
-        }
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: userData.user?.id,
-        email: userData.user?.email,
-      },
-      message: 'User created successfully. They can now log in with the provided credentials.'
-    })
-
-  } catch (error) {
-    console.error('Create user error:', error)
-    return NextResponse.json(
-      { error: 'Failed to create user' },
-      { status: 500 }
-    )
-  }
+        {/* Environment Variables Reference */}
+        <div className="mt-8 bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Required Environment Variables</h2>
+          <div className="space-y-4 text-sm font-mono">
+            <div>
+              <p className="text-gray-500 mb-1"># Supabase</p>
+              <p className="text-gray-700">NEXT_PUBLIC_SUPABASE_URL</p>
+              <p className="text-gray-700">NEXT_PUBLIC_SUPABASE_ANON_KEY</p>
+              <p className="text-gray-700">SUPABASE_SERVICE_ROLE_KEY</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1"># Anthropic (Claude)</p>
+              <p className="text-gray-700">ANTHROPIC_API_KEY</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1"># ElevenLabs</p>
+              <p className="text-gray-700">ELEVENLABS_API_KEY</p>
+              <p className="text-gray-700">NEXT_PUBLIC_ELEVENLABS_AGENT_SETUP</p>
+              <p className="text-gray-700">NEXT_PUBLIC_ELEVENLABS_AGENT_BASICS</p>
+              <p className="text-gray-400">... (see /admin/elevenlabs)</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1"># Stripe</p>
+              <p className="text-gray-700">STRIPE_SECRET_KEY</p>
+              <p className="text-gray-700">STRIPE_WEBHOOK_SECRET</p>
+              <p className="text-gray-700">STRIPE_PRICE_STANDARD_MONTHLY</p>
+              <p className="text-gray-400">... (see /admin/stripe)</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1"># App</p>
+              <p className="text-gray-700">NEXT_PUBLIC_APP_URL=https://deal-findrs.vercel.app</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }
