@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Building2, Users, ArrowRight, Check, Loader2 } from 'lucide-react'
+import { validateAbn, formatAbn, type AbnLookupResult } from '@/lib/abn'
 
 type OnboardingStep = 'choice' | 'create-company' | 'join-company'
 
@@ -16,8 +17,61 @@ export default function OnboardingPage() {
   const [companyName, setCompanyName] = useState('')
   const [companyAbn, setCompanyAbn] = useState('')
   
+  // ABN lookup
+  const [abnLoading, setAbnLoading] = useState(false)
+  const [abnResult, setAbnResult] = useState<AbnLookupResult | null>(null)
+  const [abnError, setAbnError] = useState('')
+  const abnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   // Join company form
   const [inviteCode, setInviteCode] = useState('')
+
+  useEffect(() => {
+    const digits = companyAbn.replace(/\s/g, '')
+
+    // Clear previous results if not 11 digits
+    if (digits.length !== 11) {
+      setAbnResult(null)
+      setAbnError('')
+      return
+    }
+
+    // Validate checksum first
+    const validationError = validateAbn(digits)
+    if (validationError) {
+      setAbnError(validationError)
+      setAbnResult(null)
+      return
+    }
+
+    // Debounce the API call
+    if (abnTimeoutRef.current) clearTimeout(abnTimeoutRef.current)
+    abnTimeoutRef.current = setTimeout(async () => {
+      setAbnLoading(true)
+      setAbnError('')
+      setAbnResult(null)
+      try {
+        const res = await fetch(`/api/abn-lookup?abn=${digits}`)
+        const data = await res.json()
+        if (!res.ok) {
+          setAbnError(data.error || 'ABN lookup failed')
+        } else {
+          setAbnResult(data as AbnLookupResult)
+          // Auto-format the ABN
+          setCompanyAbn(formatAbn(digits))
+        }
+      } catch {
+        setAbnError('Failed to look up ABN')
+      } finally {
+        setAbnLoading(false)
+      }
+    }, 400)
+
+    return () => {
+      if (abnTimeoutRef.current) clearTimeout(abnTimeoutRef.current)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyAbn])
 
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -168,13 +222,32 @@ export default function OnboardingPage() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   ABN <span className="text-gray-500">(optional)</span>
                 </label>
-                <input
-                  type="text"
-                  placeholder="12 345 678 901"
-                  value={companyAbn}
-                  onChange={(e) => setCompanyAbn(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="12 345 678 901"
+                    value={companyAbn}
+                    onChange={(e) => setCompanyAbn(e.target.value)}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  {abnLoading && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+                    </div>
+                  )}
+                </div>
+                {abnResult && (
+                  <div className="mt-2 bg-emerald-500/20 border border-emerald-500/50 rounded-xl p-3">
+                    <p className="text-emerald-200 text-sm font-medium">{abnResult.entityName}</p>
+                    <p className="text-emerald-300/70 text-xs mt-0.5">
+                      {abnResult.entityType} &middot; Status: {abnResult.abnStatus}
+                      {abnResult.state && ` \u00b7 ${abnResult.state} ${abnResult.postcode}`}
+                    </p>
+                  </div>
+                )}
+                {abnError && (
+                  <p className="mt-2 text-sm text-red-400">{abnError}</p>
+                )}
               </div>
 
               <button
