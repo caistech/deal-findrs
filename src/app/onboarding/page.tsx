@@ -2,8 +2,18 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Building2, Users, ArrowRight, Check, Loader2 } from 'lucide-react'
+import { Building2, Users, ArrowRight, Check, Loader2, Search } from 'lucide-react'
 import { validateAbn, formatAbn, type AbnLookupResult } from '@/lib/abn'
+
+interface AbnNameResult {
+  abn: string
+  name: string
+  nameType: string
+  state: string
+  postcode: string
+  score: number
+  isCurrent: boolean
+}
 
 type OnboardingStep = 'choice' | 'create-company' | 'join-company'
 
@@ -12,66 +22,141 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<OnboardingStep>('choice')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  
+
   // Create company form
   const [companyName, setCompanyName] = useState('')
   const [companyAbn, setCompanyAbn] = useState('')
-  
+
   // ABN lookup
   const [abnLoading, setAbnLoading] = useState(false)
   const [abnResult, setAbnResult] = useState<AbnLookupResult | null>(null)
   const [abnError, setAbnError] = useState('')
   const abnTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Name search
+  const [nameResults, setNameResults] = useState<AbnNameResult[]>([])
+  const [showDropdown, setShowDropdown] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
   // Join company form
   const [inviteCode, setInviteCode] = useState('')
 
+  // Close dropdown on outside click
   useEffect(() => {
-    const digits = companyAbn.replace(/\s/g, '')
-
-    // Clear previous results if not 11 digits
-    if (digits.length !== 11) {
-      setAbnResult(null)
-      setAbnError('')
-      return
-    }
-
-    // Validate checksum first
-    const validationError = validateAbn(digits)
-    if (validationError) {
-      setAbnError(validationError)
-      setAbnResult(null)
-      return
-    }
-
-    // Debounce the API call
-    if (abnTimeoutRef.current) clearTimeout(abnTimeoutRef.current)
-    abnTimeoutRef.current = setTimeout(async () => {
-      setAbnLoading(true)
-      setAbnError('')
-      setAbnResult(null)
-      try {
-        const res = await fetch(`/api/abn-lookup?abn=${digits}`)
-        const data = await res.json()
-        if (!res.ok) {
-          setAbnError(data.error || 'ABN lookup failed')
-        } else {
-          setAbnResult(data as AbnLookupResult)
-          // Auto-format the ABN
-          setCompanyAbn(formatAbn(digits))
-        }
-      } catch {
-        setAbnError('Failed to look up ABN')
-      } finally {
-        setAbnLoading(false)
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowDropdown(false)
       }
-    }, 400)
-
-    return () => {
-      if (abnTimeoutRef.current) clearTimeout(abnTimeoutRef.current)
     }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    const raw = companyAbn.replace(/\s/g, '')
+    const isDigits = /^\d+$/.test(raw)
+
+    // --- ABN direct lookup (11 digits) ---
+    if (isDigits && raw.length === 11) {
+      setNameResults([])
+      setShowDropdown(false)
+
+      const validationError = validateAbn(raw)
+      if (validationError) {
+        setAbnError(validationError)
+        setAbnResult(null)
+        return
+      }
+
+      if (abnTimeoutRef.current) clearTimeout(abnTimeoutRef.current)
+      abnTimeoutRef.current = setTimeout(async () => {
+        setAbnLoading(true)
+        setAbnError('')
+        setAbnResult(null)
+        try {
+          const res = await fetch(`/api/abn-lookup?abn=${raw}`)
+          const data = await res.json()
+          if (!res.ok) {
+            setAbnError(data.error || 'ABN lookup failed')
+          } else {
+            setAbnResult(data as AbnLookupResult)
+            setCompanyAbn(formatAbn(raw))
+          }
+        } catch {
+          setAbnError('Failed to look up ABN')
+        } finally {
+          setAbnLoading(false)
+        }
+      }, 400)
+
+      return () => { if (abnTimeoutRef.current) clearTimeout(abnTimeoutRef.current) }
+    }
+
+    // --- Name search (2+ non-digit chars) ---
+    if (!isDigits && raw.length === 0 && companyAbn.trim().length >= 2) {
+      // companyAbn has letters — search by name
+    }
+    const trimmed = companyAbn.trim()
+    if (!isDigits && trimmed.length >= 2) {
+      setAbnResult(null)
+      setAbnError('')
+
+      if (abnTimeoutRef.current) clearTimeout(abnTimeoutRef.current)
+      abnTimeoutRef.current = setTimeout(async () => {
+        setAbnLoading(true)
+        try {
+          const res = await fetch(`/api/abn-lookup?name=${encodeURIComponent(trimmed)}`)
+          const data = await res.json()
+          if (data.results) {
+            setNameResults(data.results)
+            setShowDropdown(data.results.length > 0)
+          } else {
+            setNameResults([])
+            setShowDropdown(false)
+          }
+        } catch {
+          setNameResults([])
+        } finally {
+          setAbnLoading(false)
+        }
+      }, 400)
+
+      return () => { if (abnTimeoutRef.current) clearTimeout(abnTimeoutRef.current) }
+    }
+
+    // Clear everything if input is too short or partial digits
+    setAbnResult(null)
+    setAbnError('')
+    setNameResults([])
+    setShowDropdown(false)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyAbn])
+
+  const handleSelectNameResult = async (result: AbnNameResult) => {
+    setShowDropdown(false)
+    setNameResults([])
+    setCompanyAbn(formatAbn(result.abn))
+    if (!companyName) {
+      setCompanyName(result.name)
+    }
+
+    // Fetch full details
+    setAbnLoading(true)
+    setAbnError('')
+    try {
+      const res = await fetch(`/api/abn-lookup?abn=${result.abn}`)
+      const data = await res.json()
+      if (!res.ok) {
+        setAbnError(data.error || 'ABN lookup failed')
+      } else {
+        setAbnResult(data as AbnLookupResult)
+      }
+    } catch {
+      setAbnError('Failed to look up ABN')
+    } finally {
+      setAbnLoading(false)
+    }
+  }
 
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -220,19 +305,44 @@ export default function OnboardingPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  ABN <span className="text-gray-500">(optional)</span>
+                  ABN or Company Name <span className="text-gray-500">(optional — type a name to search)</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="12 345 678 901"
-                    value={companyAbn}
-                    onChange={(e) => setCompanyAbn(e.target.value)}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  />
-                  {abnLoading && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+                <div className="relative" ref={dropdownRef}>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                    <input
+                      type="text"
+                      placeholder="e.g. 12 345 678 901 or &quot;Smith Builders&quot;"
+                      value={companyAbn}
+                      onChange={(e) => setCompanyAbn(e.target.value)}
+                      onFocus={() => { if (nameResults.length > 0) setShowDropdown(true) }}
+                      className="w-full pl-10 pr-10 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    {abnLoading && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Name search dropdown */}
+                  {showDropdown && nameResults.length > 0 && (
+                    <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-white/20 rounded-xl shadow-2xl max-h-72 overflow-y-auto">
+                      {nameResults.map((r, i) => (
+                        <button
+                          key={`${r.abn}-${i}`}
+                          type="button"
+                          onClick={() => handleSelectNameResult(r)}
+                          className="w-full text-left px-4 py-3 hover:bg-white/10 transition-colors border-b border-white/5 last:border-0"
+                        >
+                          <p className="text-white text-sm font-medium truncate">{r.name}</p>
+                          <p className="text-gray-400 text-xs mt-0.5">
+                            ABN {r.abn}
+                            {r.state && ` · ${r.state} ${r.postcode}`}
+                            {r.nameType && ` · ${r.nameType}`}
+                          </p>
+                        </button>
+                      ))}
                     </div>
                   )}
                 </div>
