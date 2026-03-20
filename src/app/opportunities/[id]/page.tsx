@@ -778,13 +778,20 @@ export default function OpportunityDetailPage() {
                 <Edit className="w-4 h-4" />
                 Edit & Re-assess
               </button>
-              <button 
+              <button
                 onClick={handleGenerateIM}
                 className="w-full px-4 py-3 bg-emerald-500 text-white rounded-xl font-bold hover:bg-emerald-600 transition-all flex items-center justify-center gap-2"
               >
                 <FileText className="w-4 h-4" />
                 Generate Investment Memo
               </button>
+              <Link
+                href={`/opportunities/${opportunityId}/devfinance`}
+                className="w-full px-4 py-3 bg-gradient-to-r from-indigo-500 to-violet-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <DollarSign className="w-4 h-4" />
+                Dev Finance Pack
+              </Link>
             </div>
           </div>
         </div>
