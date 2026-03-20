@@ -1,33 +1,57 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, Search, ChevronRight, Filter, ArrowUpDown } from 'lucide-react'
+import { Plus, Search, ChevronRight, Filter, ArrowUpDown, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
-const mockDeals = [
-  { 
-    id: '1', 
-    name: 'Branscomb Rd, Claremont', 
-    location: 'Claremont, TAS', 
-    status: 'amber', 
-    gm: '22.2%', 
-    score: 78, 
-    lots: 37, 
-    stage: 'DA Approved',
-    totalCost: '$18.0M',
-    revenue: '$22.2M',
-    createdAt: '2024-12-28'
-  },
-]
+interface Opportunity {
+  id: string
+  name: string
+  address: string
+  city: string
+  state: string
+  status: string
+  rag_status: string | null
+  num_lots: number | null
+  num_dwellings: number | null
+  land_stage: string | null
+  total_project_cost: number | null
+  total_revenue: number | null
+  gross_margin_percent: number | null
+  created_at: string
+}
 
 export default function OpportunitiesPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [deals, setDeals] = useState<Opportunity[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredDeals = mockDeals.filter(deal => {
-    const matchesSearch = deal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         deal.location.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === 'all' || deal.status === statusFilter
+  useEffect(() => {
+    async function fetchOpportunities() {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('opportunities')
+        .select('id, name, address, city, state, status, rag_status, num_lots, num_dwellings, land_stage, total_project_cost, total_revenue, gross_margin_percent, created_at')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching opportunities:', error)
+      } else {
+        setDeals(data || [])
+      }
+      setLoading(false)
+    }
+    fetchOpportunities()
+  }, [])
+
+  const filteredDeals = deals.filter(deal => {
+    const location = [deal.city, deal.state].filter(Boolean).join(', ')
+    const matchesSearch = (deal.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         location.toLowerCase().includes(searchQuery.toLowerCase())
+    const ragStatus = deal.rag_status || deal.status || 'draft'
+    const matchesStatus = statusFilter === 'all' || ragStatus === statusFilter
     return matchesSearch && matchesStatus
   })
 
@@ -140,56 +164,64 @@ export default function OpportunitiesPage() {
         </div>
 
         {/* Opportunities Grid */}
-        {filteredDeals.length > 0 ? (
+        {loading ? (
+          <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+            <Loader2 className="w-8 h-8 text-amber-500 animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading opportunities...</p>
+          </div>
+        ) : filteredDeals.length > 0 ? (
           <div className="grid gap-4">
-            {filteredDeals.map((deal) => (
-              <Link 
-                key={deal.id} 
+            {filteredDeals.map((deal) => {
+              const ragStatus = deal.rag_status || 'draft'
+              const location = [deal.city, deal.state].filter(Boolean).join(', ')
+              const formatCurrency = (v: number | null) => v ? `$${(v / 1_000_000).toFixed(1)}M` : '—'
+              const gmPercent = deal.gross_margin_percent != null ? `${deal.gross_margin_percent.toFixed(1)}%` : '—'
+              return (
+              <Link
+                key={deal.id}
                 href={`/opportunities/${deal.id}`}
-                className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all ${getStatusBg(deal.status)}`}
+                className={`bg-white rounded-xl border p-6 hover:shadow-lg transition-all ${getStatusBg(ragStatus)}`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${
-                      deal.status === 'green' ? 'bg-emerald-100' :
-                      deal.status === 'amber' ? 'bg-amber-100' : 'bg-red-100'
+                      ragStatus === 'green' ? 'bg-emerald-100' :
+                      ragStatus === 'amber' ? 'bg-amber-100' :
+                      ragStatus === 'red' ? 'bg-red-100' : 'bg-gray-100'
                     }`}>
-                      {deal.status === 'green' ? '🟢' : deal.status === 'amber' ? '🟡' : '🔴'}
+                      {ragStatus === 'green' ? '🟢' : ragStatus === 'amber' ? '🟡' : ragStatus === 'red' ? '🔴' : '⚪'}
                     </div>
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900">{deal.name}</h3>
-                      <p className="text-gray-600">{deal.location}</p>
+                      <h3 className="text-lg font-bold text-gray-900">{deal.name || 'Untitled'}</h3>
+                      <p className="text-gray-600">{location || deal.address || 'No location'}</p>
                       <div className="flex items-center gap-3 mt-2">
                         <span className="px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
-                          {deal.stage}
+                          {deal.land_stage || deal.status || 'Draft'}
                         </span>
-                        <span className="text-sm text-gray-500">{deal.lots} lots</span>
-                        <span className="text-sm text-gray-500">Added {deal.createdAt}</span>
+                        {deal.num_lots && <span className="text-sm text-gray-500">{deal.num_lots} lots</span>}
+                        <span className="text-sm text-gray-500">Added {new Date(deal.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-8">
                     <div className="text-right">
                       <p className="text-sm text-gray-500">Total Cost</p>
-                      <p className="font-bold text-gray-900">{deal.totalCost}</p>
+                      <p className="font-bold text-gray-900">{formatCurrency(deal.total_project_cost)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-500">Revenue</p>
-                      <p className="font-bold text-gray-900">{deal.revenue}</p>
+                      <p className="font-bold text-gray-900">{formatCurrency(deal.total_revenue)}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-500">GM%</p>
-                      <p className="font-bold text-xl text-amber-600">{deal.gm}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">Score</p>
-                      <p className="font-bold text-xl text-gray-900">{deal.score}</p>
+                      <p className="font-bold text-xl text-amber-600">{gmPercent}</p>
                     </div>
                     <ChevronRight className="w-5 h-5 text-gray-400" />
                   </div>
                 </div>
               </Link>
-            ))}
+              )
+            })}
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
