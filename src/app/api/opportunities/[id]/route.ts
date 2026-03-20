@@ -296,7 +296,13 @@ export async function GET(
       .eq('id', opportunityId)
       .single()
 
-    if (error || !opportunity) {
+    if (error) {
+      console.error('Supabase error fetching opportunity:', error.message, error.code, error.details)
+      return NextResponse.json({ error: 'Opportunity not found', details: error.message }, { status: 404 })
+    }
+
+    if (!opportunity) {
+      console.error('No opportunity found for id:', opportunityId)
       return NextResponse.json({ error: 'Opportunity not found' }, { status: 404 })
     }
 
