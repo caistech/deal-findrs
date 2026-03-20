@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Plus, Search, ChevronRight, Filter, ArrowUpDown, Loader2 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 
 interface Opportunity {
   id: string
@@ -30,16 +29,13 @@ export default function OpportunitiesPage() {
 
   useEffect(() => {
     async function fetchOpportunities() {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('opportunities')
-        .select('id, name, address, city, state, status, rag_status, num_lots, num_dwellings, land_stage, total_project_cost, total_revenue, gross_margin_percent, created_at')
-        .order('created_at', { ascending: false })
-
-      if (error) {
+      try {
+        const response = await fetch('/api/opportunities')
+        if (!response.ok) throw new Error('Failed to fetch')
+        const { opportunities } = await response.json()
+        setDeals(opportunities || [])
+      } catch (error) {
         console.error('Error fetching opportunities:', error)
-      } else {
-        setDeals(data || [])
       }
       setLoading(false)
     }
