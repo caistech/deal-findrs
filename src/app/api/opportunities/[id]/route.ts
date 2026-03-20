@@ -276,21 +276,8 @@ export async function GET(
       .from('opportunities')
       .select(`
         *,
-        assessments (
-          id,
-          score,
-          summary,
-          path_to_green,
-          recommendations,
-          created_at
-        ),
-        documents (
-          id,
-          file_name,
-          category,
-          is_verified,
-          uploaded_at
-        )
+        assessments (*),
+        documents (*)
       `)
       .eq('id', opportunityId)
       .single()
