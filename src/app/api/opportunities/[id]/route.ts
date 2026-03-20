@@ -278,7 +278,6 @@ export async function GET(
         *,
         assessments (
           id,
-          status,
           score,
           summary,
           path_to_green,
