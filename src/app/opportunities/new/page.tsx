@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Check, AlertCircle, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, AlertCircle, Loader2, Zap } from 'lucide-react'
 import { VoiceInput } from '@/components/voice/VoiceInput'
 import { DocumentUpload } from '@/components/voice/DocumentUpload'
+import AddressAutocomplete from '@/components/common/AddressAutocomplete'
+import type { GeocodedAddress, SiteIntelResult } from '@/lib/mapbox'
 
 type Step = 'basics' | 'property' | 'financial' | 'documents' | 'review'
 
@@ -23,7 +25,10 @@ export default function NewOpportunityPage() {
   const [currentStep, setCurrentStep] = useState<Step>('basics')
   const [loading, setLoading] = useState(false)
   const [documents, setDocuments] = useState<any[]>([])
-  
+  const [siteIntel, setSiteIntel] = useState<SiteIntelResult | null>(null)
+  const [derivingIntel, setDerivingIntel] = useState(false)
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+
   const [formData, setFormData] = useState({
     // ===== BASICS =====
     name: '',
@@ -117,6 +122,46 @@ export default function NewOpportunityPage() {
     }
   }
 
+  // Handle Mapbox address selection — auto-fill fields + derive site intel
+  const handleAddressSelect = async (address: GeocodedAddress) => {
+    setFormData(prev => ({
+      ...prev,
+      address: `${address.street_number} ${address.street_name}`.trim(),
+      city: address.suburb,
+      state: address.state_short,
+      postcode: address.postcode,
+      country: address.country,
+      name: prev.name || `${address.street_number} ${address.street_name}, ${address.suburb}`.trim(),
+    }))
+    setCoords({ lat: address.lat, lng: address.lng })
+
+    // Auto-derive site intelligence
+    setDerivingIntel(true)
+    try {
+      const res = await fetch('/api/site-intel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lat: address.lat,
+          lng: address.lng,
+          address: address.formatted_address,
+        }),
+      })
+      if (res.ok) {
+        const intel: SiteIntelResult = await res.json()
+        setSiteIntel(intel)
+        // Auto-fill zoning if derived
+        if (intel.zoning) {
+          setFormData(prev => ({ ...prev, currentZoning: intel.zoning || prev.currentZoning }))
+        }
+      }
+    } catch (err) {
+      console.error('Site intel derivation error:', err)
+    } finally {
+      setDerivingIntel(false)
+    }
+  }
+
   const nextStep = () => {
     const nextIndex = currentStepIndex + 1
     if (nextIndex < steps.length) {
@@ -189,11 +234,14 @@ export default function NewOpportunityPage() {
 
       const data = await response.json()
       
-      // Store result in sessionStorage
+      // Store result in sessionStorage (clear any previous opportunity ID)
+      sessionStorage.removeItem('lastOpportunityId')
       sessionStorage.setItem('lastAssessment', JSON.stringify({
         opportunity,
         formData,
         documents,
+        siteIntel,
+        coords,
         result: data.result,
       }))
 
@@ -308,17 +356,16 @@ export default function NewOpportunityPage() {
                 <div className="grid grid-cols-2 gap-6">
                   <div className="col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Street Address *</label>
-                    <input 
-                      type="text"
-                      placeholder="122 Branscomb Road"
+                    <AddressAutocomplete
                       value={formData.address}
-                      onChange={(e) => updateField('address', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      placeholder="Start typing an address..."
+                      onSelect={handleAddressSelect}
+                      onChange={(val) => updateField('address', val)}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">City/Suburb *</label>
-                    <input 
+                    <input
                       type="text"
                       placeholder="Claremont"
                       value={formData.city}
@@ -344,7 +391,70 @@ export default function NewOpportunityPage() {
                       <option value="ACT">ACT</option>
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Postcode</label>
+                    <input
+                      type="text"
+                      placeholder="7011"
+                      value={formData.postcode}
+                      onChange={(e) => updateField('postcode', e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
                 </div>
+
+                {/* Site Intelligence — auto-derived from address */}
+                {(derivingIntel || siteIntel) && (
+                  <div className={`rounded-xl border p-4 ${derivingIntel ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Zap className={`w-4 h-4 ${derivingIntel ? 'text-amber-500 animate-pulse' : 'text-emerald-600'}`} />
+                      <span className="text-sm font-semibold text-gray-900">
+                        {derivingIntel ? 'Deriving site intelligence...' : 'Site Intelligence (auto-derived)'}
+                      </span>
+                    </div>
+                    {siteIntel && (
+                      <div className="grid grid-cols-3 gap-3">
+                        {siteIntel.climate_zone && (
+                          <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                            <p className="text-xs text-gray-500">Climate Zone</p>
+                            <p className="font-semibold text-gray-900">Zone {siteIntel.climate_zone}</p>
+                            {siteIntel.climate_description && <p className="text-xs text-gray-500">{siteIntel.climate_description}</p>}
+                          </div>
+                        )}
+                        {siteIntel.wind_region && (
+                          <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                            <p className="text-xs text-gray-500">Wind Region</p>
+                            <p className="font-semibold text-gray-900">{siteIntel.wind_region}</p>
+                            {siteIntel.wind_speed && <p className="text-xs text-gray-500">{siteIntel.wind_speed} m/s</p>}
+                          </div>
+                        )}
+                        {siteIntel.bal_rating && (
+                          <div className={`bg-white rounded-lg px-3 py-2 border ${siteIntel.bal_in_overlay ? 'border-red-200' : 'border-gray-100'}`}>
+                            <p className="text-xs text-gray-500">BAL Rating</p>
+                            <p className={`font-semibold ${siteIntel.bal_in_overlay ? 'text-red-600' : 'text-gray-900'}`}>{siteIntel.bal_rating}</p>
+                            {siteIntel.bal_in_overlay && <p className="text-xs text-red-500">Bushfire overlay</p>}
+                          </div>
+                        )}
+                        {siteIntel.council_name && (
+                          <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                            <p className="text-xs text-gray-500">Council / LGA</p>
+                            <p className="font-semibold text-gray-900">{siteIntel.council_name}</p>
+                          </div>
+                        )}
+                        {siteIntel.zoning && (
+                          <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                            <p className="text-xs text-gray-500">Zoning</p>
+                            <p className="font-semibold text-gray-900">{siteIntel.zoning}</p>
+                            {siteIntel.zone_name && <p className="text-xs text-gray-500">{siteIntel.zone_name}</p>}
+                          </div>
+                        )}
+                        {!siteIntel.climate_zone && !siteIntel.wind_region && !siteIntel.bal_rating && !siteIntel.council_name && !siteIntel.zoning && (
+                          <p className="col-span-3 text-sm text-gray-500">No site intelligence available for this location yet.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <hr className="my-6" />
                 <h3 className="font-semibold text-gray-900">Landowner Details</h3>

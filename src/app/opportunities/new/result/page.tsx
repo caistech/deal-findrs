@@ -37,6 +37,7 @@ type OpportunityStatus = 'assessed' | 'proceed' | 'pending' | 'archived'
 export default function AssessmentResultPage() {
   const router = useRouter()
   const [data, setData] = useState<AssessmentData | null>(null)
+  const [opportunityId, setOpportunityId] = useState<string | null>(null)
   const [voiceActive, setVoiceActive] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showStatusModal, setShowStatusModal] = useState(false)
@@ -49,28 +50,71 @@ export default function AssessmentResultPage() {
   useEffect(() => {
     const stored = sessionStorage.getItem('lastAssessment')
     if (stored) {
-      setData(JSON.parse(stored))
+      const parsed = JSON.parse(stored)
+      setData(parsed)
+
+      // Save opportunity to database if not already saved
+      const savedId = sessionStorage.getItem('lastOpportunityId')
+      if (savedId) {
+        setOpportunityId(savedId)
+      } else {
+        saveOpportunity(parsed)
+      }
     } else {
       router.push('/opportunities/new')
     }
   }, [router])
 
+  const saveOpportunity = async (assessmentData: AssessmentData & { formData?: any; documents?: any[] }) => {
+    try {
+      const response = await fetch('/api/opportunities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          formData: assessmentData.formData || assessmentData.opportunity,
+          opportunity: assessmentData.opportunity,
+          result: assessmentData.result,
+        }),
+      })
+
+      if (response.ok) {
+        const { opportunity } = await response.json()
+        if (opportunity?.id) {
+          setOpportunityId(opportunity.id)
+          sessionStorage.setItem('lastOpportunityId', opportunity.id)
+        }
+      } else {
+        console.error('Failed to save opportunity')
+      }
+    } catch (error) {
+      console.error('Error saving opportunity:', error)
+    }
+  }
+
   const handleStatusChange = async (newStatus: OpportunityStatus) => {
     setSaving(true)
     try {
-      // In production, call API to update status
-      await new Promise(resolve => setTimeout(resolve, 800))
+      if (opportunityId) {
+        const response = await fetch(`/api/opportunities/${opportunityId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus, note: statusNote }),
+        })
+        if (!response.ok) throw new Error('Failed to update status')
+      }
+
       setCurrentStatus(newStatus)
       setShowStatusModal(false)
       setStatusNote('')
-      
-      // Show success feedback
-      if (newStatus === 'proceed') {
-        alert('✅ Opportunity marked as PROCEED. Added to active pipeline.')
-      } else if (newStatus === 'pending') {
-        alert('⏸️ Opportunity marked as PENDING. Will appear in your review queue.')
-      } else if (newStatus === 'archived') {
-        alert('📦 Opportunity ARCHIVED. You can find it in the archived section.')
+
+      // Clean up session storage and redirect to the opportunity
+      sessionStorage.removeItem('lastAssessment')
+      sessionStorage.removeItem('lastOpportunityId')
+
+      if (opportunityId) {
+        router.push(`/opportunities/${opportunityId}`)
+      } else {
+        router.push('/opportunities')
       }
     } catch (error) {
       alert('Error updating status. Please try again.')
@@ -80,7 +124,7 @@ export default function AssessmentResultPage() {
   }
 
   const copyShareLink = () => {
-    const link = `${window.location.origin}/opportunities/${data?.opportunity?.id || 'demo'}`
+    const link = `${window.location.origin}/opportunities/${opportunityId || opportunityId || data?.opportunity?.id || 'demo'}`
     navigator.clipboard.writeText(link)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
