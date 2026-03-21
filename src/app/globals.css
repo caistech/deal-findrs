@@ -6,6 +6,8 @@
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 248, 250, 252;
   --background-end-rgb: 238, 242, 255;
+  --primary: oklch(0.586 0.19 145.71);
+  --primary-foreground: #ffffff;
 }
 
 body {

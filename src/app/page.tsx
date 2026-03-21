@@ -3,44 +3,47 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight, CheckCircle, Mic, Target, BarChart3, FileText, Users, Zap } from 'lucide-react'
+import { CorporateHeader } from '@/components/corporate/CorporateHeader'
+import { CorporateFooter } from '@/components/corporate/CorporateFooter'
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900">
-      {/* Navigation */}
-      <nav className="px-6 py-4 flex items-center justify-between max-w-7xl mx-auto">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-            <span className="text-white font-bold text-lg">DF</span>
+      <CorporateHeader
+        productName="DealFindrs"
+        productAcronym="DF"
+        theme="dark"
+        LinkComponent={Link}
+        navItems={[
+          { href: '#features', label: 'Features' },
+          { href: '#pricing', label: 'Pricing' },
+        ]}
+        rightContent={
+          <div className="flex items-center gap-4">
+            <Link href="/login" className="px-4 py-2 text-white hover:text-[#22c55e] transition-colors">
+              Log In
+            </Link>
+            <Link
+              href="/signup"
+              className="px-5 py-2.5 bg-[#22c55e] text-white rounded-lg font-semibold hover:bg-[#4ade80] transition-all"
+            >
+              Start Free Trial
+            </Link>
           </div>
-          <span className="text-2xl font-bold text-white">DealFindrs</span>
-        </div>
-        <div className="flex items-center gap-6">
-          <a href="#features" className="text-gray-300 hover:text-white transition-colors">Features</a>
-          <a href="#pricing" className="text-gray-300 hover:text-white transition-colors">Pricing</a>
-          <Link href="/login" className="px-4 py-2 text-white hover:text-amber-400 transition-colors">
-            Log In
-          </Link>
-          <Link 
-            href="/signup"
-            className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-lg font-semibold hover:shadow-lg hover:shadow-amber-500/25 transition-all"
-          >
-            Start Free Trial
-          </Link>
-        </div>
-      </nav>
+        }
+      />
 
       {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-6 pt-20 pb-32">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-400 text-sm mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-6">
               <Zap className="w-4 h-4" />
               AI-Powered Deal Assessment
             </div>
             <h1 className="text-5xl font-bold text-white leading-tight mb-6">
               Stop Guessing.<br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">
+              <span className="text-[#22c55e]">
                 Start Knowing.
               </span>
             </h1>
@@ -52,7 +55,7 @@ export default function LandingPage() {
             <div className="flex gap-4">
               <Link 
                 href="/signup"
-                className="px-8 py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-xl font-bold text-lg hover:shadow-xl hover:shadow-amber-500/25 transition-all flex items-center gap-2"
+                className="px-8 py-4 bg-[#22c55e] text-white rounded-xl font-bold text-lg hover:bg-[#4ade80] hover:shadow-xl hover:shadow-[#22c55e]/25 transition-all flex items-center gap-2"
               >
                 Start 14-Day Free Trial <ArrowRight className="w-5 h-5" />
               </Link>
@@ -113,8 +116,8 @@ export default function LandingPage() {
               { icon: FileText, title: 'Auto-Generate IMs', desc: 'One click to create professional Investment Memorandums for green-lit projects.' },
               { icon: Users, title: 'Team Collaboration', desc: 'DealFindrs submit opportunities, Promoters review and approve.' },
             ].map((feature, i) => (
-              <div key={i} className="bg-slate-700/50 border border-slate-600 rounded-2xl p-6 hover:border-amber-500/50 transition-colors">
-                <feature.icon className="w-10 h-10 text-amber-400 mb-4" />
+              <div key={i} className="bg-slate-700/50 border border-slate-600 rounded-2xl p-6 hover:border-[#22c55e]/50 transition-colors">
+                <feature.icon className="w-10 h-10 text-[#22c55e] mb-4" />
                 <h3 className="text-xl font-bold text-white mb-2">{feature.title}</h3>
                 <p className="text-gray-400">{feature.desc}</p>
               </div>
@@ -138,7 +141,7 @@ export default function LandingPage() {
               { step: '4', title: 'Get Results', desc: 'Instant RAG rating with action items' },
             ].map((item, i) => (
               <div key={i} className="text-center">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center text-2xl font-bold text-slate-900">
+                <div className="w-16 h-16 mx-auto mb-4 bg-[#22c55e] rounded-2xl flex items-center justify-center text-2xl font-bold text-slate-900">
                   {item.step}
                 </div>
                 <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
@@ -183,7 +186,7 @@ export default function LandingPage() {
                 highlight: false 
               },
             ].map((plan, i) => (
-              <div key={i} className={`rounded-2xl p-8 ${plan.highlight ? 'bg-gradient-to-br from-amber-400 to-orange-500 text-slate-900 scale-105' : 'bg-slate-800 border border-slate-700 text-white'}`}>
+              <div key={i} className={`rounded-2xl p-8 ${plan.highlight ? 'bg-[#22c55e] text-white scale-105' : 'bg-slate-800 border border-slate-700 text-white'}`}>
                 <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
                 <div className="flex items-baseline gap-1 mb-6">
                   <span className="text-4xl font-bold">{plan.price}</span>
@@ -202,7 +205,7 @@ export default function LandingPage() {
                   className={`block w-full py-3 rounded-xl font-semibold text-center transition-all ${
                     plan.highlight 
                       ? 'bg-slate-900 text-white hover:bg-slate-800' 
-                      : 'bg-amber-500 text-slate-900 hover:bg-amber-400'
+                      : 'bg-[#22c55e] text-white hover:bg-[#4ade80]'
                   }`}
                 >
                   {plan.cta}
@@ -214,30 +217,20 @@ export default function LandingPage() {
       </div>
 
       {/* CTA Section */}
-      <div className="py-24 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-t border-amber-500/20">
+      <div className="py-24 bg-gradient-to-r from-[#22c55e]/10 to-[#4ade80]/10 border-t border-[#22c55e]/20">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">Ready to Find Better Deals?</h2>
           <p className="text-gray-400 text-lg mb-8">Join property developers who are making smarter, faster decisions.</p>
           <Link 
             href="/signup"
-            className="inline-block px-8 py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-xl font-bold text-lg hover:shadow-xl hover:shadow-amber-500/25 transition-all"
+            className="inline-block px-8 py-4 bg-[#22c55e] text-white rounded-xl font-bold text-lg hover:bg-[#4ade80] hover:shadow-xl hover:shadow-[#22c55e]/25 transition-all"
           >
             Start Your Free Trial Today
           </Link>
         </div>
       </div>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-700 py-8">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between text-gray-500 text-sm gap-4">
-          <span>© 2024 DealFindrs. A Factory2Key Company.</span>
-          <div className="flex gap-6">
-            <a href="#" className="hover:text-white transition-colors">Privacy</a>
-            <a href="#" className="hover:text-white transition-colors">Terms</a>
-            <a href="#" className="hover:text-white transition-colors">Contact</a>
-          </div>
-        </div>
-      </footer>
+      <CorporateFooter productName="DealFindrs" theme="dark" />
     </div>
   )
 }
