@@ -375,21 +375,14 @@ export default function NewOpportunityPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
-                    <select
+                    <input
+                      type="text"
+                      placeholder="TAS"
                       value={formData.state}
                       onChange={(e) => updateField('state', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    >
-                      <option value="">Select state</option>
-                      <option value="NSW">New South Wales</option>
-                      <option value="VIC">Victoria</option>
-                      <option value="QLD">Queensland</option>
-                      <option value="WA">Western Australia</option>
-                      <option value="SA">South Australia</option>
-                      <option value="TAS">Tasmania</option>
-                      <option value="NT">Northern Territory</option>
-                      <option value="ACT">ACT</option>
-                    </select>
+                      readOnly={!!formData.state && !!coords}
+                      className={`w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 ${formData.state && coords ? 'bg-gray-50 text-gray-600' : ''}`}
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Postcode</label>
