@@ -3,10 +3,12 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Check, AlertCircle, Loader2, Zap } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, AlertCircle, Loader2, Zap, TrendingUp, AlertTriangle, Building2, Layers } from 'lucide-react'
 import { VoiceInput } from '@/components/voice/VoiceInput'
 import { DocumentUpload } from '@/components/voice/DocumentUpload'
 import AddressAutocomplete from '@/components/common/AddressAutocomplete'
+import { usePropertyOnboarding } from '@/lib/property-services'
+import type { PropertyProfile } from '@/lib/property-services'
 import type { GeocodedAddress, SiteIntelResult } from '@/lib/mapbox'
 
 type Step = 'basics' | 'property' | 'financial' | 'documents' | 'review'
@@ -28,6 +30,13 @@ export default function NewOpportunityPage() {
   const [siteIntel, setSiteIntel] = useState<SiteIntelResult | null>(null)
   const [derivingIntel, setDerivingIntel] = useState(false)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+
+  // Property Services — shared property intelligence
+  const property = usePropertyOnboarding({
+    supabaseUrl: process.env.NEXT_PUBLIC_PROPERTY_SERVICES_URL!,
+    supabaseAnonKey: process.env.NEXT_PUBLIC_PROPERTY_SERVICES_ANON_KEY!,
+    product: 'dealfindrs',
+  })
 
   const [formData, setFormData] = useState({
     // ===== BASICS =====
@@ -122,7 +131,43 @@ export default function NewOpportunityPage() {
     }
   }
 
-  // Handle Mapbox address selection — auto-fill fields + derive site intel
+  // Auto-populate form fields from property profile
+  const applyPropertyProfile = (profile: PropertyProfile) => {
+    setFormData(prev => {
+      const updates: Record<string, string | boolean> = {}
+      // Lot size
+      if (profile.lot?.lotSize && !prev.propertySize) {
+        updates.propertySize = String(profile.lot.lotSize)
+        updates.propertySizeUnit = 'sqm'
+      }
+      // Zoning
+      if (profile.zoning?.code && !prev.currentZoning) {
+        updates.currentZoning = profile.zoning.code
+      }
+      // Subdivision lots
+      if (profile.subdivision?.torrens?.maxLots && !prev.numLots) {
+        updates.numLots = String(profile.subdivision.torrens.maxLots)
+        if (!prev.numDwellings) {
+          updates.numDwellings = String(profile.subdivision.torrens.maxLots)
+        }
+      }
+      // Heritage overlay as risk factor
+      const hasHeritage = profile.overlays.some(o => o.type.toLowerCase().includes('heritage'))
+      if (hasHeritage) {
+        updates.riskHeritageOverlay = true
+      }
+      // Environmental overlays
+      const hasEnvOverlay = profile.overlays.some(o =>
+        o.type.toLowerCase().includes('environment') || o.type.toLowerCase().includes('vegetation')
+      )
+      if (hasEnvOverlay && !prev.riskEnvironmentalIssues) {
+        updates.riskEnvironmentalIssues = true
+      }
+      return { ...prev, ...updates }
+    })
+  }
+
+  // Handle Mapbox address selection — auto-fill fields + derive site intel + property profile
   const handleAddressSelect = async (address: GeocodedAddress) => {
     setFormData(prev => ({
       ...prev,
@@ -135,7 +180,24 @@ export default function NewOpportunityPage() {
     }))
     setCoords({ lat: address.lat, lng: address.lng })
 
-    // Auto-derive site intelligence
+    // Reset property profile when address changes
+    property.reset()
+
+    // Derive property profile from property-services (runs in parallel with site intel)
+    property.derive({
+      address: address.formatted_address,
+      lat: address.lat,
+      lng: address.lng,
+      suburb: address.suburb,
+      state: address.state_short,
+      postcode: address.postcode,
+    }).then(profile => {
+      if (profile) {
+        applyPropertyProfile(profile)
+      }
+    })
+
+    // Auto-derive site intelligence (existing flow)
     setDerivingIntel(true)
     try {
       const res = await fetch('/api/site-intel', {
@@ -443,6 +505,160 @@ export default function NewOpportunityPage() {
                         )}
                         {!siteIntel.climate_zone && !siteIntel.wind_region && !siteIntel.bal_rating && !siteIntel.council_name && !siteIntel.zoning && (
                           <p className="col-span-3 text-sm text-gray-500">No site intelligence available for this location yet.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Property Analysis — from property-services */}
+                {(property.loading || property.profile) && (
+                  <div className={`rounded-xl border p-4 ${property.loading ? 'bg-amber-50 border-amber-200' : 'bg-blue-50 border-blue-200'}`}>
+                    <div className="flex items-center gap-2 mb-3">
+                      <Building2 className={`w-4 h-4 ${property.loading ? 'text-amber-500 animate-pulse' : 'text-blue-600'}`} />
+                      <span className="text-sm font-semibold text-gray-900">
+                        {property.loading ? 'Analysing property...' : 'Property Analysis'}
+                      </span>
+                      {property.profile?.metadata?.lgaName && (
+                        <span className="text-xs text-gray-500 ml-auto">{property.profile.metadata.lgaName}</span>
+                      )}
+                    </div>
+                    {property.error && (
+                      <p className="text-sm text-red-600 mb-2">{property.error}</p>
+                    )}
+                    {property.profile && (
+                      <div className="space-y-4">
+                        {/* Subdivision Analysis — prominent for investment platform */}
+                        {property.profile.subdivision && (
+                          <div className="bg-white rounded-lg p-4 border border-blue-100">
+                            <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
+                              <Layers className="w-4 h-4 text-amber-500" />
+                              Subdivision Potential
+                            </h4>
+                            <div className="grid grid-cols-2 gap-3">
+                              {/* Torrens subdivision */}
+                              <div className={`rounded-lg px-3 py-2 border ${property.profile.subdivision.torrens.feasible ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <TrendingUp className={`w-3.5 h-3.5 ${property.profile.subdivision.torrens.feasible ? 'text-emerald-600' : 'text-gray-400'}`} />
+                                  <p className="text-xs font-semibold text-gray-700">Torrens Subdivision</p>
+                                </div>
+                                {property.profile.subdivision.torrens.feasible ? (
+                                  <>
+                                    <p className="text-lg font-bold text-emerald-700">
+                                      Up to {property.profile.subdivision.torrens.maxLots} lots
+                                    </p>
+                                    {property.profile.subdivision.torrens.lotSizeEach && (
+                                      <p className="text-xs text-gray-500">{property.profile.subdivision.torrens.lotSizeEach} sqm each</p>
+                                    )}
+                                    {property.profile.subdivision.torrens.minLotSize && (
+                                      <p className="text-xs text-gray-500">Min lot: {property.profile.subdivision.torrens.minLotSize} sqm</p>
+                                    )}
+                                  </>
+                                ) : (
+                                  <p className="text-sm text-gray-500">Not feasible</p>
+                                )}
+                              </div>
+                              {/* Strata subdivision */}
+                              <div className={`rounded-lg px-3 py-2 border ${property.profile.subdivision.strata.feasible ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Building2 className={`w-3.5 h-3.5 ${property.profile.subdivision.strata.feasible ? 'text-emerald-600' : 'text-gray-400'}`} />
+                                  <p className="text-xs font-semibold text-gray-700">Strata Title</p>
+                                </div>
+                                {property.profile.subdivision.strata.feasible ? (
+                                  <>
+                                    <p className="text-lg font-bold text-emerald-700">Feasible</p>
+                                    {property.profile.subdivision.strata.minLotSize && (
+                                      <p className="text-xs text-gray-500">Min lot: {property.profile.subdivision.strata.minLotSize} sqm</p>
+                                    )}
+                                    {property.profile.subdivision.strata.notes && (
+                                      <p className="text-xs text-gray-500">{property.profile.subdivision.strata.notes}</p>
+                                    )}
+                                  </>
+                                ) : (
+                                  <p className="text-sm text-gray-500">Not feasible</p>
+                                )}
+                              </div>
+                            </div>
+                            {/* Recommendations & warnings */}
+                            {property.profile.subdivision.recommendations.length > 0 && (
+                              <div className="mt-2">
+                                {property.profile.subdivision.recommendations.map((rec, i) => (
+                                  <p key={i} className="text-xs text-emerald-700 flex items-start gap-1 mt-1">
+                                    <Check className="w-3 h-3 mt-0.5 flex-shrink-0" /> {rec}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                            {property.profile.subdivision.warnings.length > 0 && (
+                              <div className="mt-2">
+                                {property.profile.subdivision.warnings.map((warn, i) => (
+                                  <p key={i} className="text-xs text-amber-700 flex items-start gap-1 mt-1">
+                                    <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" /> {warn}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Lot, Zoning, Overlays grid */}
+                        <div className="grid grid-cols-3 gap-3">
+                          {/* Lot size */}
+                          {property.profile.lot?.lotSize && (
+                            <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                              <p className="text-xs text-gray-500">Lot Size</p>
+                              <p className="font-semibold text-gray-900">{property.profile.lot.lotSize.toLocaleString()} sqm</p>
+                              {property.profile.lot.lotNumber && (
+                                <p className="text-xs text-gray-500">Lot {property.profile.lot.lotNumber}</p>
+                              )}
+                            </div>
+                          )}
+                          {/* Zoning */}
+                          {property.profile.zoning && (
+                            <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                              <p className="text-xs text-gray-500">Zoning</p>
+                              <p className="font-semibold text-gray-900">{property.profile.zoning.code}</p>
+                              <p className="text-xs text-gray-500">{property.profile.zoning.name}</p>
+                              {property.profile.zoning.subdivisionPermitted && (
+                                <p className="text-xs text-emerald-600 font-medium mt-0.5">Subdivision permitted</p>
+                              )}
+                            </div>
+                          )}
+                          {/* Environment */}
+                          {(property.profile.environment.climateZone || property.profile.environment.bal) && (
+                            <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                              <p className="text-xs text-gray-500">Environment</p>
+                              {property.profile.environment.climateZone && (
+                                <p className="font-semibold text-gray-900">Climate {property.profile.environment.climateZone}</p>
+                              )}
+                              {property.profile.environment.bal && (
+                                <p className={`text-xs font-medium ${property.profile.environment.balInOverlay ? 'text-red-600' : 'text-gray-600'}`}>
+                                  BAL: {property.profile.environment.bal}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Overlays */}
+                        {property.profile.overlays.length > 0 && (
+                          <div className="bg-white rounded-lg px-3 py-2 border border-gray-100">
+                            <p className="text-xs text-gray-500 mb-1">Planning Overlays ({property.profile.overlays.length})</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {property.profile.overlays.map((overlay, i) => (
+                                <span
+                                  key={i}
+                                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                    overlay.requiresReport
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-gray-100 text-gray-700'
+                                  }`}
+                                >
+                                  {overlay.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
                     )}
