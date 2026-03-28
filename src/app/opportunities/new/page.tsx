@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowRight, Check, AlertCircle, Loader2, Zap, TrendingUp, Al
 import { VoiceInput } from '@/components/voice/VoiceInput'
 import { DocumentUpload } from '@/components/voice/DocumentUpload'
 import AddressAutocomplete from '@/components/common/AddressAutocomplete'
-import { usePropertyOnboarding } from '@/lib/property-services'
+import { usePropertyOnboarding, PropertyAssessment } from '@/lib/property-services'
 import type { PropertyProfile } from '@/lib/property-services'
 import type { GeocodedAddress, SiteIntelResult } from '@/lib/mapbox'
 
@@ -662,6 +662,19 @@ export default function NewOpportunityPage() {
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Use case assessment */}
+                {property.profile && (
+                  <div className="mt-4">
+                    <PropertyAssessment
+                      profile={property.profile}
+                      onAssess={property.assess}
+                      assessing={property.stage === "assessing"}
+                      assessment={property.assessment}
+                      product="dealfindrs"
+                    />
                   </div>
                 )}
 
