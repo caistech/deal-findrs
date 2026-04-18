@@ -15,3 +15,9 @@
 
 export { trustGate, trustLog, trustMeter } from '@caistech/platform-trust-middleware';
 export type { TrustContext, TrustGateResult } from '@caistech/platform-trust-middleware';
+
+// Local type alias — matches the pre-migration template. DealFindrs's
+// src/middleware.ts imports this as `type TrustOperation`. It's the same
+// shape as TrustContext['operation_type']. Kept local to avoid republishing
+// the package for a single-consumer type.
+export type TrustOperation = 'read' | 'write' | 'delete';
