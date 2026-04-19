@@ -5,7 +5,7 @@
  * Fails open: if trust env vars are not set, all requests pass through.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { trustGate, trustLog, type TrustOperation } from '@/lib/platform-trust'
+import { trustGate, trustLog, type TrustContext, type TrustOperation } from '@/lib/platform-trust'
 
 // ── Scope rules ─────────────────────────────────────────────────
 interface ScopeRule {
@@ -53,37 +53,42 @@ export async function middleware(request: NextRequest) {
 
   const agentId = request.headers.get('x-agent-id') || 'anonymous'
 
-  const result = await trustGate(rule.scope, operation, agentId)
+  const ctx: TrustContext = {
+    agent_id: agentId,
+    tool_name: pathname,
+    operation_type: operation,
+    scope: rule.scope,
+  }
+
+  const result = await trustGate(ctx)
 
   if (!result.allowed) {
-    if (result.reason === 'rate_limited') {
+    if (result.retry_after !== undefined) {
       return NextResponse.json(
         { error: 'Rate limit exceeded', retry_after: result.retry_after },
-        { status: 429, headers: { 'Retry-After': String(result.retry_after || 60) } }
+        { status: 429, headers: { 'Retry-After': String(result.retry_after) } }
       )
     }
 
-    if (result.reason === 'permission_denied') {
-      return NextResponse.json(
-        { error: `Permission denied: ${rule.scope}/${operation}` },
-        { status: 403 }
-      )
-    }
+    return NextResponse.json(
+      { error: `Permission denied: ${rule.scope}/${operation}`, reason: result.denial_reason },
+      { status: 403 }
+    )
+  }
 
-    if (result.reason === 'pending_approval') {
-      return NextResponse.json(
-        {
-          error: 'Approval required',
-          audit_id: result.audit_id,
-          approve_at: 'platform-trust.vercel.app/dashboard/approvals',
-        },
-        { status: 202 }
-      )
-    }
+  if (result.requires_approval) {
+    return NextResponse.json(
+      {
+        error: 'Approval required',
+        audit_id: result.audit_id,
+        approve_at: 'platform-trust.vercel.app/dashboard/approvals',
+      },
+      { status: 202 }
+    )
   }
 
   // Fire-and-forget audit log for successful pass-through
-  trustLog(rule.scope, operation, 'completed', { agentId }).catch(() => {})
+  trustLog(ctx, undefined, 0).catch(() => {})
 
   return NextResponse.next()
 }
