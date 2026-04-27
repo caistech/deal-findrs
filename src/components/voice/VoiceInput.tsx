@@ -80,9 +80,38 @@ export function VoiceInput({
         throw new Error(data.message || 'Failed to connect')
       }
 
-      // Start conversation with signed URL
+      // Client tools handler — fans each set_*_fields tool call out to
+      // onFieldExtracted per non-empty parameter. The agent calls these
+      // tools as it collects info; the form on screen updates in real time.
+      const applyFieldUpdates = (params: Record<string, unknown>) => {
+        if (!params || typeof params !== 'object') return
+        for (const [field, value] of Object.entries(params)) {
+          if (value === undefined || value === null || value === '') continue
+          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            onFieldExtracted?.(field, value)
+          }
+        }
+      }
+
+      const fieldUpdateHandler = async (params: Record<string, unknown>) => {
+        try {
+          applyFieldUpdates(params)
+          return 'success'
+        } catch (e) {
+          console.error('clientTool field update error:', e)
+          return 'error'
+        }
+      }
+
+      // Start conversation with signed URL + client tools
       const conversation = await Conversation.startSession({
         signedUrl: data.signedUrl,
+        clientTools: {
+          set_basics_fields:    fieldUpdateHandler,
+          set_property_fields:  fieldUpdateHandler,
+          set_financial_fields: fieldUpdateHandler,
+          set_derisk_fields:    fieldUpdateHandler,
+        },
         onConnect: () => {
           setStatus('connected')
         },
@@ -91,10 +120,20 @@ export function VoiceInput({
           conversationRef.current = null
         },
         onMessage: (message: any) => {
-          // Handle different message types
-          if (message.source === 'ai' && message.message) {
+          // Defensive: some SDK message shapes deliver tool calls via
+          // onMessage rather than via clientTools handlers. Catch those
+          // too, so we're resilient to SDK version differences.
+          if (message?.type === 'client_tool_call' && message.client_tool_call) {
+            const { tool_name, parameters } = message.client_tool_call
+            if (typeof tool_name === 'string' && tool_name.startsWith('set_') && tool_name.endsWith('_fields')) {
+              applyFieldUpdates(parameters || {})
+              return
+            }
+          }
+          // Plain transcript
+          if (message?.source === 'ai' && message.message) {
             setTranscript(prev => [...prev, { role: 'agent', text: message.message }])
-          } else if (message.source === 'user' && message.message) {
+          } else if (message?.source === 'user' && message.message) {
             setTranscript(prev => [...prev, { role: 'user', text: message.message }])
           }
         },

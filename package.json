@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "setup:stripe": "node tools/setup-stripe.js",
-    "setup:elevenlabs": "node tools/setup-elevenlabs.js"
+    "setup:elevenlabs": "node tools/setup-elevenlabs.js",
+    "setup:elevenlabs:tools": "node tools/setup-elevenlabs-tools.js"
   },
   "dependencies": {
     "@11labs/client": "^0.2.0",
