@@ -1,26 +1,48 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { Eye, EyeOff, ArrowRight } from 'lucide-react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const next = searchParams.get('next') || '/dashboard'
+
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
     setLoading(true)
-    
-    // TODO: Implement Supabase login
-    // For now, simulate and redirect
-    setTimeout(() => {
-      router.push('/dashboard')
-    }, 1000)
+
+    try {
+      const supabase = createClient()
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (authError) {
+        setError(authError.message || 'Login failed. Please check your credentials.')
+        setLoading(false)
+        return
+      }
+
+      // Successful login. router.push triggers a server navigation; the
+      // middleware will see the fresh session cookie and let us through.
+      router.push(next)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unexpected error during login')
+      setLoading(false)
+    }
   }
 
   return (
@@ -40,11 +62,19 @@ export default function LoginPage() {
 
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+          {error && (
+            <div className="mb-4 flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
-            <input 
+            <input
               type="email"
-              required 
+              required
+              autoComplete="email"
               placeholder="john@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -55,15 +85,16 @@ export default function LoginPage() {
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
             <div className="relative">
-              <input 
+              <input
                 type={showPassword ? 'text' : 'password'}
-                required 
+                required
+                autoComplete="current-password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent pr-12 transition-all"
               />
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
@@ -76,7 +107,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <button 
+          <button
             type="submit"
             disabled={loading}
             className="w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-amber-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -102,5 +133,13 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50" />}>
+      <LoginForm />
+    </Suspense>
   )
 }
