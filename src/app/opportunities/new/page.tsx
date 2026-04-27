@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowRight, Check, AlertCircle, Loader2, Zap, TrendingUp, Al
 import { VoiceInput } from '@/components/voice/VoiceInput'
 import { DocumentUpload } from '@/components/voice/DocumentUpload'
 import AddressAutocomplete from '@/components/common/AddressAutocomplete'
+import { DealJourney } from '@/components/common/DealJourney'
 import { usePropertyOnboarding, PropertyAssessment } from '@/lib/property-services'
 import type { PropertyProfile } from '@/lib/property-services'
 import type { GeocodedAddress, SiteIntelResult } from '@/lib/mapbox'
@@ -379,8 +380,10 @@ export default function NewOpportunityPage() {
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        <div className="text-center mb-6">
+      <div className="max-w-4xl mx-auto px-6 py-6 sm:py-8">
+        <DealJourney currentStage="onboarding" />
+
+        <div className="text-center mt-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-1">New Opportunity</h1>
           <p className="text-gray-600">Step {currentStepIndex + 1}: {steps[currentStepIndex].label}</p>
         </div>

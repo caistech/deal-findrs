@@ -1,24 +1,46 @@
 /**
  * DealFindrs — Next.js Middleware
  *
- * Applies platform-trust gate (rate limit, permission, audit) to all /api/* routes.
- * Fails open: if trust env vars are not set, all requests pass through.
+ * Two responsibilities:
+ *   1. Refresh the Supabase session on every request (mandatory for the
+ *      @supabase/ssr cookie-based session model — without this, server
+ *      components and route handlers can't read the user).
+ *   2. Apply the platform-trust gate (rate limit, permission, audit) to
+ *      `/api/*` routes. Fails open if trust env vars are not set.
+ *   3. Redirect unauthenticated users away from auth-gated UI paths,
+ *      and redirect authenticated users away from /login and /signup.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 import { trustGate, trustLog, type TrustContext, type TrustOperation } from '@/lib/platform-trust'
 
-// ── Scope rules ─────────────────────────────────────────────────
+// ── Auth-gated UI prefixes ──────────────────────────────────────
+// Any URL starting with one of these requires an active Supabase session.
+// If no session is present, the user is redirected to /login.
+const AUTH_GATED_PREFIXES = [
+  '/dashboard',
+  '/opportunities',
+  '/settings',
+  '/team',
+  '/admin',
+  '/analytics',
+  '/setup',
+  '/onboarding',
+]
+
+function isAuthGated(pathname: string): boolean {
+  return AUTH_GATED_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))
+}
+
+// ── Platform-trust scope rules (unchanged) ──────────────────────
 interface ScopeRule {
   pattern: string
   scope: string
-  /** Default operation. GET overrides to 'read' for routes that support it. */
   operation: TrustOperation
-  /** If true, GET requests use 'read' instead of the default operation */
   getIsRead?: boolean
 }
 
 const SCOPE_RULES: ScopeRule[] = [
-  // Order matters: more specific patterns first
   { pattern: '/api/opportunities', scope: 'opportunities', operation: 'write', getIsRead: true },
   { pattern: '/api/devfinance',    scope: 'devfinance',    operation: 'write' },
   { pattern: '/api/voice',         scope: 'voice',         operation: 'write' },
@@ -37,62 +59,114 @@ function matchRule(pathname: string): ScopeRule | null {
   return SCOPE_RULES.find((r) => pathname.startsWith(r.pattern)) || null
 }
 
-// ── Middleware ───────────────────────────────────────────────────
+// ── Middleware ──────────────────────────────────────────────────
 export async function middleware(request: NextRequest) {
   const pathname = new URL(request.url).pathname
 
-  // Only apply to /api/* routes
-  if (!pathname.startsWith('/api/')) return NextResponse.next()
+  // Build a response we can mutate cookies on. The @supabase/ssr session
+  // refresh writes new auth cookies via `response.cookies.set` — we have
+  // to keep this `response` reference live and pass through the same one.
+  let response = NextResponse.next({
+    request: { headers: request.headers },
+  })
 
-  const rule = matchRule(pathname)
-  if (!rule) return NextResponse.next()
-
-  // Determine operation: GET -> read for routes that support it
-  const operation: TrustOperation =
-    rule.getIsRead && request.method === 'GET' ? 'read' : rule.operation
-
-  const agentId = request.headers.get('x-agent-id') || 'anonymous'
-
-  const ctx: TrustContext = {
-    agent_id: agentId,
-    tool_name: pathname,
-    operation_type: operation,
-    scope: rule.scope,
-  }
-
-  const result = await trustGate(ctx)
-
-  if (!result.allowed) {
-    if (result.retry_after !== undefined) {
-      return NextResponse.json(
-        { error: 'Rate limit exceeded', retry_after: result.retry_after },
-        { status: 429, headers: { 'Retry-After': String(result.retry_after) } }
-      )
-    }
-
-    return NextResponse.json(
-      { error: `Permission denied: ${rule.scope}/${operation}`, reason: result.denial_reason },
-      { status: 403 }
-    )
-  }
-
-  if (result.requires_approval) {
-    return NextResponse.json(
-      {
-        error: 'Approval required',
-        audit_id: result.audit_id,
-        approve_at: 'platform-trust.vercel.app/dashboard/approvals',
+  // ── Supabase session refresh (every request) ────────────────
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: Record<string, unknown>) {
+          request.cookies.set({ name, value, ...(options as any) })
+          response = NextResponse.next({ request: { headers: request.headers } })
+          response.cookies.set({ name, value, ...(options as any) })
+        },
+        remove(name: string, options: Record<string, unknown>) {
+          request.cookies.set({ name, value: '', ...(options as any) })
+          response = NextResponse.next({ request: { headers: request.headers } })
+          response.cookies.set({ name, value: '', ...(options as any) })
+        },
       },
-      { status: 202 }
-    )
+    }
+  )
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  // ── Auth-gated UI routes: redirect to /login if no user ─────
+  if (isAuthGated(pathname) && !user) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.searchParams.set('next', pathname)
+    return NextResponse.redirect(url)
   }
 
-  // Fire-and-forget audit log for successful pass-through
-  trustLog(ctx, undefined, 0).catch(() => {})
+  // Logged-in users on /login or /signup → /dashboard
+  if (user && (pathname === '/login' || pathname === '/signup')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
 
-  return NextResponse.next()
+  // ── Platform-trust gate (only for /api/* with a matching rule) ──
+  if (pathname.startsWith('/api/')) {
+    const rule = matchRule(pathname)
+    if (rule) {
+      const operation: TrustOperation =
+        rule.getIsRead && request.method === 'GET' ? 'read' : rule.operation
+
+      const agentId = request.headers.get('x-agent-id') || 'anonymous'
+
+      const ctx: TrustContext = {
+        agent_id: agentId,
+        tool_name: pathname,
+        operation_type: operation,
+        scope: rule.scope,
+      }
+
+      const result = await trustGate(ctx)
+
+      if (!result.allowed) {
+        if (result.retry_after !== undefined) {
+          return NextResponse.json(
+            { error: 'Rate limit exceeded', retry_after: result.retry_after },
+            { status: 429, headers: { 'Retry-After': String(result.retry_after) } }
+          )
+        }
+        return NextResponse.json(
+          { error: `Permission denied: ${rule.scope}/${operation}`, reason: result.denial_reason },
+          { status: 403 }
+        )
+      }
+
+      if (result.requires_approval) {
+        return NextResponse.json(
+          {
+            error: 'Approval required',
+            audit_id: result.audit_id,
+            approve_at: 'platform-trust.vercel.app/dashboard/approvals',
+          },
+          { status: 202 }
+        )
+      }
+
+      // Fire-and-forget audit log for successful pass-through
+      trustLog(ctx, undefined, 0).catch(() => {})
+    }
+  }
+
+  return response
 }
 
 export const config = {
-  matcher: '/api/:path*',
+  matcher: [
+    // Match every path EXCEPT static assets, _next internals, and image files.
+    // We need to run on UI routes (for session refresh + auth gate) and API
+    // routes (for platform-trust + session refresh).
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+  ],
 }
