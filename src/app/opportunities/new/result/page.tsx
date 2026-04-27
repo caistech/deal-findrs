@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { 
-  ArrowLeft, Mic, FileText, CheckCircle, AlertTriangle, TrendingUp, 
+import {
+  ArrowLeft, Mic, FileText, CheckCircle, AlertTriangle, TrendingUp,
   DollarSign, RefreshCw, Download, Share2, Archive, Clock, PlayCircle,
   X, Copy, Check, Mail, Users, Loader2
 } from 'lucide-react'
+import { DealJourney } from '@/components/common/DealJourney'
 
 interface AssessmentData {
   opportunity: any
@@ -200,9 +201,15 @@ export default function AssessmentResultPage() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-6 sm:py-8">
+        <DealJourney
+          currentStage="assessment"
+          opportunityId={opportunityId || undefined}
+          ragStatus={result.status}
+        />
+
         {/* Assessment Result Header */}
-        <div className={`rounded-2xl p-8 mb-8 ${
+        <div className={`mt-6 rounded-2xl p-8 mb-8 ${
           result.status === 'green' ? 'bg-gradient-to-r from-emerald-500 to-green-600' :
           result.status === 'amber' ? 'bg-gradient-to-r from-amber-500 to-orange-500' :
           'bg-gradient-to-r from-red-500 to-rose-600'

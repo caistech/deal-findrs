@@ -13,6 +13,7 @@ import {
   Home,
   Landmark,
 } from 'lucide-react'
+import { DealJourney } from '@/components/common/DealJourney'
 
 // --- Types ---
 
@@ -238,9 +239,14 @@ export default function DevFinanceSetupPage() {
         </div>
       </nav>
 
-      <main className="max-w-5xl mx-auto px-6 py-8">
+      <main className="max-w-5xl mx-auto px-6 py-6 sm:py-8">
+        <DealJourney
+          currentStage="devfinance"
+          opportunityId={opportunity.id}
+        />
+
         {/* Page Header */}
-        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-8 mb-8 text-white">
+        <div className="mt-6 bg-gradient-to-r from-indigo-600 to-violet-600 rounded-2xl p-8 mb-8 text-white">
           <div className="flex items-center gap-4 mb-3">
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
               <Landmark className="w-6 h-6" />

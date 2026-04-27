@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, FileText, Edit, Archive, CheckCircle, AlertTriangle, TrendingUp, DollarSign, X, Loader2 } from 'lucide-react'
 import { VoiceAssistant } from '@/components/voice/VoiceAssistant'
+import { DealJourney } from '@/components/common/DealJourney'
 
 // Type for opportunity matching database schema
 interface Opportunity {
@@ -569,9 +570,15 @@ export default function OpportunityDetailPage() {
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto px-6 py-8">
+      <main className="max-w-6xl mx-auto px-6 py-6 sm:py-8">
+        <DealJourney
+          currentStage="assessment"
+          opportunityId={opportunity.id}
+          ragStatus={ragStatus as 'green' | 'amber' | 'red'}
+        />
+
         {/* Assessment Result Header */}
-        <div className={`rounded-2xl p-8 mb-8 ${
+        <div className={`mt-6 rounded-2xl p-8 mb-8 ${
           ragStatus === 'green' ? 'bg-gradient-to-r from-emerald-500 to-green-600' :
           ragStatus === 'amber' ? 'bg-gradient-to-r from-amber-500 to-orange-500' :
           'bg-gradient-to-r from-red-500 to-rose-600'
