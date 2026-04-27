@@ -34,6 +34,10 @@ interface ElevenLabsWebhookPayload {
   duration_seconds?: number
 }
 
+/**
+ * Transcript-log only. The form-fill flow is now driven by client tools
+ * (set_property_fields). See opportunity-basics/route.ts for context.
+ */
 export async function POST(request: NextRequest) {
   try {
     const payload: ElevenLabsWebhookPayload = await request.json()
@@ -41,77 +45,16 @@ export async function POST(request: NextRequest) {
 
     console.log('Opportunity property webhook received:', payload.conversation_id)
 
-    const extractedData = payload.extracted_data
-    
-    if (!extractedData || extractedData.type !== 'opportunity_property') {
-      await logTranscript(supabase, payload, 'opportunity_property')
-      return NextResponse.json({ status: 'transcript_logged' })
-    }
+    await logTranscript(
+      supabase,
+      payload,
+      'opportunity_property',
+      payload.metadata?.company_id,
+      payload.metadata?.user_id,
+      payload.metadata?.opportunity_id
+    )
 
-    const { data } = extractedData
-    const opportunityId = payload.metadata?.opportunity_id
-    const companyId = payload.metadata?.company_id
-    const userId = payload.metadata?.user_id
-
-    if (!opportunityId) {
-      return NextResponse.json({ error: 'opportunity_id required' }, { status: 400 })
-    }
-
-    // Update opportunity with property details
-    const { error: updateError } = await supabase
-      .from('opportunities')
-      .update({
-        land_stage: data.land_stage,
-        land_size_sqm: data.land_size_sqm,
-        average_lot_size_sqm: data.avg_lot_size_sqm,
-        dwelling_mix: data.dwelling_mix,
-        num_storeys: data.storeys,
-        zoning: data.zoning,
-        council_lga: data.council,
-        expected_da_date: data.da_approval_date,
-        expected_construction_start: data.construction_start,
-        expected_completion: data.completion_date,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', opportunityId)
-
-    if (updateError) {
-      console.error('Update opportunity error:', updateError)
-      return NextResponse.json({ error: 'Failed to update opportunity' }, { status: 500 })
-    }
-
-    // Log transcript
-    await logTranscript(supabase, payload, 'opportunity_property', companyId, userId, opportunityId)
-
-    // Log activity
-    if (companyId && userId) {
-      await supabase.from('activity_log').insert({
-        company_id: companyId,
-        user_id: userId,
-        action: 'updated',
-        entity_type: 'opportunity',
-        entity_id: opportunityId,
-        details: {
-          source: 'voice_assistant',
-          section: 'property_details',
-          conversation_id: payload.conversation_id,
-          land_stage: data.land_stage,
-        },
-      })
-    }
-
-    return NextResponse.json({
-      status: 'success',
-      message: 'Property details updated',
-      next_step: {
-        agent: 'opportunity_financial',
-        metadata: {
-          opportunity_id: opportunityId,
-          company_id: companyId,
-          user_id: userId,
-        },
-      },
-    })
+    return NextResponse.json({ status: 'transcript_logged' })
   } catch (error) {
     console.error('Opportunity property webhook error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -126,7 +69,7 @@ async function logTranscript(
   userId?: string,
   opportunityId?: string
 ) {
-  await supabase.from('voice_transcripts').insert({
+  const { error } = await supabase.from('voice_transcripts').insert({
     company_id: companyId,
     user_id: userId,
     opportunity_id: opportunityId,
@@ -138,4 +81,7 @@ async function logTranscript(
     duration_seconds: payload.duration_seconds,
     status: payload.status,
   })
+  if (error) {
+    console.error('voice_transcripts insert failed:', error.message)
+  }
 }
