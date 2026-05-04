@@ -35,7 +35,7 @@ export default function NewOpportunityPage() {
   // Property Services — shared property intelligence
   const property = usePropertyOnboarding({
     supabaseUrl: process.env.NEXT_PUBLIC_PROPERTY_SERVICES_URL!,
-    supabaseAnonKey: process.env.NEXT_PUBLIC_PROPERTY_SERVICES_ANON_KEY!,
+    apiKey: process.env.NEXT_PUBLIC_PROPERTY_SERVICES_API_KEY!,
     product: 'dealfindrs',
   })
 
