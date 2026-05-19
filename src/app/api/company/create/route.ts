@@ -1,36 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { requireAuth } from '@/lib/auth/require-auth'
 
-// Lazy initialize Supabase client
+// Service-role client for the bootstrap writes (company row, settings,
+// membership, activity log). The user has no company_id yet, so RLS on
+// the companies table would block their own insert — service role is the
+// legitimate path. Identity comes from the verified JWT, not from headers.
 let _supabaseAdmin: SupabaseClient | null = null
 
 function getSupabaseAdmin(): SupabaseClient {
   if (!_supabaseAdmin) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-    
     if (!url || !key) {
       throw new Error('Supabase credentials not configured')
     }
-    
     _supabaseAdmin = createClient(url, key)
   }
   return _supabaseAdmin
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth(request)
+  if (auth.error) {
+    return NextResponse.json({ error: auth.error }, { status: 401 })
+  }
+  const userId = auth.user.id
+
   try {
-    const supabaseAdmin = getSupabaseAdmin()
     const { name, abn } = await request.json()
-    
-    // Get user from auth header (in production, use Supabase auth)
-    // For now, we'll get user from the request or session
-    const authHeader = request.headers.get('authorization')
-    
-    // In production, validate the JWT and get user ID
-    // For demo, we'll use a placeholder
-    const userId = request.headers.get('x-user-id') || 'demo-user-id'
-    
+
     if (!name) {
       return NextResponse.json(
         { error: 'Company name is required' },
@@ -38,15 +37,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate slug from company name
+    const supabaseAdmin = getSupabaseAdmin()
+
     const slug = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') + 
-      '-' + 
+      .replace(/^-|-$/g, '') +
+      '-' +
       Math.random().toString(36).substring(2, 10)
 
-    // Create company
     const { data: company, error: companyError } = await supabaseAdmin
       .from('companies')
       .insert({
@@ -65,7 +64,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create default company settings
+    // Default scoring config for new companies
     const { error: settingsError } = await supabaseAdmin
       .from('company_settings')
       .insert({
@@ -91,11 +90,11 @@ export async function POST(request: NextRequest) {
       })
 
     if (settingsError) {
+      // Non-fatal: company exists, settings can be re-derived from /setup.
+      // Surfacing the failure here would orphan an otherwise-good company.
       console.error('Settings creation error:', settingsError)
-      // Don't fail - company was created
     }
 
-    // Update user profile with company
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .update({
@@ -108,7 +107,6 @@ export async function POST(request: NextRequest) {
       console.error('Profile update error:', profileError)
     }
 
-    // Create company membership
     const { error: membershipError } = await supabaseAdmin
       .from('company_memberships')
       .insert({
@@ -125,7 +123,6 @@ export async function POST(request: NextRequest) {
       console.error('Membership creation error:', membershipError)
     }
 
-    // Log activity
     await supabaseAdmin
       .from('activity_log')
       .insert({

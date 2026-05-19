@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Plus, Search, ChevronRight, Filter, ArrowUpDown, Loader2 } from 'lucide-react'
+import { UserMenu } from '@/components/UserMenu'
 
 interface Opportunity {
   id: string
@@ -107,9 +108,7 @@ export default function OpportunitiesPage() {
             >
               <Plus className="w-4 h-4" /> New Opportunity
             </Link>
-            <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-medium">
-              UJ
-            </div>
+            <UserMenu />
           </div>
         </div>
       </nav>

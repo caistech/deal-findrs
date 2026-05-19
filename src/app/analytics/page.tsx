@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { BarChart3, TrendingUp, DollarSign, Clock, Plus } from 'lucide-react'
+import { UserMenu } from '@/components/UserMenu'
 
 export default function AnalyticsPage() {
   return (
@@ -42,9 +43,7 @@ export default function AnalyticsPage() {
             >
               <Plus className="w-4 h-4" /> New Opportunity
             </Link>
-            <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-medium">
-              UJ
-            </div>
+            <UserMenu />
           </div>
         </div>
       </nav>

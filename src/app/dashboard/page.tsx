@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Plus, Search, ChevronRight, Bell, Mic } from 'lucide-react'
 import { CorporateHeader } from '@/components/corporate/CorporateHeader'
 import { CorporateFooter } from '@/components/corporate/CorporateFooter'
+import { UserMenu } from '@/components/UserMenu'
 
 // Sample deal used in the screenshot tour. The Branscomb V6 deal is the
 // engine's known-bad regression case — it MUST surface as RED to match what
@@ -110,6 +111,7 @@ export default function DashboardPage() {
             >
               <Plus className="w-4 h-4" /> New Opportunity
             </Link>
+            <UserMenu />
           </div>
         }
       />

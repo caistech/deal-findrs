@@ -88,21 +88,14 @@ export default function SignupPage() {
       }
 
       // If email confirmation is disabled, we have a session immediately.
-      // Create the company record using the new user's id.
+      // The /api/company/create route reads the user from the auth cookie
+      // (requireAuth), which signUp has already written via @supabase/ssr.
       try {
-        const userId = signUpData.user?.id
-        if (userId) {
-          await fetch('/api/company/create', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-user-id': userId,
-            },
-            body: JSON.stringify({
-              name: formData.companyName,
-            }),
-          })
-        }
+        await fetch('/api/company/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: formData.companyName }),
+        })
       } catch (companyErr) {
         // Non-fatal: account exists, user can finish setup from /setup later.
         console.warn('Company create failed at signup:', companyErr)
