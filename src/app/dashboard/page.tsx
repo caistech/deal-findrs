@@ -6,16 +6,20 @@ import { Plus, Search, ChevronRight, Bell, Mic } from 'lucide-react'
 import { CorporateHeader } from '@/components/corporate/CorporateHeader'
 import { CorporateFooter } from '@/components/corporate/CorporateFooter'
 
+// Sample deal used in the screenshot tour. The Branscomb V6 deal is the
+// engine's known-bad regression case — it MUST surface as RED to match what
+// the live engine would return on the same inputs. See
+// src/lib/feasibility/__tests__/branscombe-v6.test.ts for the gate.
 const mockDeals = [
-  { 
-    id: '1', 
-    name: 'Branscomb Rd, Claremont', 
-    location: 'Claremont, TAS', 
-    status: 'amber', 
-    gm: '22.2%', 
-    score: 78, 
-    lots: 37, 
-    stage: 'DA Approved' 
+  {
+    id: '1',
+    name: 'Branscomb Rd, Claremont',
+    location: 'Claremont, TAS',
+    status: 'red',
+    gm: 'See engine',
+    score: 0,
+    lots: 37,
+    stage: 'Unfunded — equity gap, GRV unevidenced'
   },
 ]
 
@@ -36,7 +40,8 @@ export default function DashboardPage() {
     green: mockDeals.filter(d => d.status === 'green').length,
     amber: mockDeals.filter(d => d.status === 'amber').length,
     red: mockDeals.filter(d => d.status === 'red').length,
-    pipelineValue: '$22.2M',
+    // Sample only — production pipeline value will be computed from real DB rows.
+    pipelineValue: '—',
   }
 
   const getStatusColor = (status: string) => {

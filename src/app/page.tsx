@@ -80,10 +80,10 @@ export default function LandingPage() {
                   <span className="text-sm font-medium text-gray-800">Brisbane ADU Portfolio</span>
                   <span className="ml-auto text-emerald-600 font-bold">28.5%</span>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                  <div className="w-4 h-4 rounded-full bg-amber-500" />
+                <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                  <div className="w-4 h-4 rounded-full bg-red-500" />
                   <span className="text-sm font-medium text-gray-800">Branscomb Rd Development</span>
-                  <span className="ml-auto text-amber-600 font-bold">22.2%</span>
+                  <span className="ml-auto text-red-600 font-bold text-xs sm:text-sm">Unfunded — equity gap</span>
                 </div>
                 <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
                   <div className="w-4 h-4 rounded-full bg-red-500" />

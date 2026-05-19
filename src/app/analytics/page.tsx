@@ -57,11 +57,14 @@ export default function AnalyticsPage() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-4 gap-4 mb-8">
+          {/* Stats currently show empty-state: legacy soft-scorer assessments were */}
+          {/* wiped when the adversarial feasibility engine landed. Numbers will repopulate */}
+          {/* as new deals are assessed under the engine. */}
           {[
-            { label: 'Total Pipeline', value: '$22.2M', icon: DollarSign, change: '+12%', color: 'emerald' },
-            { label: 'Avg. Gross Margin', value: '22.2%', icon: TrendingUp, change: '+3.2%', color: 'blue' },
-            { label: 'Deals Assessed', value: '1', icon: BarChart3, change: '+1', color: 'violet' },
-            { label: 'Avg. Assessment Time', value: '< 1 min', icon: Clock, change: '-', color: 'amber' },
+            { label: 'Total Pipeline', value: '—', icon: DollarSign, change: '—', color: 'emerald' },
+            { label: 'Avg. Gross Margin', value: '—', icon: TrendingUp, change: '—', color: 'blue' },
+            { label: 'Deals Assessed', value: '0', icon: BarChart3, change: '—', color: 'violet' },
+            { label: 'Avg. Assessment Time', value: '—', icon: Clock, change: '—', color: 'amber' },
           ].map((stat, i) => (
             <div key={i} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
               <div className="flex items-center justify-between mb-3">
