@@ -53,15 +53,12 @@ export default function LandingPage() {
               evaluate deals consistently forever.
             </p>
             <div className="flex gap-4">
-              <Link 
+              <Link
                 href="/signup"
                 className="px-8 py-4 bg-[#22c55e] text-white rounded-xl font-bold text-lg hover:bg-[#4ade80] hover:shadow-xl hover:shadow-[#22c55e]/25 transition-all flex items-center gap-2"
               >
                 Start 14-Day Free Trial <ArrowRight className="w-5 h-5" />
               </Link>
-              <button className="px-8 py-4 border border-gray-600 text-white rounded-xl font-semibold hover:bg-white/5 transition-colors flex items-center gap-2">
-                <span>▶️</span> Watch Demo
-              </button>
             </div>
             <p className="text-gray-500 text-sm mt-4">No credit card required • Cancel anytime</p>
           </div>
