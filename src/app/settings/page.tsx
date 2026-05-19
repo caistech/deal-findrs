@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Plus, Save, User, Building, Bell, Shield, CreditCard, Users, Key,
-  Eye, EyeOff, AlertCircle, CheckCircle2, ExternalLink,
+  Eye, EyeOff, AlertCircle, CheckCircle2, ExternalLink, LogOut,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
@@ -90,6 +90,9 @@ export default function SettingsPage() {
   // Billing portal navigation
   const [portalLoading, setPortalLoading] = useState(false)
   const [portalError, setPortalError] = useState<string | null>(null)
+
+  // Sign-out state
+  const [signingOut, setSigningOut] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -274,6 +277,18 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleSignOut() {
+    setSigningOut(true)
+    const supabase = createClient()
+    // signOut() clears the local session AND the auth cookies (via the
+    // @supabase/ssr cookie callbacks bound to this browser client). The
+    // hard navigation to /login forces the middleware to run on a fresh
+    // request with no cookie, so any cached server-component data tied
+    // to the previous user is dropped too.
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
   async function handleOpenPortal() {
     setPortalLoading(true)
     setPortalError(null)
@@ -335,13 +350,23 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Link
               href="/opportunities/new"
               className="px-4 py-2 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-lg text-sm font-bold hover:shadow-lg transition-all flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> New Opportunity
             </Link>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              title="Sign out"
+              className="px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">{signingOut ? 'Signing out…' : 'Sign out'}</span>
+            </button>
             <div
               title={navName}
               className="w-9 h-9 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-medium"
@@ -385,6 +410,18 @@ export default function SettingsPage() {
                   {tab.label}
                 </button>
               ))}
+
+              <div className="pt-4 mt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <LogOut className="w-5 h-5" />
+                  {signingOut ? 'Signing out…' : 'Sign Out'}
+                </button>
+              </div>
             </nav>
           </div>
 
