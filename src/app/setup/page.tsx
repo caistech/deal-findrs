@@ -1,17 +1,33 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, TrendingUp } from 'lucide-react'
 import { VoiceAssistant } from '@/components/voice/VoiceAssistant'
+import { createClient } from '@/lib/supabase/client'
+
+// Slug a human label into the stable key the engine reads from
+// company_settings jsonb arrays. Mirrors the key shape used by the
+// defaults in /api/company/create (e.g. "DA Approved" → "da_approved").
+function toKey(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+}
+
+type CriticalCriterion = { id: number; label: string; enabled: boolean }
+type DeRiskFactor = { id: number; label: string; points: number; enabled: boolean }
 
 export default function SetupPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [criteria, setCriteria] = useState({
+  const [criteria, setCriteria] = useState<{
+    minGmGreen: number
+    minGmAmber: number
+    criticalCriteria: CriticalCriterion[]
+    deRiskFactors: DeRiskFactor[]
+  }>({
     minGmGreen: 25,
     minGmAmber: 18,
     criticalCriteria: [
@@ -31,22 +47,65 @@ export default function SetupPage() {
     ],
   })
 
+  // Hydrate from saved settings if the user already has a company. Avoids
+  // the "edit my settings → re-save → defaults overwrite my prior choices"
+  // bug. RLS "Users can view company settings" allows the read.
+  useEffect(() => {
+    const supabase = createClient()
+    let cancelled = false
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || cancelled) return
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single()
+      if (!profile?.company_id || cancelled) return
+
+      const { data: settings } = await supabase
+        .from('company_settings')
+        .select('min_gm_green, min_gm_amber, critical_criteria, derisk_factors')
+        .eq('company_id', profile.company_id)
+        .single()
+      if (!settings || cancelled) return
+
+      setCriteria(prev => ({
+        minGmGreen: settings.min_gm_green != null ? Number(settings.min_gm_green) : prev.minGmGreen,
+        minGmAmber: settings.min_gm_amber != null ? Number(settings.min_gm_amber) : prev.minGmAmber,
+        criticalCriteria: Array.isArray(settings.critical_criteria) && settings.critical_criteria.length
+          ? settings.critical_criteria.map((c: { label: string; enabled: boolean }, i: number) => ({
+              id: i + 1, label: c.label, enabled: Boolean(c.enabled),
+            }))
+          : prev.criticalCriteria,
+        deRiskFactors: Array.isArray(settings.derisk_factors) && settings.derisk_factors.length
+          ? settings.derisk_factors.map((f: { label: string; points: number; enabled: boolean }, i: number) => ({
+              id: i + 1, label: f.label, points: Number(f.points) || 0, enabled: Boolean(f.enabled),
+            }))
+          : prev.deRiskFactors,
+      }))
+    })()
+    return () => { cancelled = true }
+  }, [])
+
   const handleSubmit = async () => {
     setLoading(true)
     setError(null)
 
-    // Ensure the caller has a company. /api/company/create is idempotent —
-    // it returns the existing company if one is already linked, otherwise
-    // it creates one using user_metadata.company_name captured at signup.
-    // This is the canonical company-creation point for the email-confirm
+    // Step 1: ensure the caller has a company. /api/company/create is
+    // idempotent — returns the existing row if one is already linked,
+    // otherwise creates one using user_metadata.company_name captured at
+    // signup. Canonical create-or-resolve point for the email-confirm
     // path (signup → email → /auth/callback → /setup → here).
+    let companyId: string | null = null
     try {
       const res = await fetch('/api/company/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
+      const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
         setError(
           `Couldn't finish creating your company: ${body?.error || `HTTP ${res.status}`}. ` +
           `Try again, or contact support if this keeps happening.`
@@ -54,17 +113,53 @@ export default function SetupPage() {
         setLoading(false)
         return
       }
+      companyId = body?.company?.id ?? null
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Network error creating company')
       setLoading(false)
       return
     }
 
-    // Criteria persistence is a known gap: the chosen thresholds and
-    // factor toggles below are NOT yet written to company_settings. The
-    // defaults inserted by /api/company/create are what the engine sees.
-    // Tracked as a follow-up in src/app/setup/page.tsx — do not silently
-    // pretend a save succeeded.
+    if (!companyId) {
+      setError('Company was created but we lost track of its ID — refresh and try saving again.')
+      setLoading(false)
+      return
+    }
+
+    // Step 2: persist the chosen criteria via the user-scoped client.
+    // RLS policy "Admins can update company settings" gates on
+    // company_memberships.can_manage_settings = true; /api/company/create
+    // sets that flag for the creating user, so this write is allowed
+    // immediately after step 1.
+    const supabase = createClient()
+    const { error: settingsError } = await supabase
+      .from('company_settings')
+      .update({
+        min_gm_green: criteria.minGmGreen,
+        min_gm_amber: criteria.minGmAmber,
+        critical_criteria: criteria.criticalCriteria.map(c => ({
+          key: toKey(c.label),
+          label: c.label,
+          enabled: c.enabled,
+        })),
+        derisk_factors: criteria.deRiskFactors.map(f => ({
+          key: toKey(f.label),
+          label: f.label,
+          points: f.points,
+          enabled: f.enabled,
+        })),
+      })
+      .eq('company_id', companyId)
+
+    if (settingsError) {
+      const msg = /row[- ]level security|policy/i.test(settingsError.message)
+        ? 'Only company admins can save these criteria. Ask your admin to make this change.'
+        : settingsError.message
+      setError(`Couldn't save criteria: ${msg}`)
+      setLoading(false)
+      return
+    }
+
     router.push('/dashboard')
   }
 
