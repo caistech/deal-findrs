@@ -1,0 +1,272 @@
+{
+  "repoPath": "C:\\Users\\denni\\PycharmProjects\\DealFindrs",
+  "timestamp": "2026-05-19T16:14:37.997Z",
+  "inspection": {
+    "repoPath": "C:\\Users\\denni\\PycharmProjects\\DealFindrs",
+    "timestamp": "2026-05-19T16:14:37.990Z",
+    "packageName": "deal-findrs",
+    "framework": "next",
+    "gaps": [
+      {
+        "rule": "R13",
+        "migrationId": "install-portfolio-gate",
+        "message": "@caistech/portfolio-gate is not installed",
+        "severity": "fail",
+        "detail": "install via npm i -D @caistech/portfolio-gate (CI gate, smoke tests, errorResponse helper)"
+      },
+      {
+        "rule": "R13",
+        "migrationId": "scaffold-gate-workflow",
+        "message": ".github/workflows/gate.yml is missing",
+        "severity": "fail",
+        "file": ".github/workflows/gate.yml",
+        "detail": "GitHub Action that runs typecheck + lint + build + route + auth smoke"
+      },
+      {
+        "rule": "R13",
+        "migrationId": "scaffold-routes-config",
+        "message": "routes.config.json (or .ts) is missing",
+        "severity": "fail",
+        "file": "routes.config.json",
+        "detail": "per-product route list consumed by portfolio-gate-smoke-routes"
+      },
+      {
+        "rule": "R1",
+        "migrationId": "scaffold-auth-config",
+        "message": "auth.config.json (or .ts) is missing",
+        "severity": "fail",
+        "file": "auth.config.json",
+        "detail": "per-product auth path map consumed by portfolio-gate-smoke-auth"
+      },
+      {
+        "rule": "R1",
+        "migrationId": "upgrade-corporate-components",
+        "message": "@caistech/corporate-components is not installed",
+        "severity": "warn",
+        "detail": "install ^0.2.0 to get <AuthForm/> + <CorporateHeader vendor={false}/>"
+      },
+      {
+        "rule": "R6",
+        "migrationId": "add-resend-from-email-example",
+        "message": "RESEND_FROM_EMAIL is not declared in .env.example",
+        "severity": "warn",
+        "file": ".env.example",
+        "detail": "add RESEND_FROM_EMAIL=noreply@updates.corporateaisolutions.com"
+      },
+      {
+        "rule": "R11",
+        "migrationId": "vendor-identity-scrub",
+        "message": "vendor identity leak: operator-handle (suggest env var NEXT_PUBLIC_VENDOR_HANDLE)",
+        "severity": "fail",
+        "file": "src/components/corporate/CorporateFooter.tsx",
+        "line": 5,
+        "detail": "mcmdennis"
+      },
+      {
+        "rule": "R11",
+        "migrationId": "vendor-identity-scrub",
+        "message": "vendor identity leak: operator-mobile (suggest env var NEXT_PUBLIC_VENDOR_PHONE)",
+        "severity": "fail",
+        "file": "src/components/corporate/CorporateFooter.tsx",
+        "line": 5,
+        "detail": "+61402612471"
+      },
+      {
+        "rule": "R11",
+        "migrationId": "vendor-identity-scrub",
+        "message": "vendor identity leak: operator-calendly (suggest env var NEXT_PUBLIC_VENDOR_CALENDLY)",
+        "severity": "fail",
+        "file": "src/components/corporate/CorporateFooter.tsx",
+        "line": 5,
+        "detail": "calendly.com/mcmdennis"
+      },
+      {
+        "rule": "R11",
+        "migrationId": "vendor-identity-scrub",
+        "message": "vendor identity leak: operator-email (suggest env var NEXT_PUBLIC_VENDOR_EMAIL)",
+        "severity": "fail",
+        "file": "src/components/corporate/CorporateFooter.tsx",
+        "line": 5,
+        "detail": "dennis@corporateaisolutions"
+      },
+      {
+        "rule": "R11",
+        "migrationId": "vendor-identity-env-defaults",
+        "message": ".env.example needs vendor placeholder defaults",
+        "severity": "warn",
+        "file": ".env.example",
+        "detail": "add NEXT_PUBLIC_VENDOR_NAME, NEXT_PUBLIC_VENDOR_EMAIL, NEXT_PUBLIC_VENDOR_PHONE, NEXT_PUBLIC_VENDOR_CALENDLY placeholders"
+      }
+    ],
+    "compliance": {
+      "rulesChecked": 11,
+      "rulesPassed": 8,
+      "percentage": 73,
+      "perRule": [
+        {
+          "rule": "R1",
+          "passed": false,
+          "gapsCount": 2,
+          "description": "Auth pages use <AuthForm/> (no raw <input type=\"password\">)"
+        },
+        {
+          "rule": "R3",
+          "passed": true,
+          "gapsCount": 0,
+          "description": "Every page has an explanatory header (WHAT / DO / MATTERS)"
+        },
+        {
+          "rule": "R6",
+          "passed": true,
+          "gapsCount": 1,
+          "description": "RESEND_FROM_EMAIL is set in .env.example with verified subdomain"
+        },
+        {
+          "rule": "R9",
+          "passed": true,
+          "gapsCount": 0,
+          "description": "No RLS policy uses USING (true) on data-bearing tables"
+        },
+        {
+          "rule": "R11",
+          "passed": false,
+          "gapsCount": 5,
+          "description": "No hardcoded vendor identity (handle, mobile, Calendly, email)"
+        },
+        {
+          "rule": "R13",
+          "passed": false,
+          "gapsCount": 3,
+          "description": "CI gate is wired (@caistech/portfolio-gate + gate.yml + routes.config.*)"
+        },
+        {
+          "rule": "R2",
+          "passed": true,
+          "gapsCount": 0,
+          "description": "UI is responsive (mobile + laptop) — placeholder until v0.2"
+        },
+        {
+          "rule": "R10",
+          "passed": true,
+          "gapsCount": 0,
+          "description": "API routes use errorResponse() helper — placeholder until v0.2"
+        },
+        {
+          "rule": "R12",
+          "passed": true,
+          "gapsCount": 0,
+          "description": "Public-API endpoints opt-in — placeholder until v0.2"
+        },
+        {
+          "rule": "R14",
+          "passed": true,
+          "gapsCount": 0,
+          "description": "Public sample artefact reachable without signup — placeholder until v0.2"
+        },
+        {
+          "rule": "R15",
+          "passed": true,
+          "gapsCount": 0,
+          "description": "TrustPanel present on REGULATED-tier products — placeholder until v0.2"
+        }
+      ]
+    }
+  },
+  "steps": [
+    {
+      "kind": "patch",
+      "id": "install-portfolio-gate",
+      "rule": "R13",
+      "title": "Update package.json — add @caistech/portfolio-gate ^0.2.0 (devDependencies) + add / upgrade @caistech/corporate-components to ^0.2.0 (dependencies)",
+      "description": "Single package.json rewrite. add @caistech/portfolio-gate ^0.2.0 (devDependencies). add / upgrade @caistech/corporate-components to ^0.2.0 (dependencies).\n\nPortfolio-gate (R13) brings the CI smoke tests, errorResponse helper, and static audits. Corporate-components (R1) ships <AuthForm/> in 0.2.0 — required for the R1 swap migration.",
+      "files": [
+        {
+          "path": "package.json",
+          "content": "{\n  \"name\": \"deal-findrs\",\n  \"version\": \"0.1.0\",\n  \"private\": true,\n  \"scripts\": {\n    \"dev\": \"next dev\",\n    \"build\": \"next build\",\n    \"start\": \"next start\",\n    \"lint\": \"next lint\",\n    \"setup:stripe\": \"node tools/setup-stripe.js\",\n    \"setup:elevenlabs\": \"node tools/setup-elevenlabs.js\",\n    \"setup:elevenlabs:tools\": \"node tools/setup-elevenlabs-tools.js\",\n    \"test\": \"vitest run\",\n    \"test:watch\": \"vitest\"\n  },\n  \"dependencies\": {\n    \"@11labs/client\": \"^0.2.0\",\n    \"@caistech/corporate-components\": \"^0.2.0\",\n    \"@caistech/platform-trust-middleware\": \"^0.4.0\",\n    \"@caistech/property-services-sdk\": \"^0.3.0\",\n    \"@supabase/ssr\": \"^0.1.0\",\n    \"@supabase/supabase-js\": \"^2.39.0\",\n    \"class-variance-authority\": \"^0.7.0\",\n    \"clsx\": \"^2.1.0\",\n    \"lucide-react\": \"^0.303.0\",\n    \"next\": \"14.2.35\",\n    \"openai\": \"^4.104.0\",\n    \"react\": \"^18.2.0\",\n    \"react-dom\": \"^18.2.0\",\n    \"stripe\": \"^14.10.0\",\n    \"tailwind-merge\": \"^2.2.0\"\n  },\n  \"devDependencies\": {\n    \"@caistech/portfolio-gate\": \"^0.2.0\",\n    \"@types/node\": \"^20.10.0\",\n    \"@types/react\": \"^18.2.0\",\n    \"@types/react-dom\": \"^18.2.0\",\n    \"autoprefixer\": \"^10.4.16\",\n    \"postcss\": \"^8.5.10\",\n    \"tailwindcss\": \"^3.4.0\",\n    \"typescript\": \"^5.3.0\",\n    \"vite-tsconfig-paths\": \"^4.3.2\",\n    \"vitest\": \"^1.6.1\"\n  },\n  \"overrides\": {\n    \"cookie\": \"^0.7.2\"\n  }\n}\n"
+        }
+      ],
+      "followUpCommand": "npm install"
+    },
+    {
+      "kind": "patch",
+      "id": "scaffold-routes-config",
+      "rule": "R13",
+      "title": "Scaffold routes.config.json",
+      "description": "Default top-level route list (homepage, /pricing, /about, /contact, /login, /signup, /forgot-password, /privacy, /terms, /api/health). Edit to match your product's actual routes before running the smoke test.",
+      "files": [
+        {
+          "path": "routes.config.json",
+          "content": "{\n  \"baseUrl\": \"https://deal-findrs.vercel.app\",\n  \"routes\": [\n    {\n      \"path\": \"/\"\n    },\n    {\n      \"path\": \"/pricing\"\n    },\n    {\n      \"path\": \"/about\"\n    },\n    {\n      \"path\": \"/contact\"\n    },\n    {\n      \"path\": \"/login\"\n    },\n    {\n      \"path\": \"/signup\"\n    },\n    {\n      \"path\": \"/forgot-password\"\n    },\n    {\n      \"path\": \"/privacy\"\n    },\n    {\n      \"path\": \"/terms\"\n    },\n    {\n      \"path\": \"/api/health\",\n      \"expectedStatus\": 200\n    }\n  ]\n}\n",
+          "ifMissing": true
+        }
+      ]
+    },
+    {
+      "kind": "patch",
+      "id": "scaffold-auth-config",
+      "rule": "R1",
+      "title": "Scaffold auth.config.json",
+      "description": "Per-product auth path map used by portfolio-gate-smoke-auth. The four legs are wired against the conventional paths (/login, /signup, /forgot-password, /api/auth/*) — edit if your product diverges.",
+      "files": [
+        {
+          "path": "auth.config.json",
+          "content": "{\n  \"baseUrl\": \"__OVERRIDE_FROM_CI__\",\n  \"loginPath\": \"/login\",\n  \"signupPath\": \"/signup\",\n  \"forgotPasswordPath\": \"/forgot-password\",\n  \"magicLinkPath\": \"/login\",\n  \"loginActionPath\": \"/api/auth/login\",\n  \"signupActionPath\": \"/api/auth/signup\",\n  \"forgotPasswordActionPath\": \"/api/auth/forgot\",\n  \"magicLinkActionPath\": \"/api/auth/magic-link\"\n}\n",
+          "ifMissing": true
+        }
+      ]
+    },
+    {
+      "kind": "patch",
+      "id": "scaffold-gate-workflow",
+      "rule": "R13",
+      "title": "Scaffold .github/workflows/gate.yml",
+      "description": "GitHub Action template — runs typecheck + lint + build + route + auth smoke tests on PR + push to main. Requires GITHUB_PACKAGES_TOKEN secret and PORTFOLIO_GATE_PREVIEW_URL repo variable.",
+      "files": [
+        {
+          "path": ".github/workflows/gate.yml",
+          "content": "# Portfolio Standard gate — generated by @caistech/portfolio-migrator\n#\n# Runs typecheck + lint + build, then route + auth smoke tests against the\n# preview deploy URL. Fails the action (and blocks Vercel promotion) on any\n# non-zero exit.\n#\n# Closes Portfolio Standard:\n#   R1  — Auth four-leg pattern (auth smoke step)\n#   R10 — No verbatim Postgres errors (errorResponse helper, enforced at code level)\n#   R13 — Route smoke test on every deploy (route smoke step)\n\nname: portfolio-gate\n\non:\n  pull_request:\n    branches: [main, master]\n  push:\n    branches: [main, master]\n\njobs:\n  gate:\n    runs-on: ubuntu-latest\n    timeout-minutes: 15\n\n    env:\n      PORTFOLIO_GATE_PREVIEW_URL: ${{ vars.PORTFOLIO_GATE_PREVIEW_URL }}\n\n    steps:\n      - name: Checkout\n        uses: actions/checkout@v4\n\n      - name: Setup Node\n        uses: actions/setup-node@v4\n        with:\n          node-version: lts/*\n          cache: npm\n\n      - name: Install dependencies\n        run: |\n          if [ -f pnpm-lock.yaml ]; then\n            corepack enable\n            pnpm install --frozen-lockfile\n          elif [ -f package-lock.json ]; then\n            npm ci\n          else\n            npm install\n          fi\n        env:\n          GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN }}\n\n      - name: Typecheck\n        run: npm run typecheck --if-present\n\n      - name: Lint\n        run: npm run lint --if-present\n\n      - name: Build\n        run: npm run build --if-present\n\n      - name: Verify preview URL is set\n        run: |\n          if [ -z \"$PORTFOLIO_GATE_PREVIEW_URL\" ]; then\n            echo \"::error::PORTFOLIO_GATE_PREVIEW_URL is not set. Wire it via repo vars or a preview-deploy step.\"\n            exit 1\n          fi\n          echo \"Preview URL: $PORTFOLIO_GATE_PREVIEW_URL\"\n\n      - name: Route smoke test (Portfolio Standard R13)\n        run: |\n          npx --no-install portfolio-gate-smoke-routes \\\n            --config routes.config.json \\\n            --base-url \"$PORTFOLIO_GATE_PREVIEW_URL\"\n\n      - name: Auth smoke test (Portfolio Standard R1/R4)\n        run: |\n          npx --no-install portfolio-gate-smoke-auth \\\n            --config auth.config.json \\\n            --base-url \"$PORTFOLIO_GATE_PREVIEW_URL\"\n",
+          "ifMissing": true
+        }
+      ]
+    },
+    {
+      "kind": "note",
+      "id": "vendor-identity-scrub",
+      "rule": "R11",
+      "title": "Scrub vendor identity references",
+      "description": "Replace literal references to operator handle / mobile / Calendly / email with process.env.NEXT_PUBLIC_VENDOR_* references. Marked NOTE because the exact substitution depends on the call site — string template vs JSX text vs prop value all need slightly different syntax. Review each before applying.",
+      "body": "4 occurrences of vendor identity strings were detected. Replace each with a process.env reference and add the placeholder to .env.example.\n\n| File | Find | Replace with |\n|---|---|---|\n| `src/components/corporate/CorporateFooter.tsx` | `mcmdennis` | `${process.env.NEXT_PUBLIC_VENDOR_HANDLE ?? ''}` |\n| `src/components/corporate/CorporateFooter.tsx` | `+61402612471` | `${process.env.NEXT_PUBLIC_VENDOR_PHONE ?? ''}` |\n| `src/components/corporate/CorporateFooter.tsx` | `calendly.com/mcmdennis` | `${process.env.NEXT_PUBLIC_VENDOR_CALENDLY ?? ''}` |\n| `src/components/corporate/CorporateFooter.tsx` | `dennis@corporateaisolutions` | `${process.env.NEXT_PUBLIC_VENDOR_EMAIL ?? ''}` |\n\nThese are NOT auto-applied because the exact substitution depends on the call site:\n- Inside a string template: `\\${process.env.NEXT_PUBLIC_VENDOR_EMAIL ?? ''}`\n- Inside JSX text: `{process.env.NEXT_PUBLIC_VENDOR_EMAIL}`\n- Inside a prop value: `vendorEmail={process.env.NEXT_PUBLIC_VENDOR_EMAIL}`\n\nApply by hand, verify with `npx portfolio-gate-audit-vendor-leak`, then commit.",
+      "suggestedFiles": [
+        {
+          "path": "src/components/corporate/CorporateFooter.tsx",
+          "content": "// Suggested replacement for line:\n// mcmdennis\n// ↓\n// ${process.env.NEXT_PUBLIC_VENDOR_HANDLE ?? ''}\n"
+        },
+        {
+          "path": "src/components/corporate/CorporateFooter.tsx",
+          "content": "// Suggested replacement for line:\n// +61402612471\n// ↓\n// ${process.env.NEXT_PUBLIC_VENDOR_PHONE ?? ''}\n"
+        },
+        {
+          "path": "src/components/corporate/CorporateFooter.tsx",
+          "content": "// Suggested replacement for line:\n// calendly.com/mcmdennis\n// ↓\n// ${process.env.NEXT_PUBLIC_VENDOR_CALENDLY ?? ''}\n"
+        },
+        {
+          "path": "src/components/corporate/CorporateFooter.tsx",
+          "content": "// Suggested replacement for line:\n// dennis@corporateaisolutions\n// ↓\n// ${process.env.NEXT_PUBLIC_VENDOR_EMAIL ?? ''}\n"
+        }
+      ]
+    },
+    {
+      "kind": "patch",
+      "id": "add-resend-from-email-example",
+      "rule": "R6",
+      "title": "Update .env.example — add NEXT_PUBLIC_VENDOR_* placeholders (R11) + RESEND_FROM_EMAIL (R6)",
+      "description": "Single .env.example rewrite. NEXT_PUBLIC_VENDOR_* placeholders (R11). RESEND_FROM_EMAIL (R6).",
+      "files": [
+        {
+          "path": ".env.example",
+          "content": "# Environment Variables\r\n# Copy to .env.local and fill in values\r\n\r\n# Supabase\r\nNEXT_PUBLIC_SUPABASE_ANON_KEY=\r\nNEXT_PUBLIC_SUPABASE_URL=\r\nPLATFORM_TRUST_SUPABASE_URL=\r\nSUPABASE_SERVICE_ROLE_KEY=\r\n\r\n# AI / API Keys\r\nADMIN_API_KEY=\r\nDATAWIZZ_API_KEY=\r\nELEVENLABS_API_KEY=\r\nNEXT_PUBLIC_ELEVENLABS_API_KEY=\r\n\r\n# Stripe\r\nSTRIPE_PRICE_FREE_MONTHLY=\r\nSTRIPE_PRICE_PREMIUM_MONTHLY=\r\nSTRIPE_PRICE_PREMIUM_YEARLY=\r\nSTRIPE_PRICE_STANDARD_MONTHLY=\r\nSTRIPE_PRICE_STANDARD_YEARLY=\r\nSTRIPE_SECRET_KEY=\r\nSTRIPE_WEBHOOK_SECRET=\r\n\r\n# Platform Trust\r\nPLATFORM_TRUST_PROJECT_ID=\r\nPLATFORM_TRUST_SERVICE_KEY=\r\n\r\n# App\r\nADMIN_DASHBOARD_URL=\r\nAPP_URL=\r\nDATAWIZZ_BASE_URL=\r\nNEXT_PUBLIC_APP_URL=\r\nNEXT_PUBLIC_PROPERTY_SERVICES_URL=\r\n\r\n# Other\r\nABR_GUID=\r\nDATAWIZZ_MODEL=\r\nELEVENLABS_VOICE_ID=\r\nNEXT_PUBLIC_ELEVENLABS_AGENT_ASSESSMENT=\r\nNEXT_PUBLIC_ELEVENLABS_AGENT_BASICS=\r\nNEXT_PUBLIC_ELEVENLABS_AGENT_DERISK=\r\nNEXT_PUBLIC_ELEVENLABS_AGENT_FINANCIAL=\r\nNEXT_PUBLIC_ELEVENLABS_AGENT_PROPERTY=\r\nNEXT_PUBLIC_ELEVENLABS_AGENT_SETUP=\r\nNEXT_PUBLIC_MAPBOX_TOKEN=\r\nNEXT_PUBLIC_PROPERTY_SERVICES_ANON_KEY=\r\n\n# Portfolio Standard R11 — vendor identity routed through env vars.\n# Replace the placeholders with the consuming brand's identity, or leave\n# them as-is for a vendor-neutral white-label deploy.\nNEXT_PUBLIC_VENDOR_NAME=\"Your Brand Here\"\nNEXT_PUBLIC_VENDOR_EMAIL=\"hello@yourbrand.com\"\nNEXT_PUBLIC_VENDOR_PHONE=\"\"\nNEXT_PUBLIC_VENDOR_CALENDLY=\"\"\nNEXT_PUBLIC_VENDOR_INSTAGRAM=\"\"\n\n# Portfolio Standard R6 — verified Resend subdomain (never the bare\n# corporateaisolutions.com — not verified, silently fails delivery).\nRESEND_FROM_EMAIL=noreply@updates.corporateaisolutions.com\n"
+        }
+      ]
+    }
+  ]
+}
