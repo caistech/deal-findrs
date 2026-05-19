@@ -52,6 +52,12 @@ export default function SignupPage() {
         email: formData.email,
         password: formData.password,
         options: {
+          // Confirmation email link must route through /auth/callback so the
+          // code is exchanged for a real session before landing on /dashboard.
+          // Without this, Supabase falls back to its default Site URL and the
+          // session cookie is never written → user lands "logged out" and
+          // signInWithPassword later reports "Invalid login credentials".
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/setup`,
           data: {
             first_name: formData.firstName,
             last_name: formData.lastName,

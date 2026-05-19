@@ -3,7 +3,7 @@
 import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, ArrowRight, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight, AlertCircle, Mail, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 function LoginForm() {
@@ -13,6 +13,8 @@ function LoginForm() {
 
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [magicLoading, setMagicLoading] = useState(false)
+  const [magicSent, setMagicSent] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -42,6 +44,39 @@ function LoginForm() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error during login')
       setLoading(false)
+    }
+  }
+
+  const handleMagicLink = async () => {
+    setError(null)
+    setMagicSent(false)
+
+    if (!email) {
+      setError('Enter your email above, then click Email me a magic link.')
+      return
+    }
+
+    setMagicLoading(true)
+    try {
+      const supabase = createClient()
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        },
+      })
+
+      if (otpError) {
+        setError(otpError.message || 'Could not send magic link. Please try again.')
+        setMagicLoading(false)
+        return
+      }
+
+      setMagicSent(true)
+      setMagicLoading(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unexpected error sending magic link')
+      setMagicLoading(false)
     }
   }
 
@@ -103,13 +138,15 @@ function LoginForm() {
               </button>
             </div>
             <div className="flex justify-end mt-2">
-              <a href="#" className="text-sm text-amber-600 hover:underline">Forgot password?</a>
+              <Link href="/forgot-password" className="text-sm text-amber-600 hover:underline">
+                Forgot password?
+              </Link>
             </div>
           </div>
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || magicLoading}
             className="w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-amber-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
@@ -123,6 +160,43 @@ function LoginForm() {
               </>
             )}
           </button>
+
+          {magicSent ? (
+            <div className="mt-4 flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>
+                Magic link sent to <span className="font-semibold">{email}</span>. Open it in this browser
+                to sign in. The link expires in one hour.
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="my-4 flex items-center gap-3 text-xs text-gray-500">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span>OR</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleMagicLink}
+                disabled={loading || magicLoading}
+                className="w-full py-4 bg-white border border-gray-300 text-gray-900 rounded-xl font-medium hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {magicLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin" />
+                    Sending magic link...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-5 h-5" />
+                    Email me a magic link
+                  </>
+                )}
+              </button>
+            </>
+          )}
 
           <p className="text-center text-gray-600 text-sm mt-6">
             Don&apos;t have an account?{' '}
