@@ -28,16 +28,57 @@ export async function POST(request: NextRequest) {
   const userId = auth.user.id
 
   try {
-    const { name, abn } = await request.json()
+    // Parse the body defensively — /setup calls this with no body to rely
+    // on the user_metadata fallback below.
+    const body = await request.json().catch(() => ({} as Record<string, unknown>))
+    const requestedName = typeof body.name === 'string' ? body.name : undefined
+    const requestedAbn = typeof body.abn === 'string' ? body.abn : undefined
+
+    const supabaseAdmin = getSupabaseAdmin()
+
+    // Idempotency: if the user already has a company_id on their profile,
+    // return that company instead of creating a duplicate. The signup page
+    // and /setup both call this route; without this check, a user finishing
+    // /setup after a successful signup-time create would orphan their
+    // original company and replace their membership.
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('company_id')
+      .eq('id', userId)
+      .single()
+
+    if (existingProfile?.company_id) {
+      const { data: existingCompany } = await supabaseAdmin
+        .from('companies')
+        .select('id, name, slug')
+        .eq('id', existingProfile.company_id)
+        .single()
+
+      if (existingCompany) {
+        return NextResponse.json({
+          success: true,
+          alreadyExisted: true,
+          company: existingCompany,
+        })
+      }
+    }
+
+    // No existing company — derive a name from the request body OR fall
+    // back to user_metadata.company_name (captured at signup). This lets
+    // /setup call us with no body and still get a useful create.
+    const metaName =
+      typeof auth.user.user_metadata?.company_name === 'string'
+        ? auth.user.user_metadata.company_name
+        : undefined
+    const name = requestedName || metaName
+    const abn = requestedAbn
 
     if (!name) {
       return NextResponse.json(
-        { error: 'Company name is required' },
+        { error: 'Company name is required (none in request body, none in user_metadata).' },
         { status: 400 }
       )
     }
-
-    const supabaseAdmin = getSupabaseAdmin()
 
     const slug = name
       .toLowerCase()

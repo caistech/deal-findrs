@@ -9,7 +9,8 @@ import { VoiceAssistant } from '@/components/voice/VoiceAssistant'
 export default function SetupPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  
+  const [error, setError] = useState<string | null>(null)
+
   const [criteria, setCriteria] = useState({
     minGmGreen: 25,
     minGmAmber: 18,
@@ -32,10 +33,39 @@ export default function SetupPage() {
 
   const handleSubmit = async () => {
     setLoading(true)
-    // TODO: Save criteria to Supabase
-    setTimeout(() => {
-      router.push('/dashboard')
-    }, 1000)
+    setError(null)
+
+    // Ensure the caller has a company. /api/company/create is idempotent —
+    // it returns the existing company if one is already linked, otherwise
+    // it creates one using user_metadata.company_name captured at signup.
+    // This is the canonical company-creation point for the email-confirm
+    // path (signup → email → /auth/callback → /setup → here).
+    try {
+      const res = await fetch('/api/company/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(
+          `Couldn't finish creating your company: ${body?.error || `HTTP ${res.status}`}. ` +
+          `Try again, or contact support if this keeps happening.`
+        )
+        setLoading(false)
+        return
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Network error creating company')
+      setLoading(false)
+      return
+    }
+
+    // Criteria persistence is a known gap: the chosen thresholds and
+    // factor toggles below are NOT yet written to company_settings. The
+    // defaults inserted by /api/company/create are what the engine sees.
+    // Tracked as a follow-up in src/app/setup/page.tsx — do not silently
+    // pretend a save succeeded.
+    router.push('/dashboard')
   }
 
   const toggleCritical = (id: number) => {
@@ -221,29 +251,37 @@ export default function SetupPage() {
           </div>
 
           {/* Footer */}
-          <div className="px-8 py-6 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-            <Link 
-              href="/signup"
-              className="text-gray-600 hover:text-gray-900 flex items-center gap-1 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" /> Back
-            </Link>
-            <button 
-              onClick={handleSubmit}
-              disabled={loading}
-              className="px-8 py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-xl font-bold hover:shadow-lg hover:shadow-amber-500/25 transition-all disabled:opacity-50 flex items-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  Save Criteria & Continue <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
+          <div className="px-8 py-6 bg-gray-50 border-t border-gray-100">
+            {error && (
+              <div className="mb-4 flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <Link
+                href="/signup"
+                className="text-gray-600 hover:text-gray-900 flex items-center gap-1 transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" /> Back
+              </Link>
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="px-8 py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-xl font-bold hover:shadow-lg hover:shadow-amber-500/25 transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    Save Criteria &amp; Continue <ArrowRight className="w-5 h-5" />
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

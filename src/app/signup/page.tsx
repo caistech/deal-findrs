@@ -12,6 +12,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
+  const [showSetupCta, setShowSetupCta] = useState(false)
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -90,15 +91,28 @@ export default function SignupPage() {
       // If email confirmation is disabled, we have a session immediately.
       // The /api/company/create route reads the user from the auth cookie
       // (requireAuth), which signUp has already written via @supabase/ssr.
-      try {
-        await fetch('/api/company/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: formData.companyName }),
-        })
-      } catch (companyErr) {
-        // Non-fatal: account exists, user can finish setup from /setup later.
-        console.warn('Company create failed at signup:', companyErr)
+      //
+      // Don't swallow failures here — silent swallowing was the bug that
+      // stranded new users with no company. If the create call fails, the
+      // /setup page can retry it on Save (same route, idempotent), but the
+      // user needs to know that's what happened.
+      const createRes = await fetch('/api/company/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: formData.companyName }),
+      })
+
+      if (!createRes.ok) {
+        const body = await createRes.json().catch(() => ({}))
+        setInfo(
+          `Account created, but we couldn't set up your company yet: ${body?.error || `HTTP ${createRes.status}`}. ` +
+          `Continue to setup below and we'll finish creating it on the next step.`
+        )
+        setShowSetupCta(true)
+        setLoading(false)
+        // Don't auto-redirect on failure — show the info, let the user click
+        // Continue to setup explicitly so they're aware the recovery is happening.
+        return
       }
 
       router.push('/setup')
@@ -137,9 +151,19 @@ export default function SignupPage() {
             </div>
           )}
           {info && (
-            <div className="mb-4 flex items-start gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span>{info}</span>
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span>{info}</span>
+              </div>
+              {showSetupCta && (
+                <Link
+                  href="/setup"
+                  className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors"
+                >
+                  Continue to setup <ArrowRight className="w-4 h-4" />
+                </Link>
+              )}
             </div>
           )}
 
