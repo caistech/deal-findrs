@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@11labs/client": "^0.2.0",
-    "@caistech/corporate-components": "^0.2.0",
+    "@caistech/corporate-components": "^0.3.0",
     "@caistech/platform-trust-middleware": "^0.4.0",
     "@caistech/property-services-sdk": "^0.3.0",
     "@supabase/ssr": "^0.1.0",
@@ -31,7 +31,7 @@
     "tailwind-merge": "^2.2.0"
   },
   "devDependencies": {
-    "@caistech/portfolio-gate": "^0.2.0",
+    "@caistech/portfolio-gate": "^0.3.0",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
