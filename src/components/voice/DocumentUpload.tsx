@@ -1,371 +1,357 @@
-'use client';
+'use client'
 
-import { useState, useCallback, useRef } from 'react';
-import { Upload, FileText, Check, X, AlertCircle, Loader2, Mic, Volume2 } from 'lucide-react';
-import { DOCUMENT_CATEGORIES } from '@/lib/voice/prompts';
-import { useVoiceAssistant } from '@/lib/voice/useVoiceAssistant';
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Upload, FileText, Check, X, AlertCircle, Loader2, Trash2 } from 'lucide-react'
+import {
+  EVIDENCE_CATEGORIES,
+  CATEGORY_LABELS,
+  REQUIRED_CATEGORIES,
+  CATEGORY_BACKS,
+  type EvidenceCategory,
+  type ClaimField,
+} from '@/lib/feasibility/evidence/categories'
 
-interface UploadedDocument {
-  id: string;
-  file: File;
-  category: string;
-  status: 'uploading' | 'uploaded' | 'error';
-  progress: number;
-  url?: string;
+interface EvidenceRow {
+  id: string
+  category: EvidenceCategory
+  storage_path: string
+  original_filename: string | null
+  file_size_bytes: number | null
+  mime_type: string | null
+  verified_by_user: boolean
+  received_at: string
+}
+
+interface UploadingFile {
+  tempId: string
+  file: File
+  category: EvidenceCategory
+  pickedField?: ClaimField
+  progress: number
+  error?: string
 }
 
 interface DocumentUploadProps {
-  opportunityId?: string;
-  onDocumentsChange?: (docs: UploadedDocument[]) => void;
-  className?: string;
+  opportunityId: string
+  onEvidenceChange?: (evidence: EvidenceRow[]) => void
+  className?: string
 }
 
-export function DocumentUpload({ 
-  opportunityId,
-  onDocumentsChange,
-  className = '' 
-}: DocumentUploadProps) {
-  const [documents, setDocuments] = useState<UploadedDocument[]>([]);
-  const [dragActive, setDragActive] = useState(false);
-  const [currentCategory, setCurrentCategory] = useState<string | null>(null);
-  const [voiceActive, setVoiceActive] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+const ACCEPTED = '.pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff,.webp'
 
-  const {
-    isListening,
-    isSpeaking,
-    isSupported,
-    speak,
-    startListening,
-    stopListening,
-  } = useVoiceAssistant({
-    autoListen: false,
-  });
+export function DocumentUpload({ opportunityId, onEvidenceChange, className = '' }: DocumentUploadProps) {
+  const [existing, setExisting] = useState<EvidenceRow[]>([])
+  const [uploads, setUploads] = useState<UploadingFile[]>([])
+  const [activeCategory, setActiveCategory] = useState<EvidenceCategory>('purchase_contract')
+  const [pickedField, setPickedField] = useState<ClaimField | undefined>(undefined)
+  const [dragActive, setDragActive] = useState(false)
+  const [listError, setListError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Handle file selection
-  const handleFiles = useCallback((files: FileList, category?: string) => {
-    const newDocs: UploadedDocument[] = Array.from(files).map(file => ({
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      file,
-      category: category || currentCategory || 'other',
-      status: 'uploading' as const,
-      progress: 0,
-    }));
-
-    setDocuments(prev => {
-      const updated = [...prev, ...newDocs];
-      onDocumentsChange?.(updated);
-      return updated;
-    });
-
-    // Simulate upload (replace with real Supabase upload)
-    newDocs.forEach(doc => {
-      simulateUpload(doc.id);
-    });
-  }, [currentCategory, onDocumentsChange]);
-
-  // Simulate upload progress
-  const simulateUpload = (docId: string) => {
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10 + Math.random() * 20;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-        setDocuments(prev => prev.map(d => 
-          d.id === docId ? { ...d, status: 'uploaded', progress: 100 } : d
-        ));
-      } else {
-        setDocuments(prev => prev.map(d => 
-          d.id === docId ? { ...d, progress: Math.min(progress, 99) } : d
-        ));
+  // Load existing evidence on mount + whenever opportunityId changes
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      try {
+        const res = await fetch(`/api/evidence?opportunity_id=${encodeURIComponent(opportunityId)}`)
+        if (!res.ok) {
+          setListError('Could not load existing evidence')
+          return
+        }
+        const data = await res.json()
+        if (!cancelled) {
+          setExisting(data.evidence ?? [])
+          onEvidenceChange?.(data.evidence ?? [])
+        }
+      } catch {
+        if (!cancelled) setListError('Could not load existing evidence')
       }
-    }, 200);
-  };
-
-  // Remove document
-  const removeDocument = (docId: string) => {
-    setDocuments(prev => {
-      const updated = prev.filter(d => d.id !== docId);
-      onDocumentsChange?.(updated);
-      return updated;
-    });
-  };
-
-  // Handle drag events
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
     }
-  };
+    if (opportunityId) load()
+    return () => { cancelled = true }
+  }, [opportunityId, onEvidenceChange])
+
+  const uploadOne = useCallback(
+    (file: File, category: EvidenceCategory, claimField?: ClaimField) => {
+      const tempId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      setUploads(prev => [...prev, { tempId, file, category, pickedField: claimField, progress: 0 }])
+
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/evidence/upload')
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100)
+          setUploads(prev => prev.map(u => u.tempId === tempId ? { ...u, progress: pct } : u))
+        }
+      }
+
+      xhr.onload = async () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText)
+            if (data?.evidence?.id) {
+              // Refresh listing
+              const listRes = await fetch(`/api/evidence?opportunity_id=${encodeURIComponent(opportunityId)}`)
+              if (listRes.ok) {
+                const listData = await listRes.json()
+                setExisting(listData.evidence ?? [])
+                onEvidenceChange?.(listData.evidence ?? [])
+              }
+            }
+          } catch {
+            /* ignore parse error, listing refresh will retry next render */
+          }
+          setUploads(prev => prev.filter(u => u.tempId !== tempId))
+        } else {
+          let msg = `Upload failed (${xhr.status})`
+          try {
+            const data = JSON.parse(xhr.responseText)
+            msg = data?.error || msg
+          } catch { /* keep default */ }
+          setUploads(prev => prev.map(u => u.tempId === tempId ? { ...u, error: msg, progress: 100 } : u))
+        }
+      }
+
+      xhr.onerror = () => {
+        setUploads(prev => prev.map(u => u.tempId === tempId ? { ...u, error: 'Network error', progress: 100 } : u))
+      }
+
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('opportunity_id', opportunityId)
+      fd.append('category', category)
+      if (claimField) fd.append('claim_field', claimField)
+      xhr.send(fd)
+    },
+    [opportunityId, onEvidenceChange]
+  )
+
+  const handleFiles = useCallback(
+    (fileList: FileList) => {
+      Array.from(fileList).forEach(file => uploadOne(file, activeCategory, pickedField))
+    },
+    [activeCategory, pickedField, uploadOne]
+  )
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFiles(e.dataTransfer.files);
-    }
-  };
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    if (e.dataTransfer.files?.length) handleFiles(e.dataTransfer.files)
+  }
 
-  // Voice guidance
-  const startVoiceGuidance = async () => {
-    setVoiceActive(true);
-    await speak("Let's gather the supporting documents. These help me give you a more accurate assessment. First up - do you have the certificate of title or proof of ownership? Just upload it now or say skip to move on.");
-  };
+  const handleDelete = async (id: string) => {
+    if (!confirm('Remove this document? Any linked claim will revert to ASSERTED.')) return
+    try {
+      const res = await fetch(`/api/evidence/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        const next = existing.filter(e => e.id !== id)
+        setExisting(next)
+        onEvidenceChange?.(next)
+      }
+    } catch { /* surface no error UI for v1 */ }
+  }
 
-  // Get category status
-  const getCategoryStatus = (categoryKey: string) => {
-    const uploaded = documents.filter(d => d.category === categoryKey && d.status === 'uploaded');
-    return uploaded.length > 0 ? 'uploaded' : 'pending';
-  };
+  const dismissUploadError = (tempId: string) => {
+    setUploads(prev => prev.filter(u => u.tempId !== tempId))
+  }
 
-  // Count uploaded documents
-  const uploadedCount = documents.filter(d => d.status === 'uploaded').length;
-  const requiredCount = DOCUMENT_CATEGORIES.filter(c => c.required).length;
-  const requiredUploaded = DOCUMENT_CATEGORIES.filter(c => c.required && getCategoryStatus(c.key) === 'uploaded').length;
+  // Required-category satisfaction
+  const requiredHave = REQUIRED_CATEGORIES.filter(req =>
+    existing.some(e => e.category === req)
+  )
+
+  const backsFields = CATEGORY_BACKS[activeCategory]
+  const needsFieldPick = backsFields.length > 1
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* Voice Guidance Banner */}
-      {isSupported && (
-        <div className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3 text-white">
-            {isSpeaking ? (
-              <Volume2 className="w-6 h-6 animate-pulse" />
-            ) : (
-              <Mic className="w-6 h-6" />
-            )}
-            <div>
-              <p className="font-medium">Document Collection Assistant</p>
-              <p className="text-sm text-white/80">
-                {voiceActive 
-                  ? "I'll guide you through the documents needed..." 
-                  : "Let me guide you through what documents to upload"}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={voiceActive ? () => setVoiceActive(false) : startVoiceGuidance}
-            className="px-4 py-2 bg-white/20 text-white rounded-lg text-sm font-medium hover:bg-white/30 transition-colors"
-          >
-            {voiceActive ? 'Stop Guide' : '🎙️ Start Guide'}
-          </button>
-        </div>
-      )}
+      {/* Explanatory header (global UI rule) */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5">
+        <h2 className="text-lg font-semibold text-slate-900">Evidence supporting your deal inputs</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Upload the documents that back each figure on your deal — purchase contract, independent valuation,
+          signed offtakes, equity proof. Anything you assert without a document here is stripped, and the engine
+          substitutes the conservative defensible figure.
+        </p>
+      </div>
 
-      {/* Progress Summary */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-900">Upload Progress</h3>
-          <span className="text-sm text-gray-600">
-            {uploadedCount} document{uploadedCount !== 1 ? 's' : ''} uploaded
+      {/* Required-evidence progress */}
+      <div className="rounded-xl border border-slate-200 bg-white p-4">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-medium text-slate-900">Required evidence</span>
+          <span className="text-slate-600">
+            {requiredHave.length}/{REQUIRED_CATEGORIES.length} provided
           </span>
         </div>
-        <div className="flex gap-2">
-          <div className={`flex-1 h-2 rounded-full ${requiredUploaded >= requiredCount ? 'bg-emerald-500' : 'bg-amber-500'}`}>
-            <div 
-              className="h-full bg-emerald-500 rounded-full transition-all"
-              style={{ width: `${(requiredUploaded / requiredCount) * 100}%` }}
-            />
-          </div>
+        <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200">
+          <div
+            className={requiredHave.length === REQUIRED_CATEGORIES.length ? 'h-full bg-emerald-500' : 'h-full bg-amber-500'}
+            style={{ width: `${(requiredHave.length / REQUIRED_CATEGORIES.length) * 100}%` }}
+          />
         </div>
-        <p className="text-xs text-gray-500 mt-2">
-          {requiredUploaded}/{requiredCount} required documents uploaded
+        <p className="mt-2 text-xs text-slate-500">
+          Required: {REQUIRED_CATEGORIES.map(c => CATEGORY_LABELS[c].label).join(', ')}.
+          The engine cannot certify a deal without these.
         </p>
       </div>
 
-      {/* Document Categories Grid */}
-      <div className="grid grid-cols-2 gap-4">
-        {DOCUMENT_CATEGORIES.map((category) => {
-          const status = getCategoryStatus(category.key);
-          const categoryDocs = documents.filter(d => d.category === category.key);
-          
-          return (
-            <div
-              key={category.key}
-              className={`relative rounded-xl border-2 border-dashed p-4 transition-all cursor-pointer ${
-                status === 'uploaded'
-                  ? 'border-emerald-300 bg-emerald-50'
-                  : currentCategory === category.key
-                    ? 'border-violet-400 bg-violet-50'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-              }`}
-              onClick={() => {
-                setCurrentCategory(category.key);
-                fileInputRef.current?.click();
-              }}
-            >
-              {/* Required Badge */}
-              {category.required && (
-                <span className="absolute -top-2 -right-2 px-2 py-0.5 bg-amber-500 text-white text-xs font-bold rounded-full">
-                  Required
-                </span>
-              )}
-
-              <div className="flex items-start gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  status === 'uploaded' ? 'bg-emerald-200' : 'bg-gray-200'
-                }`}>
-                  {status === 'uploaded' ? (
-                    <Check className="w-5 h-5 text-emerald-600" />
-                  ) : (
-                    <FileText className="w-5 h-5 text-gray-500" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 text-sm">{category.label}</p>
-                  <p className="text-xs text-gray-500 line-clamp-1">{category.description}</p>
-                  
-                  {/* Show uploaded files */}
-                  {categoryDocs.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {categoryDocs.map(doc => (
-                        <div key={doc.id} className="flex items-center gap-2 text-xs">
-                          {doc.status === 'uploading' ? (
-                            <Loader2 className="w-3 h-3 animate-spin text-violet-600" />
-                          ) : doc.status === 'uploaded' ? (
-                            <Check className="w-3 h-3 text-emerald-600" />
-                          ) : (
-                            <AlertCircle className="w-3 h-3 text-red-500" />
-                          )}
-                          <span className="truncate text-gray-600">{doc.file.name}</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeDocument(doc.id);
-                            }}
-                            className="text-gray-400 hover:text-red-500"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Main Drop Zone */}
-      <div
-        className={`rounded-xl border-2 border-dashed p-8 text-center transition-all ${
-          dragActive 
-            ? 'border-violet-500 bg-violet-50' 
-            : 'border-gray-300 hover:border-gray-400'
-        }`}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-        onClick={() => {
-          setCurrentCategory(null);
-          fileInputRef.current?.click();
-        }}
-      >
-        <Upload className={`w-12 h-12 mx-auto mb-4 ${dragActive ? 'text-violet-500' : 'text-gray-400'}`} />
-        <p className="text-gray-600 font-medium">
-          {dragActive ? 'Drop files here...' : 'Drag & drop files or click to browse'}
-        </p>
-        <p className="text-sm text-gray-500 mt-1">
-          PDF, DOC, JPG, PNG up to 50MB each
-        </p>
-      </div>
-
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        multiple
-        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.tiff,.dwg"
-        className="hidden"
-        onChange={(e) => {
-          if (e.target.files && e.target.files.length > 0) {
-            handleFiles(e.target.files);
-          }
-          e.target.value = ''; // Reset for same file selection
-        }}
-      />
-
-      {/* Document List (All Uploaded) */}
-      {documents.length > 0 && (
-        <div className="bg-gray-50 rounded-xl p-4">
-          <h4 className="font-medium text-gray-900 mb-3">All Uploaded Documents</h4>
-          <div className="space-y-2">
-            {documents.map(doc => (
-              <div 
-                key={doc.id}
-                className="flex items-center gap-3 bg-white rounded-lg p-3 border border-gray-200"
-              >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  doc.status === 'uploaded' ? 'bg-emerald-100' : 
-                  doc.status === 'error' ? 'bg-red-100' : 'bg-gray-100'
-                }`}>
-                  {doc.status === 'uploading' ? (
-                    <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
-                  ) : doc.status === 'uploaded' ? (
-                    <Check className="w-4 h-4 text-emerald-600" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-red-500" />
-                  )}
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{doc.file.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {DOCUMENT_CATEGORIES.find(c => c.key === doc.category)?.label || 'Other'} • 
-                    {(doc.file.size / 1024 / 1024).toFixed(2)} MB
-                  </p>
-                  
-                  {/* Progress bar */}
-                  {doc.status === 'uploading' && (
-                    <div className="mt-1 h-1 bg-gray-200 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-violet-500 transition-all"
-                        style={{ width: `${doc.progress}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => removeDocument(doc.id)}
-                  className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+      {/* Category picker + field picker (responsive) */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label className="block text-sm font-medium text-slate-900">Document type</label>
+          <select
+            value={activeCategory}
+            onChange={(e) => {
+              const next = e.target.value as EvidenceCategory
+              setActiveCategory(next)
+              setPickedField(undefined)
+            }}
+            className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+          >
+            {EVIDENCE_CATEGORIES.map(c => (
+              <option key={c} value={c}>
+                {CATEGORY_LABELS[c].label}{REQUIRED_CATEGORIES.includes(c) ? ' (required)' : ''}
+              </option>
             ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">{CATEGORY_LABELS[activeCategory].description}</p>
+        </div>
+
+        {needsFieldPick && (
+          <div>
+            <label className="block text-sm font-medium text-slate-900">This valuation backs</label>
+            <select
+              value={pickedField ?? backsFields[0]}
+              onChange={(e) => setPickedField(e.target.value as ClaimField)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+            >
+              {backsFields.map(f => (
+                <option key={f} value={f}>
+                  {f === 'land_value' && 'Land value (as-is)'}
+                  {f === 'grv_total' && 'Gross realisable value (on-completion)'}
+                  {f === 'equity_cash' && 'Cash equity'}
+                  {f === 'pre_sales_percent' && 'Pre-sales / demand'}
+                  {f === 'construction_cost' && 'Construction cost'}
+                </option>
+              ))}
+            </select>
           </div>
+        )}
+      </div>
+
+      {/* Drop zone */}
+      <div
+        onDragEnter={(e) => { e.preventDefault(); setDragActive(true) }}
+        onDragLeave={(e) => { e.preventDefault(); setDragActive(false) }}
+        onDragOver={(e) => { e.preventDefault() }}
+        onDrop={handleDrop}
+        onClick={() => fileInputRef.current?.click()}
+        className={`cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition ${
+          dragActive ? 'border-slate-700 bg-slate-50' : 'border-slate-300 hover:border-slate-400'
+        }`}
+      >
+        <Upload className="mx-auto mb-3 h-10 w-10 text-slate-400" />
+        <p className="font-medium text-slate-900">
+          {dragActive ? 'Drop files to upload' : 'Drag & drop or click to browse'}
+        </p>
+        <p className="mt-1 text-xs text-slate-500">PDF, DOC, JPG, PNG up to 50&nbsp;MB each</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept={ACCEPTED}
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files?.length) handleFiles(e.target.files)
+            e.target.value = ''
+          }}
+        />
+      </div>
+
+      {/* In-flight uploads */}
+      {uploads.length > 0 && (
+        <div className="space-y-2">
+          {uploads.map(u => (
+            <div key={u.tempId} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
+              {u.error ? (
+                <AlertCircle className="h-5 w-5 text-red-500" />
+              ) : (
+                <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-slate-900">{u.file.name}</p>
+                <p className="text-xs text-slate-500">
+                  {CATEGORY_LABELS[u.category].label}
+                  {' · '}
+                  {(u.file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+                {u.error ? (
+                  <p className="mt-1 text-xs text-red-600">{u.error}</p>
+                ) : (
+                  <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full bg-slate-700 transition-all" style={{ width: `${u.progress}%` }} />
+                  </div>
+                )}
+              </div>
+              {u.error && (
+                <button onClick={() => dismissUploadError(u.tempId)} className="text-slate-400 hover:text-slate-700">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
-      {/* What Documents Help With */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <h4 className="font-medium text-blue-900 mb-2 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
-          Why upload documents?
-        </h4>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>• <strong>Title:</strong> Verifies ownership, checks encumbrances & easements</li>
-          <li>• <strong>DA Approval:</strong> Confirms lot yield, conditions, expiry dates</li>
-          <li>• <strong>Survey:</strong> Validates dimensions, boundaries, site constraints</li>
-          <li>• <strong>Construction Quotes:</strong> Cross-checks your cost estimates</li>
-          <li>• <strong>Reports:</strong> Identifies hidden risks (contamination, geotech issues)</li>
-        </ul>
-        <p className="text-xs text-blue-600 mt-2">
-          📊 More documents = more accurate assessment
-        </p>
-      </div>
+      {/* Existing evidence list */}
+      {listError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{listError}</div>
+      )}
+
+      {existing.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-slate-900">Uploaded documents ({existing.length})</h3>
+          {existing.map(ev => (
+            <div key={ev.id} className="flex items-center gap-3 rounded-lg border border-slate-200 bg-white p-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
+                <Check className="h-4 w-4 text-emerald-700" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-slate-900">
+                  {ev.original_filename ?? 'Document'}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {CATEGORY_LABELS[ev.category].label}
+                  {ev.file_size_bytes && ` · ${(ev.file_size_bytes / 1024 / 1024).toFixed(2)} MB`}
+                  {' · '}
+                  {new Date(ev.received_at).toLocaleDateString()}
+                </p>
+              </div>
+              <button
+                onClick={() => handleDelete(ev.id)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                title="Remove document"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {existing.length === 0 && uploads.length === 0 && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-6 text-center">
+          <FileText className="mx-auto mb-2 h-8 w-8 text-slate-400" />
+          <p className="text-sm text-slate-600">No documents uploaded yet.</p>
+          <p className="mt-1 text-xs text-slate-500">
+            Without evidence, the engine treats every flattering figure as ASSERTED and substitutes conservative values.
+          </p>
+        </div>
+      )}
     </div>
-  );
+  )
 }
 
-export default DocumentUpload;
+export default DocumentUpload

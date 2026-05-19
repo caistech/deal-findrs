@@ -31,6 +31,9 @@ export default function NewOpportunityPage() {
   const [siteIntel, setSiteIntel] = useState<SiteIntelResult | null>(null)
   const [derivingIntel, setDerivingIntel] = useState(false)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [draftId, setDraftId] = useState<string | null>(null)
+  const [savingDraft, setSavingDraft] = useState(false)
+  const [draftError, setDraftError] = useState<string | null>(null)
 
   // Property Services — shared property intelligence
   const property = usePropertyOnboarding({
@@ -94,6 +97,15 @@ export default function NewOpportunityPage() {
     contingencyPercent: '5',
     timeframeMonths: '',
     targetStartDate: '',
+
+    // ===== ENGINE-SPECIFIC (lender lens) =====
+    // The promoter's claimed "Net Project Equity" (may include land uplift, in-kind, etc.)
+    // and the cash component the engine will accept (only with equity_proof evidence).
+    claimedTotalEquity: '',
+    claimedEquityCash: '',
+    proposedLoanAmount: '',
+    isOffshoreSupply: false,
+    evidencedPurchasePrice: '',  // when the promoter knows it separately from "claimed land value"
     
     // ===== VISION =====
     developmentGoals: '',
@@ -225,12 +237,45 @@ export default function NewOpportunityPage() {
     }
   }
 
-  const nextStep = () => {
-    const nextIndex = currentStepIndex + 1
-    if (nextIndex < steps.length) {
-      setCurrentStep(steps[nextIndex].key)
-      window.scrollTo(0, 0)
+  const ensureDraft = async (): Promise<string | null> => {
+    if (draftId) return draftId
+    setSavingDraft(true)
+    setDraftError(null)
+    try {
+      const res = await fetch('/api/opportunities/draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ formData, siteIntel, coords }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setDraftError(data?.error || 'Could not save draft')
+        return null
+      }
+      const data = await res.json()
+      const id = data?.opportunity?.id
+      if (id) setDraftId(id)
+      return id ?? null
+    } catch (err) {
+      setDraftError('Could not save draft')
+      return null
+    } finally {
+      setSavingDraft(false)
     }
+  }
+
+  const nextStep = async () => {
+    const nextIndex = currentStepIndex + 1
+    if (nextIndex >= steps.length) return
+    const nextKey = steps[nextIndex].key
+    // Entering the documents step requires a saved opportunity ID so that
+    // evidence uploads have something real to attach to.
+    if (nextKey === 'documents') {
+      const id = await ensureDraft()
+      if (!id) return // surface error; don't advance
+    }
+    setCurrentStep(nextKey)
+    window.scrollTo(0, 0)
   }
 
   const prevStep = () => {
@@ -243,76 +288,53 @@ export default function NewOpportunityPage() {
 
   const handleSubmit = async () => {
     setLoading(true)
-    
     try {
-      // Prepare opportunity data for assessment
-      const opportunity = {
-        name: formData.name || `${formData.address}, ${formData.city}`,
-        address: formData.address,
-        city: formData.city,
-        state: formData.state,
-        numLots: parseInt(formData.numLots) || 0,
-        numDwellings: parseInt(formData.numDwellings) || parseInt(formData.numLots) || 0,
-        landPurchasePrice: parseFloat(formData.landPurchasePrice) || 0,
-        infrastructureCosts: parseFloat(formData.infrastructureCosts) || 0,
-        constructionPerUnit: parseFloat(formData.constructionPerUnit) || 0,
-        avgSalePrice: parseFloat(formData.avgSalePrice) || 0,
-        contingencyPercent: parseFloat(formData.contingencyPercent) || 5,
-        timeframeMonths: parseInt(formData.timeframeMonths) || 18,
-        
-        // De-risk factors
-        deRiskFactors: {
-          daApproved: formData.deriskDaApproved || formData.landStage === 'da_approved',
-          vendorFinance: formData.deriskVendorFinance,
-          fixedPriceConstruction: formData.deriskFixedPriceConstruction,
-          preSalesSecured: parseFloat(formData.deriskPreSalesPercent) >= 50,
-          experiencedPM: formData.deriskExperiencedPm,
-          clearTitle: formData.deriskClearTitle,
-          growthCorridor: formData.deriskGrowthCorridor,
-        },
-        
-        // Risk factors
-        riskFactors: {
-          previousDisputes: formData.riskPreviousDisputes,
-          needsRezoning: formData.landStage === 'needs_rezoning',
-          noPreSales: !formData.deriskPreSalesPercent || parseFloat(formData.deriskPreSalesPercent) === 0,
-          environmentalIssues: formData.riskEnvironmentalIssues,
-        },
-        
-        // Documents (for RAG)
-        documentCount: documents.length,
-        documentCategories: Array.from(new Set(documents.map(d => d.category))),
+      // The opportunity row was already saved as a draft when the user
+      // advanced to the documents step. Make sure the latest financial
+      // fields are persisted before assessment runs.
+      const id = await ensureDraft()
+      if (!id) throw new Error('Could not save deal as draft')
+
+      // Engine-specific inputs (not in the opportunities schema yet)
+      const engineInputs = {
+        claimedTotalEquity: parseFloat(formData.claimedTotalEquity) || 0,
+        claimedEquityCash:  parseFloat(formData.claimedEquityCash) || 0,
+        proposedLoanAmount: parseFloat(formData.proposedLoanAmount) || 0,
+        isOffshoreSupply:   Boolean(formData.isOffshoreSupply),
+        isComplex:          Boolean(formData.riskHeritageOverlay) || Boolean(formData.riskEnvironmentalIssues),
+        evidencedPurchasePrice: formData.evidencedPurchasePrice
+          ? parseFloat(formData.evidencedPurchasePrice)
+          : undefined,
       }
 
-      // Call assessment API
       const response = await fetch('/api/assess', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ opportunity }),
+        body: JSON.stringify({ opportunity_id: id, engineInputs }),
       })
 
       if (!response.ok) {
-        throw new Error('Assessment failed')
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data?.error || 'Assessment failed')
       }
 
       const data = await response.json()
-      
-      // Store result in sessionStorage (clear any previous opportunity ID)
-      sessionStorage.removeItem('lastOpportunityId')
+
+      // Persist the saved opportunity id so the result page PATCHes instead of creating a duplicate.
+      sessionStorage.setItem('lastOpportunityId', id)
       sessionStorage.setItem('lastAssessment', JSON.stringify({
-        opportunity,
+        opportunityId: id,
         formData,
-        documents,
         siteIntel,
         coords,
-        result: data.result,
+        engineInputs,
+        result: data,    // full engine response (rag, threeTest, substitutions, reviewer, adjusted, ltvDerived)
       }))
 
-      // Redirect to result page
       router.push('/opportunities/new/result')
     } catch (error) {
       console.error('Assessment error:', error)
-      alert('Assessment failed. Please try again.')
+      alert(error instanceof Error ? error.message : 'Assessment failed. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -1066,7 +1088,7 @@ export default function NewOpportunityPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Pre-Sales Count</label>
-                    <input 
+                    <input
                       type="number"
                       placeholder="0"
                       value={formData.deriskPreSalesCount}
@@ -1074,6 +1096,89 @@ export default function NewOpportunityPage() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
+                </div>
+
+                {/* Lender-lens inputs (engine-specific) */}
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-5">
+                  <h4 className="font-semibold text-slate-900">Lender-lens inputs</h4>
+                  <p className="mt-1 text-sm text-slate-600">
+                    The figures a credit committee uses to test the deal. The engine substitutes conservative values for anything not backed by an evidence document at the next step.
+                  </p>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">Total Net Project Equity (claimed)</label>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={formData.claimedTotalEquity}
+                          onChange={(e) => updateField('claimedTotalEquity', e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2 pl-7 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">Includes land uplift, in-kind, deferred. Will be stripped to cash by the engine.</p>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">Of which is paid-in / committed cash</label>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={formData.claimedEquityCash}
+                          onChange={(e) => updateField('claimedEquityCash', e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2 pl-7 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">Counted only if equity_proof is uploaded.</p>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">Proposed senior loan amount</label>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          value={formData.proposedLoanAmount}
+                          onChange={(e) => updateField('proposedLoanAmount', e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2 pl-7 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">LVR is derived last from this and evidenced GRV — never an input target.</p>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-slate-700">Evidenced purchase price (optional)</label>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                        <input
+                          type="number"
+                          placeholder="(if different from claimed land value)"
+                          value={formData.evidencedPurchasePrice}
+                          onChange={(e) => updateField('evidencedPurchasePrice', e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2 pl-7 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">If you have an executed contract for less than your asserted land value, enter the contract amount here.</p>
+                    </div>
+                  </div>
+
+                  <label className="mt-4 flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={formData.isOffshoreSupply}
+                      onChange={(e) => updateField('isOffshoreSupply', e.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-slate-300"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Offshore-supplied build (modular / imported materials)</p>
+                      <p className="text-xs text-slate-500">Forces a 7.5% contingency floor instead of 5%.</p>
+                    </div>
+                  </label>
                 </div>
 
                 {/* Live Financial Preview */}
@@ -1128,10 +1233,19 @@ export default function NewOpportunityPage() {
             )}
 
             {/* ===== STEP: DOCUMENTS ===== */}
-            {currentStep === 'documents' && (
+            {currentStep === 'documents' && draftId && (
               <DocumentUpload
-                onDocumentsChange={setDocuments}
+                opportunityId={draftId}
+                onEvidenceChange={setDocuments}
               />
+            )}
+            {currentStep === 'documents' && !draftId && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
+                <p className="font-medium text-amber-900">Saving deal as a draft…</p>
+                <p className="mt-1 text-sm text-amber-700">
+                  Evidence uploads need a saved opportunity to attach to. {draftError ? `Error: ${draftError}.` : 'This usually takes a moment.'}
+                </p>
+              </div>
             )}
 
             {/* ===== STEP: REVIEW ===== */}
@@ -1284,10 +1398,20 @@ export default function NewOpportunityPage() {
             ) : (
               <button
                 onClick={nextStep}
-                className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl hover:from-amber-600 hover:to-orange-600"
+                disabled={savingDraft}
+                className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl hover:from-amber-600 hover:to-orange-600 disabled:opacity-50"
               >
-                Next
-                <ArrowRight className="w-4 h-4" />
+                {savingDraft ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             )}
           </div>

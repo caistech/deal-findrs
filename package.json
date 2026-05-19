@@ -9,7 +9,9 @@
     "lint": "next lint",
     "setup:stripe": "node tools/setup-stripe.js",
     "setup:elevenlabs": "node tools/setup-elevenlabs.js",
-    "setup:elevenlabs:tools": "node tools/setup-elevenlabs-tools.js"
+    "setup:elevenlabs:tools": "node tools/setup-elevenlabs-tools.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@11labs/client": "^0.2.0",
@@ -34,7 +36,9 @@
     "autoprefixer": "^10.4.16",
     "postcss": "^8.5.10",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vite-tsconfig-paths": "^4.3.2",
+    "vitest": "^1.6.1"
   },
   "overrides": {
     "cookie": "^0.7.2"
