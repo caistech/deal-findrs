@@ -16,6 +16,7 @@ export default function LandingPage() {
         LinkComponent={Link}
         navItems={[
           { href: '#features', label: 'Features' },
+          { href: '/reports', label: 'Reports' },
           { href: '#pricing', label: 'Pricing' },
         ]}
         rightContent={
