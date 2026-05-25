@@ -42,12 +42,15 @@ export default function LandingPage() {
               <Zap className="w-4 h-4" />
               AI-Powered Deal Assessment
             </div>
-            <h1 className="text-5xl font-bold text-white leading-tight mb-6">
+            <h1 className="text-5xl font-bold text-white leading-tight mb-4">
               Stop Guessing.<br/>
               <span className="text-[#22c55e]">
                 Start Knowing.
               </span>
             </h1>
+            <p className="text-sm text-slate-400 mb-6 border-l-2 border-[#22c55e]/40 pl-3">
+              For buyers&apos; agents &amp; property firms: a steady flow of scored deals, under your brand.
+            </p>
             <p className="text-xl text-gray-400 mb-8 leading-relaxed">
               The AI-powered platform that gives property development promoters instant 
               Green/Amber/Red assessments on every opportunity. Set your criteria once, 
