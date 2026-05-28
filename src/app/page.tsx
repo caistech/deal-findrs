@@ -1,3 +1,5 @@
+import { ExplanatoryHeader } from '@caistech/corporate-components'
+
 'use client'
 
 import { useState } from 'react'
@@ -8,7 +10,14 @@ import { CorporateFooter } from '@/components/corporate/CorporateFooter'
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900">
+    <
+
+        <ExplanatoryHeader
+          what="Page Name"
+          todo="What the user does on this page"
+          matters="Why this matters to their workflow"
+        />
+div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900">
       <CorporateHeader
         productName="DealFindrs"
         productAcronym="DF"
@@ -22,13 +31,13 @@ export default function LandingPage() {
         rightContent={
           <div className="flex items-center gap-4">
             <Link href="/login" className="px-4 py-2 text-white hover:text-[#22c55e] transition-colors">
-              Log In
+              Start as User
             </Link>
             <Link
-              href="/signup"
+              href="/admin/login"
               className="px-5 py-2.5 bg-[#22c55e] text-white rounded-lg font-semibold hover:bg-[#4ade80] transition-all"
             >
-              Start Free Trial
+              Admin Login
             </Link>
           </div>
         }
