@@ -15,6 +15,21 @@ to new features.
 
 ---
 
+## Portfolio Standard Inheritance
+
+This product was scaffolded from `cais-build-template-v2` and ships with applicable
+rules pre-wired. The authoritative standard lives at `cais-shared-services/foundation/PORTFOLIO_STANDARD.md`.
+Anything below is product-specific overlay only.
+
+What's already wired (do not re-derive):
+- **R1** — Auth four-leg pattern (login, signup, forgot-password, magic-link)
+- **R3** — Explanatory headers on authenticated pages
+- **R9** — RLS on all tables (via Supabase migrations)
+- **R10** — Error sanitization in API responses
+- **R11** — Vendor identity via env vars
+
+---
+
 ## Project Purpose
 
 DealFindrs is a Next.js 14 SaaS for property development opportunity assessment.

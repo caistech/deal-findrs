@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, CheckCircle, Mic, Target, BarChart3, FileText, Users, Zap } from 'lucide-react'
+import { ArrowRight, CheckCircle, Mic, Target, BarChart3, FileText, Users, Zap, Building2, Globe } from 'lucide-react'
 import { CorporateHeader } from '@/components/corporate/CorporateHeader'
 import { CorporateFooter } from '@/components/corporate/CorporateFooter'
 
@@ -16,13 +16,13 @@ export default function LandingPage() {
         LinkComponent={Link}
         navItems={[
           { href: '#features', label: 'Features' },
-          { href: '/reports', label: 'Reports' },
+          { href: '#how-it-works', label: 'How It Works' },
           { href: '#pricing', label: 'Pricing' },
         ]}
         rightContent={
           <div className="flex items-center gap-4">
             <Link href="/login" className="px-4 py-2 text-white hover:text-[#22c55e] transition-colors">
-              Start as User
+              Team Login
             </Link>
             <Link
               href="/admin/login"
@@ -40,7 +40,7 @@ export default function LandingPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-6">
               <Zap className="w-4 h-4" />
-              AI-Powered Deal Assessment
+              White-Label Deal Assessment Platform
             </div>
             <h1 className="text-5xl font-bold text-white leading-tight mb-4">
               Stop Guessing.<br/>
@@ -48,23 +48,30 @@ export default function LandingPage() {
                 Start Knowing.
               </span>
             </h1>
-            <p className="text-sm text-slate-400 mb-6 border-l-2 border-[#22c55e]/40 pl-3">
-              For buyers&apos; agents &amp; property firms: a steady flow of scored deals, under your brand.
+            <p className="text-lg text-slate-300 mb-6 border-l-2 border-[#22c55e]/40 pl-3">
+              Give your clients instant, professional deal assessments under YOUR brand. 
+              Your criteria. Your logo. Your competitive edge.
             </p>
             <p className="text-xl text-gray-400 mb-8 leading-relaxed">
-              The AI-powered platform that gives property development promoters instant 
-              Green/Amber/Red assessments on every opportunity. Set your criteria once, 
-              evaluate deals consistently forever.
+              The AI-powered platform for property firms, buyers&apos; agents, and development 
+              promoters. Deliver consistent, criteria-based Green/Amber/Red assessments to 
+              every client — in seconds, not weeks.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-4 flex-wrap">
               <Link
-                href="/signup"
+                href="/contact"
                 className="px-8 py-4 bg-[#22c55e] text-white rounded-xl font-bold text-lg hover:bg-[#4ade80] hover:shadow-xl hover:shadow-[#22c55e]/25 transition-all flex items-center gap-2"
               >
-                Start 14-Day Free Trial <ArrowRight className="w-5 h-5" />
+                Request a Demo <ArrowRight className="w-5 h-5" />
+              </Link>
+              <Link
+                href="#how-it-works"
+                className="px-8 py-4 bg-slate-800 border border-slate-600 text-white rounded-xl font-bold text-lg hover:border-slate-500 transition-all flex items-center gap-2"
+              >
+                See How It Works
               </Link>
             </div>
-            <p className="text-gray-500 text-sm mt-4">No credit card required • Cancel anytime</p>
+            <p className="text-gray-500 text-sm mt-4">Trusted by established property firms • Brisbane-headquartered, serving globally</p>
           </div>
           
           <div className="relative hidden lg:block">
@@ -106,16 +113,16 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-white mb-4">Everything You Need to Evaluate Deals</h2>
-            <p className="text-gray-400 text-lg">Built by developers, for developers</p>
+            <p className="text-gray-400 text-lg">Built for firms that deliver results</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
-              { icon: Target, title: 'Set Your Criteria', desc: 'Define your minimum GM%, de-risk factors, and deal-breakers once. AI remembers forever.' },
-              { icon: Mic, title: 'Voice-Guided Input', desc: 'Our AI assistant helps you think deeper about each opportunity as you enter details.' },
+              { icon: Target, title: 'Set Your Criteria', desc: 'Define your minimum GM%, de-risk factors, and deal-breakers once. AI evaluates every deal against YOUR standards.' },
+              { icon: Mic, title: 'Voice-Guided Input', desc: 'Your team enters deal details with AI assistance — consistent, thorough, fast.' },
               { icon: Zap, title: 'Instant RAG Assessment', desc: 'Get Green/Amber/Red ratings in seconds with detailed explanations and action items.' },
-              { icon: BarChart3, title: 'Priority Rankings', desc: 'See all your opportunities ranked by potential, not just chronologically.' },
-              { icon: FileText, title: 'Auto-Generate IMs', desc: 'One click to create professional Investment Memorandums for green-lit projects.' },
-              { icon: Users, title: 'Team Collaboration', desc: 'DealFindrs submit opportunities, Promoters review and approve.' },
+              { icon: BarChart3, title: 'Priority Rankings', desc: 'See all opportunities ranked by potential, not just chronologically.' },
+              { icon: FileText, title: 'Branded Investment Memorandums', desc: 'One click to create professional IMs under YOUR firm&apos;s branding. Send to clients with confidence.' },
+              { icon: Users, title: 'Team Collaboration', desc: 'Your team submits deals, you review and approve. White-label for your entire organisation.' },
             ].map((feature, i) => (
               <div key={i} className="bg-slate-700/50 border border-slate-600 rounded-2xl p-6 hover:border-[#22c55e]/50 transition-colors">
                 <feature.icon className="w-10 h-10 text-[#22c55e] mb-4" />
@@ -128,18 +135,18 @@ export default function LandingPage() {
       </div>
 
       {/* How It Works */}
-      <div className="py-24">
+      <div className="py-24" id="how-it-works">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-white mb-4">How It Works</h2>
-            <p className="text-gray-400 text-lg">From signup to assessment in minutes</p>
+            <p className="text-gray-400 text-lg">From setup to delivering branded assessments to your clients</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {[
-              { step: '1', title: 'Sign Up', desc: 'Create your account and company profile' },
-              { step: '2', title: 'Set Criteria', desc: 'Define your GREEN light requirements' },
-              { step: '3', title: 'Add Deals', desc: 'Enter opportunity details with voice assist' },
-              { step: '4', title: 'Get Results', desc: 'Instant RAG rating with action items' },
+              { step: '1', title: 'Request Demo', desc: 'See how DealFindrs works with your criteria' },
+              { step: '2', title: 'Set Your Criteria', desc: 'Define your firm&apos;s GREEN light requirements' },
+              { step: '3', title: 'Invite Your Team', desc: 'Add team members to submit and review deals' },
+              { step: '4', title: 'Deliver Value', desc: 'Send branded assessments to your clients in seconds' },
             ].map((item, i) => (
               <div key={i} className="text-center">
                 <div className="w-16 h-16 mx-auto mb-4 bg-[#22c55e] rounded-2xl flex items-center justify-center text-2xl font-bold text-slate-900">
@@ -157,32 +164,32 @@ export default function LandingPage() {
       <div className="py-24 bg-slate-800/30" id="pricing">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
-            <p className="text-gray-400 text-lg">Start free, upgrade when you&apos;re ready</p>
+            <h2 className="text-3xl font-bold text-white mb-4">Pricing Built for Your Firm</h2>
+            <p className="text-gray-400 text-lg">White-label solutions for property firms of all sizes</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { 
-                name: 'Free Trial', 
-                price: '$0', 
-                period: '14 days', 
-                features: ['5 opportunities', '1 user', 'Basic assessment', 'Email support'], 
-                cta: 'Start Free', 
+                name: 'Starter', 
+                price: 'From $99', 
+                period: '/month', 
+                features: ['50 opportunities/mo', '5 team members', 'Branded assessments', 'Voice assistant', 'Email support'], 
+                cta: 'Request Quote', 
                 highlight: false 
               },
               { 
-                name: 'Standard', 
-                price: '$99', 
+                name: 'Professional', 
+                price: 'From $299', 
                 period: '/month', 
-                features: ['50 opportunities/mo', '5 users', 'Voice assistant', 'IM generation', 'Priority support'], 
-                cta: 'Get Started', 
+                features: ['Unlimited opportunities', 'Unlimited users', 'Custom criteria', 'API access', 'Priority support'], 
+                cta: 'Request Quote', 
                 highlight: true 
               },
               { 
-                name: 'Premium', 
-                price: '$299', 
-                period: '/month', 
-                features: ['Unlimited opportunities', 'Unlimited users', 'Custom criteria', 'API access', 'White-label options', 'Dedicated support'], 
+                name: 'Enterprise', 
+                price: 'Custom', 
+                period: '', 
+                features: ['Full white-label', 'Dedicated account manager', 'Custom integrations', 'SLA guarantee', '24/7 phone support'], 
                 cta: 'Contact Sales', 
                 highlight: false 
               },
@@ -202,7 +209,7 @@ export default function LandingPage() {
                   ))}
                 </ul>
                 <Link 
-                  href="/signup"
+                  href="/contact"
                   className={`block w-full py-3 rounded-xl font-semibold text-center transition-all ${
                     plan.highlight 
                       ? 'bg-slate-900 text-white hover:bg-slate-800' 
@@ -220,13 +227,13 @@ export default function LandingPage() {
       {/* CTA Section */}
       <div className="py-24 bg-gradient-to-r from-[#22c55e]/10 to-[#4ade80]/10 border-t border-[#22c55e]/20">
         <div className="max-w-3xl mx-auto px-6 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to Find Better Deals?</h2>
-          <p className="text-gray-400 text-lg mb-8">Join property developers who are making smarter, faster decisions.</p>
+          <h2 className="text-3xl font-bold text-white mb-4">Ready to Deliver Better Deals to Your Clients?</h2>
+          <p className="text-gray-400 text-lg mb-8">Join property firms using DealFindrs to deliver consistent, professional assessments under their own brand.</p>
           <Link 
-            href="/signup"
+            href="/contact"
             className="inline-block px-8 py-4 bg-[#22c55e] text-white rounded-xl font-bold text-lg hover:bg-[#4ade80] hover:shadow-xl hover:shadow-[#22c55e]/25 transition-all"
           >
-            Start Your Free Trial Today
+            Request a Demo Today
           </Link>
         </div>
       </div>

@@ -114,12 +114,16 @@ export default function OpportunitiesPage() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Opportunities</h1>
-            <p className="text-gray-600 mt-1">Manage and track all your property development opportunities</p>
-          </div>
+        {/* Explanatory Header */}
+        <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Opportunities</h2>
+          <p className="text-sm text-gray-600">
+            View and manage all your property development deals. Add new opportunities to get AI-powered assessments.
+          </p>
+        </div>
+
+        {/* Action Bar */}
+        <div className="flex items-center justify-between mb-6">
           <Link 
             href="/opportunities/new"
             className="px-6 py-3 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-xl font-bold hover:shadow-lg transition-all flex items-center gap-2"

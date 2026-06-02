@@ -117,6 +117,14 @@ export default function DashboardPage() {
       />
 
       <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* Explanatory Header */}
+        <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">Dashboard</h2>
+          <p className="text-sm text-gray-600">
+            Overview of your property development pipeline. Track deal status, review assessments, and prioritize opportunities.
+          </p>
+        </div>
+
         {/* Welcome Banner */}
         <div className="bg-[#22c55e] rounded-2xl p-6 mb-8 text-white">
           <div className="flex items-center justify-between">
