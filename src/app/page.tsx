@@ -15,6 +15,7 @@ import {
   BadgeCheck,
   TrendingUp,
   ClipboardList,
+  Handshake,
 } from 'lucide-react'
 import { CorporateHeader } from '@/components/corporate/CorporateHeader'
 import { CorporateFooter } from '@/components/corporate/CorporateFooter'
@@ -28,8 +29,8 @@ export default function LandingPage() {
         theme="dark"
         LinkComponent={Link}
         navItems={[
-          { href: '#for-firms', label: 'For Firms' },
-          { href: '#for-promoters', label: 'For Promoters' },
+          { href: '#for-clients', label: 'For Developers' },
+          { href: '/partners', label: 'For Partners' },
           { href: '#features', label: 'Features' },
           { href: '/reports', label: 'Reports' },
           { href: '#pricing', label: 'Pricing' },
@@ -37,13 +38,13 @@ export default function LandingPage() {
         rightContent={
           <div className="flex items-center gap-4">
             <Link href="/login" className="px-4 py-2 text-white hover:text-[#22c55e] transition-colors">
-              Start as User
+              Sign In
             </Link>
             <Link
-              href="/admin/login"
+              href="/signup"
               className="px-5 py-2.5 bg-[#22c55e] text-white rounded-lg font-semibold hover:bg-[#4ade80] transition-all"
             >
-              Admin Login
+              Get Started
             </Link>
           </div>
         }
@@ -63,25 +64,34 @@ export default function LandingPage() {
                 Start Knowing.
               </span>
             </h1>
+            {/* Distributor framing: buyers' agents / property firms deploy to their clients */}
             <p className="text-sm text-slate-400 mb-6 border-l-2 border-[#22c55e]/40 pl-3">
-              For buyers&apos; agents &amp; property firms: a steady flow of scored deals, under your brand.
+              For buyers&apos; agents and property firms: a branded deal-assessment tool you
+              deploy to your property developer clients.
             </p>
             <p className="text-xl text-gray-400 mb-8 leading-relaxed">
-              The AI-powered platform that gives property development promoters instant 
-              Green/Amber/Red assessments on every opportunity. Set your criteria once, 
-              evaluate deals consistently forever.
+              DealFindrs gives your property developer clients instant Green/Amber/Red assessments
+              on every opportunity — under your brand, against your criteria, producing
+              Finance Packs your clients take to the lender.
             </p>
-            <div className="flex gap-4">
+            <div className="flex gap-4 flex-wrap">
               <Link
                 href="/signup"
                 className="px-8 py-4 bg-[#22c55e] text-white rounded-xl font-bold text-lg hover:bg-[#4ade80] hover:shadow-xl hover:shadow-[#22c55e]/25 transition-all flex items-center gap-2"
               >
                 Start 14-Day Free Trial <ArrowRight className="w-5 h-5" />
               </Link>
+              <Link
+                href="/partners"
+                className="px-6 py-4 border border-[#22c55e]/40 text-[#22c55e] rounded-xl font-semibold hover:border-[#22c55e] transition-all flex items-center gap-2"
+              >
+                <Handshake className="w-5 h-5" />
+                Become a Partner
+              </Link>
             </div>
             <p className="text-gray-500 text-sm mt-4">No credit card required · Cancel anytime</p>
           </div>
-          
+
           <div className="relative hidden lg:block">
             {/* Dashboard Preview */}
             <div className="bg-white rounded-2xl shadow-2xl p-6 transform rotate-2 hover:rotate-0 transition-transform duration-500">
@@ -101,10 +111,10 @@ export default function LandingPage() {
                   <span className="text-sm font-medium text-gray-800">Branscomb Rd Development</span>
                   <span className="ml-auto text-red-600 font-bold text-xs sm:text-sm">Unfunded — equity gap</span>
                 </div>
-                <div className="flex items-center gap-3 p-3 bg-red-50 rounded-lg border border-red-200">
-                  <div className="w-4 h-4 rounded-full bg-red-500" />
-                  <span className="text-sm font-medium text-gray-800">Trinidad Roberts</span>
-                  <span className="ml-auto text-red-600 font-bold">12.4%</span>
+                <div className="flex items-center gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <div className="w-4 h-4 rounded-full bg-amber-500" />
+                  <span className="text-sm font-medium text-gray-800">Parramatta Infill Site</span>
+                  <span className="ml-auto text-amber-600 font-bold">18.2%</span>
                 </div>
               </div>
             </div>
@@ -116,27 +126,39 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── WHO IT'S FOR: DISTRIBUTORS ── */}
-      <div className="bg-slate-800/60 py-24 border-t border-slate-700/40" id="for-firms">
+      {/* ── WHO DISTRIBUTES IT: BUYERS' AGENTS & PROPERTY FIRMS ── */}
+      {/*
+        DISTRIBUTOR SECTION — This section addresses the CHANNEL PARTNER (reseller):
+        buyers' agent firms, property development advisories, and real estate agencies
+        that deploy DealFindrs as a branded assessment service for their property
+        developer / promoter clients. The firm is the distributor; their clients are
+        the end users. This is a RESELLER model — the firm bundles DealFindrs into
+        its advisory offering and its clients receive the branded tool.
+      */}
+      <div className="bg-slate-800/60 py-24 border-t border-slate-700/40" id="for-partners-overview">
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-4">
-              <Building2 className="w-4 h-4" />
+              <Handshake className="w-4 h-4" />
               For buyers&apos; agents &amp; property firms
             </div>
             <h2 className="text-3xl font-bold text-white mb-3">
-              The deal-assessment tool your firm deploys to its team
+              Deploy branded deal-assessment to your clients
             </h2>
             <p className="text-gray-400 text-lg max-w-3xl leading-relaxed">
-              DealFindrs is licenced by{' '}
+              DealFindrs is licensed by{' '}
               <strong className="text-gray-200">
-                principals and directors at buyers&apos; agent practices and property development firms
+                buyers&apos; agent firms, property development advisories, and real estate agencies
               </strong>{' '}
-              — teams of 2–15 people running 10–50 active development opportunities per year
-              across Australian metro markets (Sydney, Melbourne, Brisbane, Perth; New Zealand
-              and UK in beta). The firm sets the criteria; their promoters and analysts run
-              every deal through the same scoring model, producing Finance Packs that land
-              under the firm&apos;s brand.
+              — the channel partners who serve property developer and promoter clients.
+              The firm sets the criteria; each developer client gets a branded workspace where
+              they run their deals and produce Finance Packs. The firm grows its service offering
+              without building assessment infrastructure from scratch.
+            </p>
+            <p className="text-gray-500 text-sm mt-3 max-w-3xl">
+              The distributor is the buyers&apos; agent firm or property advisory — a reseller who
+              deploys DealFindrs to its own property developer client base. The developer/promoter
+              is the end user who runs deals inside the branded workspace.
             </p>
           </div>
 
@@ -151,21 +173,21 @@ export default function LandingPage() {
               },
               {
                 icon: Users,
-                label: 'Buyer title',
+                label: 'Partner type',
                 value: 'Principal / Director',
-                sub: 'Buyers\' agent practice or development firm',
+                sub: 'Buyers\' agent firm or property development advisory',
               },
               {
                 icon: Building2,
-                label: 'Company size',
+                label: 'Firm size',
                 value: '2–15 people',
-                sub: '10–50 active opportunities/year',
+                sub: 'Serving 10–50 active developer clients/year',
               },
               {
                 icon: TrendingUp,
                 label: 'Stage',
                 value: 'Past the first deal',
-                sub: 'Actively building a deal pipeline',
+                sub: 'Actively building a client deal pipeline',
               },
             ].map((item) => (
               <div
@@ -180,20 +202,21 @@ export default function LandingPage() {
             ))}
           </div>
 
-          {/* Distributor outcomes */}
+          {/* Distributor / channel-partner outcomes */}
           <div className="bg-slate-900/50 border border-slate-700 rounded-2xl p-8">
             <h3 className="text-xl font-bold text-white mb-2">
-              What the firm gets
+              What the firm gets as a channel partner
             </h3>
             <p className="text-gray-400 mb-6">
-              Outcomes for the principal who licences DealFindrs for their team:
+              Outcomes for the buyers&apos; agent firm or property advisory that resells
+              DealFindrs as part of its client service offering:
             </p>
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {[
-                'Deal flow assessed consistently against the firm\'s criteria — not each promoter\'s gut.',
-                'Every deal the firm touches produces a Finance Pack the lender can act on.',
-                'Branded reports delivered to clients under the firm\'s name.',
-                'Audit trail: who assessed what, when, and why it rated Green.',
+                'Add a deal-assessment service to every client engagement — without building it yourself.',
+                'Your developer clients get branded, lender-ready Finance Packs. You get the credit.',
+                'A white-label workspace per client — your brand, your criteria, your relationship protected.',
+                'Recurring revenue from client seats included in your advisory retainer.',
               ].map((outcome) => (
                 <li key={outcome} className="flex items-start gap-3">
                   <BadgeCheck className="w-5 h-5 text-[#22c55e] flex-shrink-0 mt-0.5" />
@@ -201,6 +224,14 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
+            <div className="mt-6">
+              <Link
+                href="/partners"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#22c55e] text-white rounded-xl font-semibold hover:bg-[#4ade80] transition-all"
+              >
+                See the Partner Programme <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
 
           {/* Exclusions */}
@@ -214,14 +245,14 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── WHO IT'S FOR: END USERS ── */}
-      <div className="py-24 border-t border-slate-700/30" id="for-promoters">
+      {/* ── WHO USES IT: THE PROPERTY DEVELOPER / PROMOTER ── */}
+      <div className="py-24 border-t border-slate-700/30" id="for-clients">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             <div>
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-4">
                 <ClipboardList className="w-4 h-4" />
-                For the promoter running deals
+                For the property developer running deals
               </div>
               <h2 className="text-3xl font-bold text-white mb-4">
                 Know in 3 minutes whether a deal deserves deeper work
@@ -229,9 +260,9 @@ export default function LandingPage() {
               <p className="text-gray-400 text-lg leading-relaxed mb-8">
                 The{' '}
                 <strong className="text-gray-200">
-                  development promoter or investment analyst
+                  property developer, development promoter, or investment analyst
                 </strong>{' '}
-                who sources, qualifies, and progresses opportunities inside the firm uses
+                who sources, qualifies, and progresses opportunities uses
                 DealFindrs as their daily assessment engine — from first-look RAG through
                 to the Finance Pack their broker takes to the lender.
               </p>
@@ -268,7 +299,7 @@ export default function LandingPage() {
             <div className="bg-slate-800/40 border border-slate-700 rounded-2xl p-8">
               <h3 className="text-lg font-bold text-white mb-1">The assessment pipeline</h3>
               <p className="text-gray-400 text-sm mb-6">
-                Every report the promoter generates feeds the next one — no re-keying numbers.
+                Every report feeds the next one — no re-keying numbers.
               </p>
               <ol className="space-y-4">
                 {[
@@ -316,7 +347,7 @@ export default function LandingPage() {
               { icon: Zap, title: 'Instant RAG Assessment', desc: 'Get Green/Amber/Red ratings in seconds with detailed explanations and action items.' },
               { icon: BarChart3, title: 'Priority Rankings', desc: 'See all your opportunities ranked by potential, not just chronologically.' },
               { icon: FileText, title: 'Auto-Generate Finance Packs', desc: 'One click creates the QS, Valuation, Feasibility, and lender-ready Finance Pack from the same record.' },
-              { icon: Users, title: 'Team Workflow', desc: 'Promoters submit; principals review. Every assessment carries an audit trail.' },
+              { icon: Users, title: 'White-Label for Partners', desc: 'Buyers\' agent firms get a branded workspace per client. Their brand, their criteria, their relationships.' },
             ].map((feature, i) => (
               <div key={i} className="bg-slate-700/50 border border-slate-600 rounded-2xl p-6 hover:border-[#22c55e]/50 transition-colors">
                 <feature.icon className="w-10 h-10 text-[#22c55e] mb-4" />
@@ -363,29 +394,29 @@ export default function LandingPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { 
-                name: 'Free Trial', 
-                price: '$0', 
-                period: '14 days', 
-                features: ['5 opportunities', '1 user', 'Basic assessment', 'Email support'], 
-                cta: 'Start Free', 
-                highlight: false 
+              {
+                name: 'Free Trial',
+                price: '$0',
+                period: '14 days',
+                features: ['5 opportunities', '1 user', 'Basic assessment', 'Email support'],
+                cta: 'Start Free',
+                highlight: false
               },
-              { 
-                name: 'Standard', 
-                price: '$99', 
-                period: '/month', 
-                features: ['50 opportunities/mo', '5 users', 'Voice assistant', 'Finance Pack generation', 'Priority support'], 
-                cta: 'Get Started', 
-                highlight: true 
+              {
+                name: 'Standard',
+                price: '$99',
+                period: '/month',
+                features: ['50 opportunities/mo', '5 users', 'Voice assistant', 'Finance Pack generation', 'Priority support'],
+                cta: 'Get Started',
+                highlight: true
               },
-              { 
-                name: 'Premium', 
-                price: '$299', 
-                period: '/month', 
-                features: ['Unlimited opportunities', 'Unlimited users', 'Custom criteria', 'API access', 'White-label options', 'Dedicated support'], 
-                cta: 'Contact Sales', 
-                highlight: false 
+              {
+                name: 'Premium',
+                price: '$299',
+                period: '/month',
+                features: ['Unlimited opportunities', 'Unlimited users', 'Custom criteria', 'API access', 'White-label for partners', 'Dedicated support'],
+                cta: 'Contact Sales',
+                highlight: false
               },
             ].map((plan, i) => (
               <div key={i} className={`rounded-2xl p-8 ${plan.highlight ? 'bg-[#22c55e] text-white scale-105' : 'bg-slate-800 border border-slate-700 text-white'}`}>
@@ -402,11 +433,11 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link 
+                <Link
                   href="/signup"
                   className={`block w-full py-3 rounded-xl font-semibold text-center transition-all ${
-                    plan.highlight 
-                      ? 'bg-slate-900 text-white hover:bg-slate-800' 
+                    plan.highlight
+                      ? 'bg-slate-900 text-white hover:bg-slate-800'
                       : 'bg-[#22c55e] text-white hover:bg-[#4ade80]'
                   }`}
                 >
@@ -414,6 +445,23 @@ export default function LandingPage() {
                 </Link>
               </div>
             ))}
+          </div>
+
+          {/* Partner pricing callout */}
+          <div className="mt-12 bg-slate-900/50 border border-[#22c55e]/30 rounded-2xl p-8 text-center">
+            <Handshake className="w-10 h-10 text-[#22c55e] mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-white mb-2">Partner / Reseller Pricing</h3>
+            <p className="text-gray-400 mb-4 max-w-xl mx-auto">
+              Buyers&apos; agent firms and property advisories that deploy DealFindrs to their client
+              roster get volume-based partner pricing, white-label workspaces, and a reseller margin
+              on every client seat.
+            </p>
+            <Link
+              href="/partners"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#22c55e] text-white rounded-xl font-semibold hover:bg-[#4ade80] transition-all"
+            >
+              See Partner Programme <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </div>
       </div>
@@ -423,10 +471,10 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2 className="text-3xl font-bold text-white mb-4">Ready to Find Better Deals?</h2>
           <p className="text-gray-400 text-lg mb-8">
-            Join buyers&apos; agent practices and property development firms running smarter, faster deal assessments.
+            Join property developers and buyers&apos; agent firms running smarter, faster deal assessments.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link 
+            <Link
               href="/signup"
               className="inline-block px-8 py-4 bg-[#22c55e] text-white rounded-xl font-bold text-lg hover:bg-[#4ade80] hover:shadow-xl hover:shadow-[#22c55e]/25 transition-all"
             >
@@ -446,6 +494,7 @@ export default function LandingPage() {
         productName="DealFindrs"
         theme="dark"
         extraLinks={[
+          { href: '/partners', label: 'Partner Programme' },
           { href: '/reports', label: 'Reports' },
           { href: '/privacy', label: 'Privacy' },
           { href: '/terms', label: 'Terms' },
