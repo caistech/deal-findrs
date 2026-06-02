@@ -14,8 +14,7 @@ import {
   MapPin,
   BadgeCheck,
   TrendingUp,
-  ClipboardList,
-  Handshake,
+  ClipboardList,  
 } from 'lucide-react'
 import { CorporateHeader } from '@/components/corporate/CorporateHeader'
 import { CorporateFooter } from '@/components/corporate/CorporateFooter'
@@ -85,7 +84,7 @@ export default function LandingPage() {
                 href="/partners"
                 className="px-6 py-4 border border-[#22c55e]/40 text-[#22c55e] rounded-xl font-semibold hover:border-[#22c55e] transition-all flex items-center gap-2"
               >
-                <Handshake className="w-5 h-5" />
+                <Users className="w-5 h-5" />
                 Become a Partner
               </Link>
             </div>
@@ -139,7 +138,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="mb-12">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-4">
-              <Handshake className="w-4 h-4" />
+              <Users className="w-4 h-4" />
               For buyers&apos; agents &amp; property firms
             </div>
             <h2 className="text-3xl font-bold text-white mb-3">
@@ -449,7 +448,7 @@ export default function LandingPage() {
 
           {/* Partner pricing callout */}
           <div className="mt-12 bg-slate-900/50 border border-[#22c55e]/30 rounded-2xl p-8 text-center">
-            <Handshake className="w-10 h-10 text-[#22c55e] mx-auto mb-4" />
+            <Users className="w-10 h-10 text-[#22c55e] mx-auto mb-4" />
             <h3 className="text-xl font-bold text-white mb-2">Partner / Reseller Pricing</h3>
             <p className="text-gray-400 mb-4 max-w-xl mx-auto">
               Buyers&apos; agent firms and property advisories that deploy DealFindrs to their client
