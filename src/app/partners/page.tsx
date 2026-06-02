@@ -8,7 +8,6 @@ import {
   Building2,
   CheckCircle,
   DollarSign,
-  Handshake,
   MapPin,
   Star,
   TrendingUp,
@@ -99,7 +98,7 @@ export default function PartnersPage() {
       <div className="max-w-7xl mx-auto px-6 pt-20 pb-16">
         <div className="max-w-4xl">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-6">
-            <Handshake className="w-4 h-4" />
+            <Users className="w-4 h-4" />
             Partner Programme — Channel Reseller
           </div>
           <h1 className="text-5xl font-bold text-white leading-tight mb-6">
@@ -151,7 +150,7 @@ export default function PartnersPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
             {[
               {
-                icon: Handshake,
+                icon: Users,
                 title: 'You — the partner',
                 subtitle: 'Buyers\' agent firm or property advisory',
                 body: 'You sign the DealFindrs partner agreement and get access to a multi-client admin console. You set criteria for each client, configure their branded workspace, and manage their seats.',
@@ -317,7 +316,7 @@ export default function PartnersPage() {
         <div className="max-w-2xl mx-auto px-6">
           <div className="text-center mb-10">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-4">
-              <Handshake className="w-4 h-4" />
+              <Users className="w-4 h-4" />
               Apply to Become a Partner
             </div>
             <h2 className="text-3xl font-bold text-white mb-4">Register your interest</h2>
