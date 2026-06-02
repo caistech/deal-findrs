@@ -49,7 +49,7 @@ export default function LandingPage() {
               </span>
             </h1>
             <p className="text-sm text-slate-400 mb-6 border-l-2 border-[#22c55e]/40 pl-3">
-              For buyers&apos; agents &amp; property firms: a steady flow of scored deals, under your brand.
+              For property firms, buyers&apos; agents &amp; real estate agencies — white-label deal assessment for your developer clients.
             </p>
             <p className="text-xl text-gray-400 mb-8 leading-relaxed">
               The AI-powered platform that gives property development promoters instant 
@@ -106,7 +106,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold text-white mb-4">Everything You Need to Evaluate Deals</h2>
-            <p className="text-gray-400 text-lg">Built by developers, for developers</p>
+            <p className="text-gray-400 text-lg">Built for property professionals who serve developers</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
@@ -123,6 +123,90 @@ export default function LandingPage() {
                 <p className="text-gray-400">{feature.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Target Market Section - ICP Evidence */}
+      <div className="py-24 bg-slate-800/30">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-white mb-4">Who DealFindrs Is For</h2>
+            <p className="text-gray-400 text-lg">Built for Australian property professionals</p>
+          </div>
+          
+          {/* ICP: Geography */}
+          <div className="mb-12">
+            <h3 className="text-xl font-semibold text-white mb-4">Geographic Focus</h3>
+            <p className="text-gray-400">DealFindrs is purpose-built for the Australian property development market — Australian cities, Australian lending criteria, Australian council requirements, and Australian tax depreciation schedules.</p>
+          </div>
+
+          {/* ICP: Buyer Title */}
+          <div className="mb-12">
+            <h3 className="text-xl font-semibold text-white mb-4">Target Roles</h3>
+            <ul className="text-gray-400 space-y-2">
+              <li>• Property Investment Managers evaluating development opportunities</li>
+              <li>• Buyers' Agents assessing deals for their client portfolios</li>
+              <li>• Development Promoters screening projects before commitment</li>
+              <li>• Real Estate Agency Principals offering deal assessment as a service</li>
+            </ul>
+          </div>
+
+          {/* ICP: Company Size */}
+          <div className="mb-12">
+            <h3 className="text-xl font-semibold text-white mb-4">Firm Size</h3>
+            <p className="text-gray-400">From boutique agencies (1-5 staff) to established property firms (20+). DealFindrs scales with your team — Solo operators use it directly; agencies white-label it for their clients.</p>
+          </div>
+
+          {/* ICP: Stage */}
+          <div className="mb-12">
+            <h3 className="text-xl font-semibold text-white mb-4">Deal Stage</h3>
+            <p className="text-gray-400">Evaluates opportunities at any stage — from initial site identification and due diligence through to DA approval, tender, and acquisition. Most valuable at the early "go/no-go" decision point before expensive consultants are engaged.</p>
+          </div>
+
+          {/* Exclusions */}
+          <div className="mb-12">
+            <h3 className="text-xl font-semibold text-white mb-4">Who It&apos;s Not For</h3>
+            <ul className="text-gray-400 space-y-2">
+              <li>• Institutional investors with in-house QS and valuation teams</li>
+              <li>• Residential property flippers (not development-focused)</li>
+              <li>• Overseas developers without Australian project experience</li>
+              <li>• Commercial-only developers (residential focus)</li>
+            </ul>
+          </div>
+
+          {/* Distributor */}
+          <div className="mb-12">
+            <h3 className="text-xl font-semibold text-white mb-4">Distributor Model</h3>
+            <p className="text-gray-400">Property firms, buyers&apos; agents, and real estate agencies use DealFindrs as a white-label tool to serve their developer clients. Your brand on the interface, your criteria applied to every deal, your clients receiving professional assessments under your name.</p>
+          </div>
+
+          {/* Distributor Outcomes */}
+          <div className="mb-12">
+            <h3 className="text-xl font-semibold text-white mb-4">What Distributors Get</h3>
+            <ul className="text-gray-400 space-y-2">
+              <li>• White-label interface with your branding</li>
+              <li>• Steady flow of consistently-scored deal opportunities</li>
+              <li>• Client retention through valuable advisory services</li>
+              <li>• Differentiated offering beyond traditional agency services</li>
+            </ul>
+          </div>
+
+          {/* End User */}
+          <div className="mb-12">
+            <h3 className="text-xl font-semibold text-white mb-4">End Users</h3>
+            <p className="text-gray-400">Property developers, investment analysts, and development promoters who evaluate deal opportunities. They receive professional, criteria-based assessments that help them make faster, more consistent go/no-go decisions.</p>
+          </div>
+
+          {/* End User Outcomes */}
+          <div>
+            <h3 className="text-xl font-semibold text-white mb-4">What End Users Achieve</h3>
+            <ul className="text-gray-400 space-y-2">
+              <li>• Consistent scoring regardless of deal source</li>
+              <li>• Saved time on initial deal screening</li>
+              <li>• Better-informed investment decisions</li>
+              <li>• Faster deal flow with automated assessments</li>
+            </ul>
           </div>
         </div>
       </div>
