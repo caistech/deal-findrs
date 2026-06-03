@@ -55,7 +55,7 @@ export default function LandingPage() {
           <div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-6">
               <Zap className="w-4 h-4" />
-              AI-Powered Deal Assessment
+              AI-Powered Deal Assessment — Channel Partner Programme
             </div>
             <h1 className="text-5xl font-bold text-white leading-tight mb-4">
               Stop Guessing.<br/>
@@ -63,15 +63,25 @@ export default function LandingPage() {
                 Start Knowing.
               </span>
             </h1>
-            {/* Distributor framing: buyers' agents / property firms deploy to their clients */}
-            <p className="text-sm text-slate-400 mb-6 border-l-2 border-[#22c55e]/40 pl-3">
-              For buyers&apos; agents and property firms: a branded deal-assessment tool you
-              deploy to your property developer clients.
+            {/*
+              PROSPECT TYPE: The prospect (the person who buys and deploys DealFindrs) is an
+              Agency Owner / Principal of a buyers' agent firm, property development advisory,
+              or real estate agency — an OPERATING BUSINESS that resells this as a service to
+              its developer client roster. icp_partner_type = reseller.
+            */}
+            <p
+              className="text-sm text-slate-400 mb-6 border-l-2 border-[#22c55e]/40 pl-3"
+              data-icp-partner-type="reseller"
+            >
+              For <strong className="text-slate-300">agency owners and principals</strong> of
+              buyers&apos; agent firms and property development advisories — operating businesses
+              that deploy DealFindrs as a branded assessment service to their developer client
+              roster.
             </p>
             <p className="text-xl text-gray-400 mb-8 leading-relaxed">
-              DealFindrs gives your property developer clients instant Green/Amber/Red assessments
+              Your property developer clients get instant Green/Amber/Red assessments
               on every opportunity — under your brand, against your criteria, producing
-              Finance Packs your clients take to the lender.
+              Finance Packs they take to the lender.
             </p>
             <div className="flex gap-4 flex-wrap">
               <Link
@@ -161,7 +171,11 @@ export default function LandingPage() {
             </p>
           </div>
 
-          {/* ICP Detail */}
+          {/* ICP Detail — distributor / channel partner profile */}
+          {/* icp_buyer_title: Agency Owner / Principal */}
+          {/* icp_stage: Operating businesses */}
+          {/* icp_geography: Australia (SYD · MEL · BNE · PER) */}
+          {/* icp_partner_type: reseller */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
             {[
               {
@@ -172,9 +186,9 @@ export default function LandingPage() {
               },
               {
                 icon: Users,
-                label: 'Partner type',
-                value: 'Principal / Director',
-                sub: 'Buyers\' agent firm or property development advisory',
+                label: 'Buyer title',
+                value: 'Agency Owner / Principal',
+                sub: "Head of a buyers' agent firm or property development advisory",
               },
               {
                 icon: Building2,
@@ -185,8 +199,8 @@ export default function LandingPage() {
               {
                 icon: TrendingUp,
                 label: 'Stage',
-                value: 'Past the first deal',
-                sub: 'Actively building a client deal pipeline',
+                value: 'Operating businesses',
+                sub: 'Active firms with an existing developer client roster — not pre-revenue startups',
               },
             ].map((item) => (
               <div
@@ -233,12 +247,17 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Exclusions */}
-          <div className="mt-6 bg-slate-800/40 border border-slate-700/50 rounded-xl px-6 py-4 flex items-start gap-3">
+          {/* Exclusions — distributor-level exclusions matching spec */}
+          <div
+            className="mt-6 bg-slate-800/40 border border-slate-700/50 rounded-xl px-6 py-4 flex items-start gap-3"
+            data-exclusions="solo-affiliates-no-client-base;generic-software-resellers-no-property-vertical"
+          >
             <span className="text-amber-400 font-bold text-sm mt-0.5">Not for:</span>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Solo residential buyers, institutional fund managers running 200+ deals through
-              a dedicated PM system, or investors who assess fewer than five deals per year.
+              Solo affiliates with no developer client base; generic software resellers with
+              no property-sector vertical. DealFindrs is a specialist channel partner programme
+              — open only to buyers&apos; agent firms and property development advisories that
+              actively serve a developer client roster.
             </p>
           </div>
         </div>

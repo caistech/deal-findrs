@@ -4,7 +4,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, Edit, Archive, CheckCircle, AlertTriangle, TrendingUp, DollarSign, X, Loader2 } from 'lucide-react'
+import { ArrowLeft, FileText, Edit, Archive, CheckCircle, AlertTriangle, TrendingUp, DollarSign, X, Loader2, Share2, Copy } from 'lucide-react'
 import { VoiceAssistant } from '@/components/voice/VoiceAssistant'
 import { DealJourney } from '@/components/common/DealJourney'
 
@@ -363,6 +363,10 @@ export default function OpportunityDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [archiving, setArchiving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Distribution loop: share state
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const [shareCopied, setShareCopied] = useState(false)
 
   // Opportunity state with proper defaults
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null)
@@ -472,6 +476,38 @@ export default function OpportunityDetailPage() {
     }
   }, [opportunityId])
 
+  // Handle Share — creates a share token and shows the link (distribution loop)
+  const handleShare = useCallback(async () => {
+    if (shareUrl) {
+      // Already created — just copy again
+      navigator.clipboard.writeText(shareUrl).catch(() => {})
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+      return
+    }
+    setSharing(true)
+    try {
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opportunity_id: opportunityId }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error((body as { error?: string }).error ?? 'Failed to create share link')
+      }
+      const { url } = await res.json()
+      setShareUrl(url)
+      navigator.clipboard.writeText(url).catch(() => {})
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create share link')
+    } finally {
+      setSharing(false)
+    }
+  }, [opportunityId, shareUrl])
+
   // Handle Archive
   const handleArchive = useCallback(async () => {
     if (!confirm('Are you sure you want to archive this opportunity?')) return
@@ -543,6 +579,22 @@ export default function OpportunityDetailPage() {
             <ArrowLeft className="w-4 h-4" /> Back to Opportunities
           </Link>
           <div className="flex items-center gap-2">
+            {/* Distribution loop: share button */}
+            <button
+              onClick={handleShare}
+              disabled={sharing}
+              className="px-4 py-2 border border-emerald-300 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 flex items-center gap-2 disabled:opacity-50 transition-colors"
+              title="Share a public summary of this assessment"
+            >
+              {sharing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : shareCopied ? (
+                <Copy className="w-4 h-4 text-emerald-600" />
+              ) : (
+                <Share2 className="w-4 h-4" />
+              )}
+              {shareCopied ? 'Link copied!' : 'Share'}
+            </button>
             <button 
               onClick={handleArchive}
               disabled={archiving}
@@ -800,6 +852,28 @@ export default function OpportunityDetailPage() {
                 <DollarSign className="w-4 h-4" />
                 Dev Finance Pack
               </Link>
+              {/* Distribution loop: share assessment */}
+              <button
+                onClick={handleShare}
+                disabled={sharing}
+                className="w-full px-4 py-3 border border-emerald-400/50 bg-emerald-50 text-emerald-700 rounded-xl font-bold hover:bg-emerald-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                title="Share a branded summary with lenders, brokers, or partners"
+              >
+                {sharing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : shareCopied ? (
+                  <Copy className="w-4 h-4" />
+                ) : (
+                  <Share2 className="w-4 h-4" />
+                )}
+                {shareCopied ? 'Link copied to clipboard' : 'Share Assessment'}
+              </button>
+              {shareUrl && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+                  <p className="text-xs text-gray-500 mb-1">Share link (active 30 days):</p>
+                  <p className="text-xs text-emerald-600 font-mono break-all">{shareUrl}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
