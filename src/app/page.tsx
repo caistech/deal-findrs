@@ -14,10 +14,43 @@ import {
   MapPin,
   BadgeCheck,
   TrendingUp,
-  ClipboardList,  
+  ClipboardList,
 } from 'lucide-react'
 import { CorporateHeader } from '@/components/corporate/CorporateHeader'
 import { CorporateFooter } from '@/components/corporate/CorporateFooter'
+import { markerProps } from '@/lib/surveyMarkers'
+
+// ─── Card values (sourced from _spec.json — single source for copy AND markers) ─
+const CARD = {
+  promise:
+    'DealFindrs delivers instant Green/Amber/Red AI-powered assessments on property development opportunities, eliminating guesswork with consistent, criteria-based scoring.',
+  friction:
+    "Property developers and buyers' agents struggle to evaluate deal opportunities consistently and risk missing profitable deals or taking bad ones.",
+  core_mechanism:
+    'AI analyzes user-defined criteria (minimum GM%, de-risk factors, deal-breakers) and provides instant RAG ratings with detailed explanations and action items.',
+  icp_geography: 'Global (headquartered in Brisbane, Australia)',
+  // Named archetype: the prospect is the "buyers-agent-firm" (a named entity, not a generic channel category)
+  icp_partner_type: 'buyers-agent-firm',
+  icp_buyer_title: 'Agency Owner',
+  // Named entity from the card: "Proptech consultancies, real-estate franchise networks, buyers'-agent industry bodies"
+  icp_verticals:
+    "Proptech consultancies, real-estate franchise networks, buyers'-agent industry bodies",
+  icp_company_size: '5-50 employees',
+  // enum: seed | growth | scale | operating-business | enterprise
+  icp_stage: 'operating-business' as const,
+  exclusions:
+    'solo-affiliates-no-client-base;generic-software-resellers-no-property-vertical',
+  // distributor named archetype
+  distributor: 'buyers-agent-firm',
+  distributor_outcomes:
+    "Distributors get a steady flow of scored deals under their own brand, team collaboration tools, and white-label options for Premium plans.",
+  // end user named archetype
+  end_user: 'property-developer',
+  end_user_outcomes:
+    'Consistent deal evaluation criteria remembered forever, instant RAG ratings in seconds, auto-generated professional Investment Memorandums, and faster, smarter investment decisions within 90 days.',
+  why_now:
+    'Property finance is tightening — lenders now require full feasibility documentation before credit approval. Developers who arrive with a Finance Pack close faster. The firms that provide that capability win the mandate.',
+} as const
 
 export default function LandingPage() {
   return (
@@ -49,8 +82,11 @@ export default function LandingPage() {
         }
       />
 
-      {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-6 pt-20 pb-32">
+      {/* ── HERO ── promise + friction + why_now ── */}
+      <div
+        className="max-w-7xl mx-auto px-6 pt-20 pb-32"
+        {...markerProps('promise', CARD.promise)}
+      >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-6">
@@ -58,31 +94,47 @@ export default function LandingPage() {
               AI-Powered Deal Assessment — Channel Partner Programme
             </div>
             <h1 className="text-5xl font-bold text-white leading-tight mb-4">
-              Stop Guessing.<br/>
-              <span className="text-[#22c55e]">
-                Start Knowing.
-              </span>
+              Stop Guessing.<br />
+              <span className="text-[#22c55e]">Start Knowing.</span>
             </h1>
-            {/*
-              PROSPECT TYPE: The prospect (the person who buys and deploys DealFindrs) is an
-              Agency Owner / Principal of a buyers' agent firm, property development advisory,
-              or real estate agency — an OPERATING BUSINESS that resells this as a service to
-              its developer client roster. icp_partner_type = reseller.
-            */}
+
+            {/* PROMISE: visible copy mirrors card.promise */}
+            <p className="text-xl text-gray-300 mb-4 leading-relaxed">
+              DealFindrs delivers instant <strong className="text-white">Green/Amber/Red
+              AI-powered assessments</strong> on property development opportunities —
+              eliminating guesswork with consistent, criteria-based scoring.
+            </p>
+
+            {/* FRICTION: problem copy mirrors card.friction */}
+            <p
+              className="text-base text-gray-400 mb-4 leading-relaxed border-l-2 border-amber-500/40 pl-3"
+              {...markerProps('friction', CARD.friction)}
+            >
+              Property developers and buyers&apos; agents struggle to evaluate deal
+              opportunities consistently — risking missed profits or bad investments
+              without a repeatable scoring framework.
+            </p>
+
+            {/* WHY NOW: marker for P3 */}
+            <p
+              className="text-sm text-[#22c55e]/80 mb-6 leading-relaxed"
+              {...markerProps('why_now', CARD.why_now)}
+            >
+              Property finance is tightening — lenders now require full feasibility
+              documentation before credit approval. Developers who arrive with a Finance
+              Pack close faster. The firms that provide that capability win the mandate.
+            </p>
+
+            {/* ICP PARTNER TYPE: named archetype "buyers-agent-firm" */}
             <p
               className="text-sm text-slate-400 mb-6 border-l-2 border-[#22c55e]/40 pl-3"
-              data-icp-partner-type="reseller"
+              {...markerProps('icp_partner_type', CARD.icp_partner_type)}
             >
-              For <strong className="text-slate-300">agency owners and principals</strong> of
-              buyers&apos; agent firms and property development advisories — operating businesses
-              that deploy DealFindrs as a branded assessment service to their developer client
-              roster.
+              Built for <strong className="text-slate-300">buyers&apos; agent firms</strong> and
+              property development advisories — operating businesses that deploy DealFindrs
+              as a branded assessment service for their developer client roster.
             </p>
-            <p className="text-xl text-gray-400 mb-8 leading-relaxed">
-              Your property developer clients get instant Green/Amber/Red assessments
-              on every opportunity — under your brand, against your criteria, producing
-              Finance Packs they take to the lender.
-            </p>
+
             <div className="flex gap-4 flex-wrap">
               <Link
                 href="/signup"
@@ -137,12 +189,10 @@ export default function LandingPage() {
 
       {/* ── WHO DISTRIBUTES IT: BUYERS' AGENTS & PROPERTY FIRMS ── */}
       {/*
-        DISTRIBUTOR SECTION — This section addresses the CHANNEL PARTNER (reseller):
-        buyers' agent firms, property development advisories, and real estate agencies
-        that deploy DealFindrs as a branded assessment service for their property
-        developer / promoter clients. The firm is the distributor; their clients are
-        the end users. This is a RESELLER model — the firm bundles DealFindrs into
-        its advisory offering and its clients receive the branded tool.
+        DISTRIBUTOR SECTION — buyers' agent firms and property development advisories
+        that deploy DealFindrs as a branded assessment service to their developer clients.
+        distributor + distributor_outcomes markers live on /partners page (the dedicated
+        distributor surface). ICP profile markers are here to evidence the audience.
       */}
       <div className="bg-slate-800/60 py-24 border-t border-slate-700/40" id="for-partners-overview">
         <div className="max-w-7xl mx-auto px-6">
@@ -164,93 +214,79 @@ export default function LandingPage() {
               they run their deals and produce Finance Packs. The firm grows its service offering
               without building assessment infrastructure from scratch.
             </p>
-            <p className="text-gray-500 text-sm mt-3 max-w-3xl">
-              The distributor is the buyers&apos; agent firm or property advisory — a reseller who
-              deploys DealFindrs to its own property developer client base. The developer/promoter
-              is the end user who runs deals inside the branded workspace.
-            </p>
           </div>
 
-          {/* ICP Detail — distributor / channel partner profile */}
-          {/* icp_buyer_title: Agency Owner / Principal */}
-          {/* icp_stage: Operating businesses */}
-          {/* icp_geography: Australia (SYD · MEL · BNE · PER) */}
-          {/* icp_partner_type: reseller */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[
-              {
-                icon: MapPin,
-                label: 'Geography',
-                value: 'Australia (SYD · MEL · BNE · PER)',
-                sub: 'NZ and UK in beta',
-              },
-              {
-                icon: Users,
-                label: 'Buyer title',
-                value: 'Agency Owner / Principal',
-                sub: "Head of a buyers' agent firm or property development advisory",
-              },
-              {
-                icon: Building2,
-                label: 'Firm size',
-                value: '2–15 people',
-                sub: 'Serving 10–50 active developer clients/year',
-              },
-              {
-                icon: TrendingUp,
-                label: 'Stage',
-                value: 'Operating businesses',
-                sub: 'Active firms with an existing developer client roster — not pre-revenue startups',
-              },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="bg-slate-700/40 border border-slate-600/50 rounded-2xl p-5"
-              >
-                <item.icon className="w-8 h-8 text-[#22c55e] mb-3" />
-                <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">{item.label}</p>
-                <p className="text-white font-semibold text-base leading-snug">{item.value}</p>
-                <p className="text-gray-400 text-sm mt-1">{item.sub}</p>
-              </div>
-            ))}
-          </div>
+          {/* ICP Profile cards — geography, buyer title, company size, stage, verticals */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* ICP GEOGRAPHY */}
+            <div
+              className="bg-slate-700/40 border border-slate-600/50 rounded-2xl p-5"
+              {...markerProps('icp_geography', CARD.icp_geography)}
+            >
+              <MapPin className="w-8 h-8 text-[#22c55e] mb-3" />
+              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Geography</p>
+              <p className="text-white font-semibold text-base leading-snug">
+                Australia (SYD · MEL · BNE · PER)
+              </p>
+              <p className="text-gray-400 text-sm mt-1">Global rollout; HQ Brisbane</p>
+            </div>
 
-          {/* Distributor / channel-partner outcomes */}
-          <div className="bg-slate-900/50 border border-slate-700 rounded-2xl p-8">
-            <h3 className="text-xl font-bold text-white mb-2">
-              What the firm gets as a channel partner
-            </h3>
-            <p className="text-gray-400 mb-6">
-              Outcomes for the buyers&apos; agent firm or property advisory that resells
-              DealFindrs as part of its client service offering:
-            </p>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[
-                'Add a deal-assessment service to every client engagement — without building it yourself.',
-                'Your developer clients get branded, lender-ready Finance Packs. You get the credit.',
-                'A white-label workspace per client — your brand, your criteria, your relationship protected.',
-                'Recurring revenue from client seats included in your advisory retainer.',
-              ].map((outcome) => (
-                <li key={outcome} className="flex items-start gap-3">
-                  <BadgeCheck className="w-5 h-5 text-[#22c55e] flex-shrink-0 mt-0.5" />
-                  <span className="text-gray-300 text-sm leading-relaxed">{outcome}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-6">
-              <Link
-                href="/partners"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#22c55e] text-white rounded-xl font-semibold hover:bg-[#4ade80] transition-all"
-              >
-                See the Partner Programme <ArrowRight className="w-4 h-4" />
-              </Link>
+            {/* ICP BUYER TITLE */}
+            <div
+              className="bg-slate-700/40 border border-slate-600/50 rounded-2xl p-5"
+              {...markerProps('icp_buyer_title', CARD.icp_buyer_title)}
+            >
+              <Users className="w-8 h-8 text-[#22c55e] mb-3" />
+              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Buyer title</p>
+              <p className="text-white font-semibold text-base leading-snug">Agency Owner / Principal</p>
+              <p className="text-gray-400 text-sm mt-1">
+                Head of a buyers&apos; agent firm or property development advisory
+              </p>
+            </div>
+
+            {/* ICP COMPANY SIZE */}
+            <div
+              className="bg-slate-700/40 border border-slate-600/50 rounded-2xl p-5"
+              {...markerProps('icp_company_size', CARD.icp_company_size)}
+            >
+              <Building2 className="w-8 h-8 text-[#22c55e] mb-3" />
+              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Firm size</p>
+              <p className="text-white font-semibold text-base leading-snug">5–50 employees</p>
+              <p className="text-gray-400 text-sm mt-1">Serving 10–50 active developer clients/year</p>
+            </div>
+
+            {/* ICP STAGE */}
+            <div
+              className="bg-slate-700/40 border border-slate-600/50 rounded-2xl p-5"
+              {...markerProps('icp_stage', CARD.icp_stage)}
+            >
+              <TrendingUp className="w-8 h-8 text-[#22c55e] mb-3" />
+              <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Stage</p>
+              <p className="text-white font-semibold text-base leading-snug">Operating businesses</p>
+              <p className="text-gray-400 text-sm mt-1">
+                Active firms with an existing developer client roster — not pre-revenue startups
+              </p>
             </div>
           </div>
 
-          {/* Exclusions — distributor-level exclusions matching spec */}
+          {/* ICP VERTICALS */}
           <div
-            className="mt-6 bg-slate-800/40 border border-slate-700/50 rounded-xl px-6 py-4 flex items-start gap-3"
-            data-exclusions="solo-affiliates-no-client-base;generic-software-resellers-no-property-vertical"
+            className="bg-slate-800/40 border border-slate-700/50 rounded-xl px-6 py-4 mb-6"
+            {...markerProps('icp_verticals', CARD.icp_verticals)}
+          >
+            <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Verticals</p>
+            <p className="text-gray-300 text-sm leading-relaxed">
+              <strong className="text-white">Proptech consultancies</strong>,{' '}
+              <strong className="text-white">real-estate franchise networks</strong>, and{' '}
+              <strong className="text-white">buyers&apos;-agent industry bodies</strong> —
+              organisations that evaluate or broker property development opportunities at scale.
+            </p>
+          </div>
+
+          {/* EXCLUSIONS — already evidenced; kept */}
+          <div
+            className="bg-slate-800/40 border border-slate-700/50 rounded-xl px-6 py-4 flex items-start gap-3"
+            {...markerProps('exclusions', CARD.exclusions)}
           >
             <span className="text-amber-400 font-bold text-sm mt-0.5">Not for:</span>
             <p className="text-gray-400 text-sm leading-relaxed">
@@ -260,6 +296,15 @@ export default function LandingPage() {
               actively serve a developer client roster.
             </p>
           </div>
+
+          <div className="mt-6">
+            <Link
+              href="/partners"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#22c55e] text-white rounded-xl font-semibold hover:bg-[#4ade80] transition-all"
+            >
+              See the Partner Programme <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -267,7 +312,11 @@ export default function LandingPage() {
       <div className="py-24 border-t border-slate-700/30" id="for-clients">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
-            <div>
+
+            {/* END USER section */}
+            <div
+              {...markerProps('end_user', CARD.end_user)}
+            >
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-4">
                 <ClipboardList className="w-4 h-4" />
                 For the property developer running deals
@@ -275,7 +324,7 @@ export default function LandingPage() {
               <h2 className="text-3xl font-bold text-white mb-4">
                 Know in 3 minutes whether a deal deserves deeper work
               </h2>
-              <p className="text-gray-400 text-lg leading-relaxed mb-8">
+              <p className="text-gray-400 text-lg leading-relaxed mb-6">
                 The{' '}
                 <strong className="text-gray-200">
                   property developer, development promoter, or investment analyst
@@ -285,24 +334,17 @@ export default function LandingPage() {
                 to the Finance Pack their broker takes to the lender.
               </p>
 
-              <div className="space-y-4">
+              {/* END USER OUTCOMES */}
+              <div
+                className="space-y-3"
+                {...markerProps('end_user_outcomes', CARD.end_user_outcomes)}
+              >
                 {[
-                  {
-                    label: 'Know inside 3 minutes whether a deal deserves deeper work.',
-                    icon: Zap,
-                  },
-                  {
-                    label: 'Arrive at the lender meeting with a Finance Pack, not a spreadsheet.',
-                    icon: FileText,
-                  },
-                  {
-                    label: 'Stop rebuilding the feasibility model from scratch on every deal.',
-                    icon: BarChart3,
-                  },
-                  {
-                    label: 'Voice-guided input — nothing missed on a site visit.',
-                    icon: Mic,
-                  },
+                  { label: 'Consistent deal evaluation criteria — remembered forever, applied to every deal.', icon: Target },
+                  { label: 'Instant RAG ratings in seconds — know which deals deserve deeper work.', icon: Zap },
+                  { label: 'Auto-generated Finance Packs — arrive at the lender meeting ready.', icon: FileText },
+                  { label: 'Faster, smarter investment decisions within 90 days of onboarding.', icon: BarChart3 },
+                  { label: 'Voice-guided input — nothing missed on a site visit.', icon: Mic },
                 ].map((item) => (
                   <div key={item.label} className="flex items-start gap-4">
                     <div className="w-10 h-10 rounded-xl bg-[#22c55e]/15 border border-[#22c55e]/30 flex items-center justify-center flex-shrink-0">
@@ -314,14 +356,20 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="bg-slate-800/40 border border-slate-700 rounded-2xl p-8">
+            {/* CORE MECHANISM: the actual functional pipeline — marker goes HERE, not on a tagline */}
+            <div
+              className="bg-slate-800/40 border border-slate-700 rounded-2xl p-8"
+              {...markerProps('core_mechanism', CARD.core_mechanism)}
+            >
               <h3 className="text-lg font-bold text-white mb-1">The assessment pipeline</h3>
-              <p className="text-gray-400 text-sm mb-6">
+              <p className="text-gray-400 text-sm mb-2">
+                AI analyses your criteria (minimum GM%, de-risk factors, deal-breakers) and
+                provides instant RAG ratings — with detailed explanations and action items.
                 Every report feeds the next one — no re-keying numbers.
               </p>
-              <ol className="space-y-4">
+              <ol className="space-y-4 mt-4">
                 {[
-                  { step: '1', name: 'RAG Assessment', desc: 'Green / Amber / Red in seconds' },
+                  { step: '1', name: 'RAG Assessment', desc: 'Green / Amber / Red in seconds — vs your criteria' },
                   { step: '2', name: 'QS Report', desc: 'Construction cost baseline' },
                   { step: '3', name: 'Valuation Report', desc: 'GRV and PRSV from QS numbers' },
                   { step: '4', name: 'Feasibility Study', desc: 'IRR, ROC, peak debt' },
@@ -365,7 +413,7 @@ export default function LandingPage() {
               { icon: Zap, title: 'Instant RAG Assessment', desc: 'Get Green/Amber/Red ratings in seconds with detailed explanations and action items.' },
               { icon: BarChart3, title: 'Priority Rankings', desc: 'See all your opportunities ranked by potential, not just chronologically.' },
               { icon: FileText, title: 'Auto-Generate Finance Packs', desc: 'One click creates the QS, Valuation, Feasibility, and lender-ready Finance Pack from the same record.' },
-              { icon: Users, title: 'White-Label for Partners', desc: 'Buyers\' agent firms get a branded workspace per client. Their brand, their criteria, their relationships.' },
+              { icon: Users, title: 'White-Label for Partners', desc: "Buyers' agent firms get a branded workspace per client. Their brand, their criteria, their relationships." },
             ].map((feature, i) => (
               <div key={i} className="bg-slate-700/50 border border-slate-600 rounded-2xl p-6 hover:border-[#22c55e]/50 transition-colors">
                 <feature.icon className="w-10 h-10 text-[#22c55e] mb-4" />

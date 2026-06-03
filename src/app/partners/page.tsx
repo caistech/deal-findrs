@@ -16,19 +16,33 @@ import {
 } from 'lucide-react'
 import { CorporateHeader } from '@/components/corporate/CorporateHeader'
 import { CorporateFooter } from '@/components/corporate/CorporateFooter'
+import { markerProps } from '@/lib/surveyMarkers'
 
 // ─── Partner / Reseller Surface ───────────────────────────────────────────────
 //
-// WHO THIS PAGE IS FOR:
-//   The DISTRIBUTOR — buyers' agent firms, property development advisories, and
-//   real estate agencies that serve property developer / promoter clients.
-//   These firms bundle DealFindrs as a branded assessment service for their clients.
-//   They are the CHANNEL PARTNER / RESELLER: they deploy DealFindrs to their
-//   client roster (property developers / promoters), earn a margin on client seats,
-//   and deliver branded Finance Packs under their firm's name.
+// DISTINCT DISTRIBUTOR SURFACE — this page is for the CHANNEL PARTNER (distributor):
+//   buyers' agent firms, property development advisories, and real estate agencies
+//   that serve property developer / promoter clients and deploy DealFindrs as a
+//   branded assessment service to their client roster.
 //
-// DISTINCT FROM: the end-user (developer/promoter) surfaces on the main landing.
+//   distributor marker:         "buyers-agent-firm" (named archetype, not "reseller")
+//   distributor_outcomes marker: the channel economics visible copy
+//
+// STRUCTURALLY DISTINCT from the end-user (developer/promoter) sections on /.
 // ──────────────────────────────────────────────────────────────────────────────
+
+// Card values for this surface — named archetypes from the spec card
+const CARD = {
+  // DISTRIBUTOR: named archetype — "buyers-agent-firm"
+  distributor: 'buyers-agent-firm',
+  // DISTRIBUTOR OUTCOMES: from the spec card
+  distributor_outcomes:
+    "Distributors get a steady flow of scored deals under their own brand, team collaboration tools, and white-label options for Premium plans.",
+  // ICP partner type (same archetype)
+  icp_partner_type: 'buyers-agent-firm',
+  exclusions:
+    'solo-affiliates-no-client-base;generic-software-resellers-no-property-vertical',
+} as const
 
 export default function PartnersPage() {
   const [formState, setFormState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
@@ -94,15 +108,18 @@ export default function PartnersPage() {
         }
       />
 
-      {/* ── PARTNER HERO ── */}
-      <div className="max-w-7xl mx-auto px-6 pt-20 pb-16">
+      {/* ── PARTNER HERO — DISTRIBUTOR marker here ── */}
+      <div
+        className="max-w-7xl mx-auto px-6 pt-20 pb-16"
+        {...markerProps('distributor', CARD.distributor)}
+      >
         <div className="max-w-4xl">
           <div
             className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-6"
-            data-icp-partner-type="reseller"
+            {...markerProps('icp_partner_type', CARD.icp_partner_type)}
           >
             <Users className="w-4 h-4" />
-            Partner Programme — Channel Reseller for Agency Owners
+            Partner Programme — for Buyers&apos; Agent Firms
           </div>
           <h1 className="text-5xl font-bold text-white leading-tight mb-6">
             Add a deal-assessment service<br />
@@ -110,16 +127,16 @@ export default function PartnersPage() {
           </h1>
           {/* Explanatory header: WHAT / DO / MATTERS */}
           <p className="text-xl text-gray-300 leading-relaxed mb-4 max-w-3xl">
-            DealFindrs partners are <strong className="text-white">agency owners and principals
-            of buyers&apos; agent firms, property development advisories, and real estate
-            agencies</strong> — operating businesses that resell DealFindrs as a branded
-            assessment service to their property developer and promoter clients.
+            DealFindrs partners are <strong className="text-white">buyers&apos; agent firms</strong>{' '}
+            and property development advisories — operating businesses that resell DealFindrs
+            as a branded assessment service to their property developer and promoter clients.
           </p>
           <p className="text-gray-400 text-lg leading-relaxed mb-8 max-w-3xl">
             Your clients get a white-label workspace to run their deals. You get the credit for
             the Finance Packs, a reseller margin on every client seat, and a scalable service
             line you did not have to build. This is a <strong className="text-gray-200">reseller
-            model</strong> — not a licence for your own internal team.
+            model</strong> — the buyers&apos; agent firm is the channel; the developer is the
+            end user.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <a
@@ -154,17 +171,17 @@ export default function PartnersPage() {
             {[
               {
                 icon: Users,
-                title: 'You — the partner',
-                subtitle: 'Buyers\' agent firm or property advisory',
-                body: 'You sign the DealFindrs partner agreement and get access to a multi-client admin console. You set criteria for each client, configure their branded workspace, and manage their seats.',
-                tag: 'DISTRIBUTOR / RESELLER',
+                title: "You — the buyers' agent firm",
+                subtitle: "Buyers' agent firm or property advisory",
+                body: "You sign the DealFindrs partner agreement and get access to a multi-client admin console. You set criteria for each client, configure their branded workspace, and manage their seats.",
+                tag: 'DISTRIBUTOR / CHANNEL',
                 tagColor: 'bg-[#22c55e]/20 text-[#22c55e] border-[#22c55e]/30',
               },
               {
                 icon: Building2,
                 title: 'Your clients — the end users',
                 subtitle: 'Property developers, promoters, investment analysts',
-                body: 'Each client gets a branded workspace with your firm\'s name and logo. They run their deals through the RAG → QS → Valuation → Feasibility → Finance Pack pipeline and see your brand on every output.',
+                body: "Each client gets a branded workspace with your firm's name and logo. They run their deals through the RAG → QS → Valuation → Feasibility → Finance Pack pipeline and see your brand on every output.",
                 tag: 'END USER',
                 tagColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
               },
@@ -191,8 +208,11 @@ export default function PartnersPage() {
         </div>
       </div>
 
-      {/* ── DISTRIBUTOR OUTCOMES ── */}
-      <div className="py-20 border-t border-slate-700/30">
+      {/* ── DISTRIBUTOR OUTCOMES — marker lives here ── */}
+      <div
+        className="py-20 border-t border-slate-700/30"
+        {...markerProps('distributor_outcomes', CARD.distributor_outcomes)}
+      >
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             <div>
@@ -204,28 +224,31 @@ export default function PartnersPage() {
                 A scalable service line.<br />
                 <span className="text-[#22c55e]">Your brand. Your margin.</span>
               </h2>
-              <p className="text-gray-400 text-lg leading-relaxed mb-8">
-                Every buyers&apos; agent firm knows the problem: developers ask for deal opinions
-                constantly, but producing a rigorous Finance Pack by hand takes hours. DealFindrs
-                turns that into a 10-minute billable deliverable your client receives under your brand.
+              <p className="text-gray-400 text-lg leading-relaxed mb-6">
+                Distributors — buyers&apos; agent firms — get a steady flow of scored deals
+                under their own brand, team collaboration tools, and white-label options for
+                Premium plans. Every buyers&apos; agent firm knows the problem: developers ask
+                for deal opinions constantly, but producing a rigorous Finance Pack by hand
+                takes hours. DealFindrs turns that into a 10-minute billable deliverable your
+                client receives under your brand.
               </p>
               <ul className="space-y-4">
                 {[
                   {
-                    title: 'Add a service line without building infrastructure',
+                    title: 'A steady flow of scored deals under your own brand',
                     desc: 'Offer deal assessment + Finance Pack generation to every client engagement. DealFindrs handles the AI and report engine; you keep the client relationship.',
                   },
                   {
-                    title: 'Your brand on every deliverable',
+                    title: 'Team collaboration tools — your whole firm, one console',
+                    desc: 'Manage all your developer clients from one admin console. Assign team members, set criteria per client, monitor deal volumes across your roster.',
+                  },
+                  {
+                    title: 'White-label options — your brand on every deliverable',
                     desc: 'Each client workspace shows your firm name and logo. Every Finance Pack that goes to a lender carries your brand — reinforcing your advisory relationship.',
                   },
                   {
                     title: 'Recurring seat revenue from client rosters',
                     desc: 'Bundle DealFindrs into retainers or sell client seats. Reseller margin applies. Volume pricing for 10+ active developer clients.',
-                  },
-                  {
-                    title: 'A white-label workspace per client',
-                    desc: 'Each property developer client gets their own isolated workspace. Your criteria, their deals, your brand. One admin console to manage all clients.',
                   },
                   {
                     title: 'Criteria that travel with your methodology',
@@ -247,14 +270,11 @@ export default function PartnersPage() {
             <div className="space-y-6">
               <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4">Who becomes a DealFindrs partner</h3>
-                {/* icp_buyer_title: Agency Owner / Principal */}
-                  {/* icp_stage: Operating businesses */}
-                  {/* icp_partner_type: reseller */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
                     { icon: MapPin, label: 'Geography', value: 'Australia (SYD · MEL · BNE · PER)', sub: 'NZ and UK in beta' },
                     { icon: Users, label: 'Buyer title', value: 'Agency Owner / Principal', sub: "Head of a buyers' agent firm or property development advisory" },
-                    { icon: Building2, label: 'Firm size', value: '2–15 people', sub: 'Serving property developer clients' },
+                    { icon: Building2, label: 'Firm size', value: '5–50 employees', sub: 'Serving property developer clients' },
                     { icon: Star, label: 'Stage', value: 'Operating businesses', sub: 'Active firms with a developer client roster — not pre-revenue startups' },
                   ].map((item) => (
                     <div key={item.label} className="bg-slate-700/40 rounded-xl p-4">
@@ -270,12 +290,12 @@ export default function PartnersPage() {
               <div className="bg-slate-900/50 border border-[#22c55e]/30 rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-white mb-3">Not right for everyone</h3>
                 <p className="text-gray-400 text-sm leading-relaxed mb-3">
-                  The partner programme is for channel resellers only — firms that serve property
-                  developer clients and want to offer assessment as a service.
+                  The partner programme is for buyers&apos; agent firms only — firms that serve
+                  property developer clients and want to offer assessment as a service.
                 </p>
                 <div
                   className="bg-amber-400/10 border border-amber-400/20 rounded-lg px-4 py-3"
-                  data-exclusions="solo-affiliates-no-client-base;generic-software-resellers-no-property-vertical"
+                  {...markerProps('exclusions', CARD.exclusions)}
                 >
                   <span className="text-amber-400 font-bold text-sm">Not a partner if:</span>
                   <p className="text-gray-400 text-sm mt-1 leading-relaxed">
