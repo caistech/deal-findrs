@@ -7,6 +7,21 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 export const fetchCache = 'force-no-store'
 
+// Shape of a share_tokens row. share_tokens is a NEW table, so the generated
+// Supabase Database types don't know it yet and reads would otherwise be typed
+// `never`. Cast reads via .single<ShareTokenRow>() and inserts via `as never`.
+type ShareTokenRow = {
+  token: string
+  opportunity_name: string | null
+  opportunity_address: string | null
+  rag_status: 'green' | 'amber' | 'red' | null
+  score: number | null
+  gross_margin_pct: number | null
+  partner_name: string | null
+  expires_at: string
+  revoked: boolean
+}
+
 // Lazy-init admin client (service-role, server-side only).
 let _adminClient: ReturnType<typeof createClient> | null = null
 function getAdmin() {
@@ -29,7 +44,7 @@ export async function POST(request: NextRequest) {
   if (auth.error) {
     return NextResponse.json({ error: 'Unauthenticated' }, { status: 401 })
   }
-  const { user } = auth
+  const { user, supabase } = auth
 
   let body: Record<string, unknown>
   try {
@@ -51,8 +66,7 @@ export async function POST(request: NextRequest) {
     const admin = getAdmin()
 
     // Fetch the opportunity to snapshot its key fields.
-    // Use the user's own client (via auth supabase) so RLS scopes the read.
-    const { supabase } = auth
+    // Use the user's own client (auth.supabase) so RLS scopes the read to them.
     const { data: opp, error: oppErr } = await supabase
       .from('opportunities')
       .select(
@@ -69,31 +83,38 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const oppRow = opp as Record<string, unknown>
+
     // Fetch partner/firm name for attribution on the share page.
-    const { data: company } = await supabase
+    // Non-fatal: if this lookup fails we still create the share, just without a
+    // branded partner name (the share page falls back to "A DealFindrs partner").
+    const { data: company, error: companyErr } = await supabase
       .from('companies')
       .select('name')
-      .eq('id', opp.company_id)
+      .eq('id', oppRow.company_id as string)
       .single()
 
-    const partnerName = company?.name ?? null
+    if (companyErr) {
+      console.warn('[share POST] partner-name lookup failed (non-fatal):', companyErr.message)
+    }
+    const partnerName = (company as { name?: string } | null)?.name ?? null
 
     // Insert the share token (new table — cast payload as never per HARD RULE).
     const { data: tokenRow, error: insertErr } = await admin
       .from('share_tokens')
       .insert({
-        opportunity_id: opp.id,
-        company_id: opp.company_id,
+        opportunity_id: oppRow.id,
+        company_id: oppRow.company_id,
         created_by: user.id,
-        opportunity_name: opp.name ?? null,
-        opportunity_address: ((opp as Record<string, unknown>).address as string | null) ?? null,
-        rag_status: opp.rag_status ?? null,
-        score: opp.score ?? null,
-        gross_margin_pct: opp.gross_margin_percent ?? null,
+        opportunity_name: (oppRow.name as string | null) ?? null,
+        opportunity_address: (oppRow.address as string | null) ?? null,
+        rag_status: (oppRow.rag_status as string | null) ?? null,
+        score: (oppRow.score as number | null) ?? null,
+        gross_margin_pct: (oppRow.gross_margin_percent as number | null) ?? null,
         partner_name: partnerName,
       } as never)
       .select('token')
-      .single()
+      .single<{ token: string }>()
 
     if (insertErr || !tokenRow) {
       console.error('[share POST] insert failed:', insertErr?.message)
@@ -103,7 +124,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const token = (tokenRow as { token: string }).token
+    const token = tokenRow.token
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL ??
       `https://${request.headers.get('host') ?? 'deal-findrs.vercel.app'}`
@@ -146,7 +167,7 @@ export async function GET(request: NextRequest) {
       .eq('token', token)
       .eq('revoked', false)
       .gt('expires_at', new Date().toISOString())
-      .single()
+      .single<ShareTokenRow>()
 
     if (error || !data) {
       return NextResponse.json(
