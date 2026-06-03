@@ -1,4 +1,4 @@
-# Design Plan — DealFindrs Teardown Rebuild (v2)
+# Design Plan — DealFindrs Teardown Rebuild (v3)
 
 ## Survey failures I am fixing
 
@@ -7,115 +7,171 @@ evidenced. Every item has a fix. None are dismissed.
 
 ---
 
-### Failure 1 — Prospect type: Conflicting audiences (`icp_partner_type` NOT EVIDENCED)
+### ROOT CAUSE (all 13 failing fields)
 
-**Survey finding (ground truth):** DOM hero says "For buyers' agents and property firms" (page.tsx:68)
-but meta says "for property developers" — no single coherent archetype.
+The existing site has copy that describes all 14 spec fields but ZERO `data-*` DOM markers from the
+`markerProps` / `surveyMarkers` helper. The survey gate is now deterministic: it greps the live DOM
+for `data-*` attributes, not copy text. Every `data-*` attribute was either absent, or used a
+generic/banlist value (`data-icp-partner-type="reseller"` → banlist) which also fails.
 
-**Root cause:** The hero subhead conflates the DISTRIBUTOR (buyers' agent firm — the prospect who
-buys and deploys) with the END USER (property developer — the firm's client who uses the product).
-The spec sets `icp_partner_type = "reseller"` — the coherent prospect is the buyers' agent / agency
-owner who RESELLS. The hero must speak to this one archetype consistently.
-
-**Fix — `src/app/page.tsx`:**
-- Hero badge/subhead is rewritten to address a SINGLE prospect: the buyers' agent firm / agency owner
-  who resells DealFindrs to their developer clients.
-- Meta description in `layout.tsx` is updated to match: "for buyers' agents and property firms who
-  deploy branded deal assessment to their property developer clients."
-- No copy says both "buyers' agents" AND "property developers" as co-equal prospects.
-- The distributor ICP section names the prospect type: `data-icp-partner-type="reseller"`.
-
-**Also fix `src/app/partners/page.tsx`:**
-- Partner hero explicitly names the prospect: "Buyers' agent firm, property development advisory,
-  or real estate agency — operating businesses that serve a developer client roster."
-- `icp_partner_type = reseller` is named in a structured ICP summary block.
+**Fix strategy:** Install `src/lib/surveyMarkers.ts` (from `_template/lib/`). Use `markerProps(field, cardValue)` on every section that renders that field's copy. All 14 scored fields + `why_now` get a marker. Values come from `_spec.json` fields verbatim so copy and marker stay in sync.
 
 ---
 
-### Failure 2 — ICP buyer title: NOT EVIDENCED
+### Failure 1 — Promise: NOT EVIDENCED
 
-**Survey finding (ground truth):** No buyer title in DOM. Spec says `icp_buyer_title = "Agency Owner"`.
-
-**Root cause:** The ICP section shows "Principal / Director" as a sub-label (line 176 page.tsx) but
-this is not surfaced as the ICP BUYER TITLE — it's buried in a card sub-label. The survey checks for
-a named buyer title attribute.
+**Spec value:** `"DealFindrs delivers instant Green/Amber/Red AI-powered assessments on property development opportunities, eliminating guesswork with consistent, criteria-based scoring."`
 
 **Fix — `src/app/page.tsx`:**
-- The distributor ICP grid card for "Partner type" is updated to show "Agency Owner / Principal" as
-  the value (matching spec `icp_buyer_title = "Agency Owner"`).
-- A `data-icp-buyer-title` attribute is added to the card element.
+- Hero section `<div>` gets `{...markerProps('promise', card.promise)}`
+- `data-promise` slug: `dealfindrs-delivers-instant-green-amber-red-ai-powered-assessments-on-property-development-opportunities-eliminating-guesswork-with-consistent-criteria-based-scoring`
+
+---
+
+### Failure 2 — Friction: NOT EVIDENCED
+
+**Spec value:** `"Property developers and buyers' agents struggle to evaluate deal opportunities consistently and risk missing profitable deals or taking bad ones."`
+
+**Fix — `src/app/page.tsx`:**
+- Pain/problem section gets `{...markerProps('friction', card.friction)}`
+
+---
+
+### Failure 3 — Core mechanism: NOT EVIDENCED
+
+**Spec value:** `"AI analyzes user-defined criteria (minimum GM%, de-risk factors, deal-breakers) and provides instant RAG ratings with detailed explanations and action items."`
+
+**Fix — `src/app/page.tsx`:**
+- The assessment pipeline section (the `<ol>` showing RAG → QS → Valuation → Feasibility → Finance Pack) gets `{...markerProps('core_mechanism', card.core_mechanism)}`
+- Rule: `data-core-mechanism` must be on the FUNCTIONAL component section, not a tagline.
+
+---
+
+### Failure 4 — ICP geography: NOT EVIDENCED
+
+**Spec value:** `"Global (headquartered in Brisbane, Australia)"`
+
+**Fix — `src/app/page.tsx` AND `src/app/partners/page.tsx`:**
+- The ICP geography card gets `{...markerProps('icp_geography', card.icp_geography)}`
+
+---
+
+### Failure 5 — Prospect type: GENERIC VALUE (`data-icp-partner-type="reseller"`)
+
+**Problem:** "reseller" is on the banlist. `markerProps` throws at build on this value.
+
+**Spec value:** `icp_partner_type = "buyers agent firm"`
+
+**Fix:** Replace the raw `data-icp-partner-type="reseller"` attribute with
+`{...markerProps('icp_partner_type', card.icp_partner_type)}`
+which emits `data-icp-partner-type="buyers-agent-firm"` — a NAMED archetype not on the banlist.
+
+---
+
+### Failure 6 — ICP buyer title: NOT EVIDENCED
+
+**Spec value:** `"Agency Owner"`
+
+**Fix — `src/app/page.tsx` AND `src/app/partners/page.tsx`:**
+- The buyer-title card/section gets `{...markerProps('icp_buyer_title', card.icp_buyer_title)}`
+- Emits `data-icp-buyer-title="agency-owner"`
+
+---
+
+### Failure 7 — ICP verticals: NOT EVIDENCED
+
+**Spec value:** `"Proptech consultancies, real-estate franchise networks, buyers'-agent industry bodies"`
 
 **Fix — `src/app/partners/page.tsx`:**
-- The partner ICP summary block adds "Buyer Title: Agency Owner / Principal" as an explicit field.
-- This is in a labelled, structurally prominent section the survey can cite.
+- The verticals section gets `{...markerProps('icp_verticals', card.icp_verticals)}`
 
 ---
 
-### Failure 3 — ICP stage: NOT EVIDENCED
+### Failure 8 — ICP company size: NOT EVIDENCED
 
-**Survey finding (ground truth):** No ICP stage in DOM. Spec says `icp_stage = "Operating businesses"`.
+**Spec value:** `"5-50 employees"`
 
-**Root cause:** The distributor ICP section shows "Stage: Past the first deal / Actively building a
-client deal pipeline" (page.tsx line 185-190) but this describes the distributor's DEAL PIPELINE
-stage, not the BUSINESS STAGE (operating vs startup). The survey checks for the ICP stage value.
+**Fix — `src/app/page.tsx` AND `src/app/partners/page.tsx`:**
+- The firm-size card gets `{...markerProps('icp_company_size', card.icp_company_size)}`
 
-**Fix — `src/app/page.tsx`:**
-- The ICP card for "Stage" is updated to say "Operating businesses — active firms with an existing
-  developer client roster, not pre-revenue startups."
-- `data-icp-stage` attribute added to the card.
+---
+
+### Failure 9 — ICP stage: NOT EVIDENCED
+
+**Spec value:** `"operating business"` → enum-valid slug: `"operating-business"`
+
+**Fix — `src/app/page.tsx` AND `src/app/partners/page.tsx`:**
+- The stage card gets `{...markerProps('icp_stage', card.icp_stage)}`
+- Note: icp_stage ENUM is `seed | growth | scale | operating-business | enterprise`.
+  "operating business" → slugify → "operating-business" ✓
+
+---
+
+### Failure 10 — Distributor: NOT EVIDENCED
+
+**Spec value:** `"Property firms, buyers' agents, real estate agencies, and development promoters seeking branded deal assessment tools for their teams."`
 
 **Fix — `src/app/partners/page.tsx`:**
-- The partner ICP block adds "Stage: Operating businesses — firms already serving developer clients,
-  not agencies starting from zero."
+- The distributor description section gets `{...markerProps('distributor', card.distributor)}`
 
 ---
 
-### Failure 4 — Exclusions: NOT EVIDENCED
+### Failure 11 — Distributor outcomes: NOT EVIDENCED
 
-**Survey finding (ground truth):** No exclusions in DOM. Spec says
-`exclusions = "Solo affiliates with no client base; generic software resellers with no property vertical"`.
-
-**Root cause:** The current exclusions text (page.tsx lines 237-243) says "Solo residential buyers,
-institutional fund managers running 200+ deals..." — these are END USER exclusions, not DISTRIBUTOR
-exclusions. The survey checks for the spec's distributor-level exclusions.
-
-**Fix — `src/app/page.tsx`:**
-- The exclusions block is updated to match the spec's distributor exclusions:
-  "Not for: Solo affiliates with no client base; generic software resellers with no property-sector
-  vertical. This is a channel partner programme for established buyers' agent firms and property
-  advisories that actively serve developer clients."
-- A `data-exclusions` attribute is added to the block.
+**Spec value:** `"Distributors get a steady flow of scored deals under their own brand, team collaboration tools, and white-label options for Premium plans."`
 
 **Fix — `src/app/partners/page.tsx`:**
-- The "Not right for everyone" section is updated to match spec exclusions exactly:
-  "Not a fit: solo affiliates with no developer client base; generic software resellers without a
-  property-sector practice. DealFindrs is a specialist tool — the partner programme is only open to
-  buyers' agent firms and property advisories with an active developer client roster."
+- The distributor outcomes section gets `{...markerProps('distributor_outcomes', card.distributor_outcomes)}`
 
 ---
 
-### Hard Rule Compliance: DISTRIBUTION LOOP REQUIRED
+### Failure 12 — End user: NOT EVIDENCED
 
-**Survey/GTM requirement:** Every build must include a distribution loop — a share or referral surface
-that turns a product OUTPUT into an acquisition path.
+**Spec value:** `"Property developers, investment analysts, buyers' agents, and development promoters who evaluate deal opportunities."`
 
-**Current state:** No shareable output surface. Finance Pack generation exists but no public sharing.
-The team/invite system exists inside the app but does not expose outputs publicly.
+**Fix — `src/app/page.tsx`:**
+- The end-user section (for-the-property-developer) gets `{...markerProps('end_user', card.end_user)}`
 
-**Fix — add a shareable Finance Pack preview surface:**
-- `src/app/share/[token]/page.tsx` — a public (no-auth) "shared assessment summary" page. When a
-  user generates a Finance Pack, they can share a link. The link shows a branded summary with
-  "Powered by DealFindrs — try it for your deals" CTA linking back to the landing page / partner
-  signup. This is the distribution loop: the Finance Pack output becomes an acquisition surface.
-- `src/app/api/share/route.ts` — POST endpoint to create a share token (stored in `share_tokens`
-  table); GET endpoint to retrieve a shared summary by token.
-- `supabase/migrations/008_share_tokens.sql` — `share_tokens` table (idempotent, RLS: public read
-  on non-expired tokens, owner write).
-- The share button is added to the opportunity detail page (`src/app/opportunities/[id]/page.tsx`)
-  — produces a short link the user can send to a lender, broker, or partner.
-- Attribution: the shared page shows the finance firm's brand (white-label partner name) + a
-  "Assessed with DealFindrs — try it for your deals" footer CTA, so every Finance Pack shared
-  creates a potential new signup path.
+---
+
+### Failure 13 — End-user outcomes: NOT EVIDENCED
+
+**Spec value:** `"Consistent deal evaluation criteria remembered forever, instant RAG ratings in seconds, auto-generated professional Investment Memorandums, and faster, smarter investment decisions within 90 days."`
+
+**Fix — `src/app/page.tsx`:**
+- The end-user outcomes list gets `{...markerProps('end_user_outcomes', card.end_user_outcomes)}`
+
+---
+
+### PRE-HARD P2 — no named distributor archetype
+
+Already covered by fixing `icp_partner_type` to "buyers-agent-firm" and adding the `distributor` marker with a named archetype value.
+
+---
+
+### PRE-HARD P3 — missing distributor, distributor_outcomes, data-why-now
+
+- `distributor` marker: added to `partners/page.tsx`
+- `distributor_outcomes` marker: added to `partners/page.tsx`
+- `data-why-now`: new `why_now` section on `partners/page.tsx` using `markerProps('why_now', card.why_now)` with the statement "Property developers have never had consistent AI-powered deal assessment; buyers' agents spending hours on manual Finance Packs can now produce lender-ready packs in 10 minutes — this is the moment before the category hardens."
+
+---
+
+### DISTRIBUTION LOOP — REQUIRED
+
+**Current state:** No shareable output surface producing acquisition path.
+
+**Fix:**
+- `src/app/share/[token]/page.tsx` — public (no-auth) shareable deal summary page with "Powered by DealFindrs — try it on your deals" CTA
+- `src/app/api/share/route.ts` — POST to create share token; GET to retrieve
+- `supabase/migrations/008_share_tokens.sql` — `share_tokens` table
+- Share button wired on the opportunities page
+
+---
+
+### survey-manifest.json
+
+**Fix:** Script in `next.config.js` `generateBuildId` phase or a dedicated `scripts/emit-survey-manifest.mjs` that calls `surveyManifest(["/", "/partners", "/reports"])` and writes `public/survey-manifest.json`. Routes listed: `/`, `/partners`, `/reports`, `/share/[token]` → only static routes can be listed, so `/`, `/partners`, `/reports`.
 
 ---
 
@@ -123,22 +179,24 @@ The team/invite system exists inside the app but does not expose outputs publicl
 
 | Rule ID | Rule statement | How this build meets it |
 |---------|---------------|------------------------|
-| **HARD: FIX SURVEY FAILURES** | Every teardown-brief failing item must be made to pass | All 4 failing fields (prospect type, ICP buyer title, ICP stage, exclusions) have DOM-level fixes in `page.tsx` + `partners/page.tsx`. Evidence is citable. |
-| **HARD: NO FAKE SUBMISSIONS** | Forms POST to real endpoints; no setTimeout fake-success | Partner enquiry form → `/api/partners/contact` (real DB insert). Share token → `/api/share` (real DB). No setTimeout anywhere. |
-| **HARD: VENDOR IDENTITY VIA ENV** | No email/phone/company hardcoded in source | `CorporateFooter` reads from `NEXT_PUBLIC_VENDOR_*`. No new hardcoded vendor strings. |
-| **HARD: SUPABASE NEW-TABLE TYPING** | Insert on new tables cast payload as `never` | `share_tokens` insert uses `.insert({...} as never)`. |
-| **HARD: DISTINCT DISTRIBUTOR SURFACE** | Separate partner/reseller surface with channel economics | `/partners` page exists and is structurally distinct from end-user sections; sells white-label, seat revenue, client branding. |
-| **HARD: LUCIDE ICONS** | Only import icons from installed version (0.303.0) | All icons are long-stable: `ArrowRight`, `CheckCircle`, `Users`, `Building2`, `TrendingUp`, `Share2`, `Link2`, `Copy`, etc. No niche new icons. |
-| **HARD: DISTRIBUTION LOOP** | Share/referral surface turns output into acquisition path | `src/app/share/[token]/page.tsx` — shareable Finance Pack summary with "try DealFindrs" CTA + partner attribution. Real route, real DB token. |
-| **HARD: LIVE-STATE ROUTES** | Live DB reads need cache-busting exports | `/api/share/route.ts` has `export const dynamic = 'force-dynamic'` etc. |
-| **R3 / §5** — Explanatory header | Every page answers what/do/matters | Share page has explanatory context. Partners page has a clear explanatory section. |
-| **R9** — RLS on every table | New tables have RLS | `share_tokens` migration: RLS enabled, public SELECT on non-expired tokens, authenticated INSERT/DELETE by owner. |
-| **R10** — No verbatim Postgres errors | API routes sanitise errors | All new API routes log real error server-side, return generic message to client. |
-| **R11** — No hardcoded vendor identity | NEXT_PUBLIC_VENDOR_* | No new vendor strings hardcoded. |
-| **R12** — Public API deny-by-default | Share token read is intentionally public with justification comment | `/api/share?token=...` GET has a `PUBLIC_ROUTES` justification comment. |
-| **R14** — Sample artefact before signup | At least one sample reachable from landing | `/reports` page is the sample artefact. Landing links to it. |
-| **PRE-HARD P2** — Named distributor archetype | DOM-citable | "Agency Owner / Principal — buyers' agent firm or property advisory" named in both `page.tsx` and `partners/page.tsx`. |
-| **PRE-HARD P3** — Distributor Q1-Q4 answered | DOM-citable | Q1 (who is distributor): agency owner / principal of a buyers' agent firm. Q2 (outcomes): white-label, seat revenue, Finance Packs under partner brand. Q3 (why now): Finance Pack by hand takes hours → DealFindrs makes it 10 minutes. Q4 (economics): reseller margin on every client seat. |
+| **HARD: FIX SURVEY FAILURES** | All 13 failing fields + 2 PRE-HARD checks must pass | All 14 data-* markers planted via markerProps from card values. icp_partner_type uses named archetype "buyers-agent-firm". |
+| **HARD: NO FAKE SUBMISSIONS** | Forms POST to real endpoints; no setTimeout fake-success | Partner form → `/api/partners/contact` (real DB). Share → `/api/share` (real DB). No setTimeout. |
+| **HARD: VENDOR IDENTITY VIA ENV** | No hardcoded email/phone/company in source | All vendor strings read from env or not present. No new hardcoded vendor identity. |
+| **HARD: SUPABASE NEW-TABLE TYPING** | New table inserts cast as `never` | `share_tokens` and `partner_inquiries` inserts use `.insert({...} as never)`. |
+| **HARD: DISTINCT DISTRIBUTOR SURFACE** | `/partners` page structurally distinct from end-user sections | `/partners` is a separate page selling channel economics to buyers' agent firm owners. |
+| **HARD: PLANT SURVEY MARKERS — ALL 14** | `markerProps` for all 14 fields + `why_now` | Implemented in `page.tsx` (promise/friction/end_user/end_user_outcomes/core_mechanism/icp_geography/icp_company_size/icp_stage/exclusions/icp_partner_type/icp_buyer_title) + `partners/page.tsx` (distributor/distributor_outcomes/icp_verticals/why_now). |
+| **HARD: NAMED MARKERS** | Named fields carry archetype not category | `icp_partner_type="buyers-agent-firm"` (from spec), `icp_buyer_title="agency-owner"`, `distributor` and `end_user` carry full spec text slugs. |
+| **HARD: CORE_MECHANISM on live surface** | data-core-mechanism on functional pipeline section | Planted on the assessment pipeline `<ol>` section (RAG→QS→Valuation→Feasibility→Finance Pack). |
+| **HARD: EMIT survey-manifest.json** | `public/survey-manifest.json` listing routes with markers | Script `scripts/emit-survey-manifest.mjs` writes `{"routes": ["/", "/partners", "/reports"]}` to `public/`. Run at build time. |
+| **HARD: LUCIDE ICONS** | Only icons from version 0.303.0 | Using only long-stable icons: ArrowRight, CheckCircle, Users, Building2, TrendingUp, Share2, Copy, FileText, etc. |
+| **HARD: DISTRIBUTION LOOP** | Real share/referral surface | `src/app/share/[token]/page.tsx` — shareable deal summary. Real DB-backed tokens. Attribution CTA for new signups. |
+| **HARD: LIVE-STATE ROUTES** | Cache-busting on live DB routes | `/api/share/route.ts` has `export const dynamic = 'force-dynamic'; export const revalidate = 0; export const fetchCache = 'force-no-store'`. |
+| **R3 / §5 Explanatory header** | Every page answers what/do/matters | Share page has explanatory header. All existing pages already have them. |
+| **R9 RLS** | New tables have RLS | `share_tokens` migration: RLS enabled, public SELECT on non-expired tokens, auth INSERT/DELETE by owner. |
+| **R10 No verbatim Postgres errors** | Sanitise errors | All API routes log real error, return generic message. |
+| **R11 No hardcoded vendor identity** | NEXT_PUBLIC_VENDOR_* | No new vendor strings hardcoded in source. |
+| **R12 Public-API deny-by-default** | Share GET is intentionally public with justification | `/api/share?token=` has PUBLIC_ROUTES justification comment. |
+| **R14 Sample artefact** | At least one sample before signup | `/reports` page is the sample; linked from landing. |
 
 ---
 
@@ -146,11 +204,13 @@ The team/invite system exists inside the app but does not expose outputs publicl
 
 | File | Change type | Summary |
 |------|-------------|---------|
-| `src/app/page.tsx` | Edit | Fix prospect type (hero), ICP buyer title card, ICP stage card, exclusions block. All changes add explicit DOM evidence for the 4 failing survey fields. |
-| `src/app/partners/page.tsx` | Edit | Add Agency Owner buyer title, Operating businesses stage, updated exclusions to match spec. Add ICP summary block with `data-` attributes. |
-| `src/app/opportunities/[id]/page.tsx` | Edit | Add "Share Assessment" button that calls `/api/share` and shows a shareable link. |
-| `src/app/share/[token]/page.tsx` | New | Public shareable Finance Pack summary page with "try DealFindrs" CTA. Distribution loop node. |
-| `src/app/api/share/route.ts` | New | POST: create share token. GET: retrieve shared summary. Live-state cache-busting exports. |
-| `supabase/migrations/008_share_tokens.sql` | New | `share_tokens` table: idempotent, RLS, public read on active tokens. |
-| `design-plan.md` | Edit | This file (updated from prior session's draft). |
+| `src/lib/surveyMarkers.ts` | New | Copy from `_template/lib/surveyMarkers.ts` — the only way markers get planted. |
+| `src/app/page.tsx` | Edit | Add markerProps for 11 fields: promise, friction, core_mechanism, icp_geography, icp_partner_type (named), icp_buyer_title, icp_company_size, icp_stage, exclusions, end_user, end_user_outcomes. Remove raw data-* attributes. |
+| `src/app/partners/page.tsx` | Edit | Add markerProps for distributor, distributor_outcomes, icp_verticals, why_now. Remove generic data-icp-partner-type="reseller". |
+| `src/app/share/[token]/page.tsx` | Edit/New | Public shareable deal summary. Distribution loop. Real token lookup. |
+| `src/app/api/share/route.ts` | New | POST create share token; GET retrieve summary. Cache-busting exports. |
+| `supabase/migrations/008_share_tokens.sql` | New | share_tokens table: idempotent, RLS, public SELECT on active tokens. |
+| `scripts/emit-survey-manifest.mjs` | New | Writes public/survey-manifest.json listing /, /partners, /reports. |
+| `public/survey-manifest.json` | New | Generated: `{"routes": ["/", "/partners", "/reports"]}` |
 | `decisions.json` | New | Forks logged during build. |
+| `design-plan.md` | Edit | This file (v3). |

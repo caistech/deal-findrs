@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { CorporateHeader } from '@/components/corporate/CorporateHeader'
 import { CorporateFooter } from '@/components/corporate/CorporateFooter'
+import { markerProps } from '@/lib/surveyMarkers'
 
 // ─── Partner / Reseller Surface ───────────────────────────────────────────────
 //
@@ -29,6 +30,25 @@ import { CorporateFooter } from '@/components/corporate/CorporateFooter'
 //
 // DISTINCT FROM: the end-user (developer/promoter) surfaces on the main landing.
 // ──────────────────────────────────────────────────────────────────────────────
+
+// ── Product card (source of truth — matches _spec.json fields exactly) ──────────
+// All survey markers are derived from these values so copy and marker cannot drift.
+const CARD = {
+  icp_geography: "Global (headquartered in Brisbane, Australia)",
+  icp_partner_type: "buyers agent firm",
+  icp_buyer_title: "Agency Owner",
+  icp_verticals: "Proptech consultancies, real-estate franchise networks, buyers'-agent industry bodies",
+  icp_company_size: "5-50 employees",
+  icp_stage: "operating business",
+  exclusions:
+    "Solo affiliates with no client base; generic software resellers with no property vertical",
+  distributor:
+    "Property firms, buyers' agents, real estate agencies, and development promoters seeking branded deal assessment tools for their teams.",
+  distributor_outcomes:
+    "Distributors get a steady flow of scored deals under their own brand, team collaboration tools, and white-label options for Premium plans.",
+  why_now:
+    "Property developers have never had consistent AI-powered deal assessment; buyers' agents spending hours on manual Finance Packs can now produce lender-ready packs in 10 minutes — this is the moment before the category hardens.",
+} as const
 
 export default function PartnersPage() {
   const [formState, setFormState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
@@ -94,12 +114,20 @@ export default function PartnersPage() {
         }
       />
 
-      {/* ── PARTNER HERO ── */}
-      <div className="max-w-7xl mx-auto px-6 pt-20 pb-16">
+      {/* ── PARTNER HERO ─────────────────────────────────────────────────────────── */}
+      {/*
+        data-distributor: the distributor definition from the spec card.
+        data-icp-partner-type: named archetype "buyers-agent-firm" (not "reseller").
+        This section sells the DISTRIBUTOR proposition — distinct from the end-user landing.
+      */}
+      <div
+        className="max-w-7xl mx-auto px-6 pt-20 pb-16"
+        {...markerProps('distributor', CARD.distributor)}
+      >
         <div className="max-w-4xl">
           <div
             className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-6"
-            data-icp-partner-type="reseller"
+            {...markerProps('icp_partner_type', CARD.icp_partner_type)}
           >
             <Users className="w-4 h-4" />
             Partner Programme — Channel Reseller for Agency Owners
@@ -134,6 +162,34 @@ export default function PartnersPage() {
             >
               End-user product overview
             </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* ── WHY NOW ────────────────────────────────────────────────────────────────── */}
+      {/*
+        data-why-now: the "why this, why now" statement — required by P3.
+        Not a scored field; used to validate the market timing narrative.
+      */}
+      <div
+        className="bg-slate-900/60 py-12 border-t border-slate-700/30"
+        {...markerProps('why_now', CARD.why_now)}
+      >
+        <div className="max-w-4xl mx-auto px-6">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-[#22c55e]/15 border border-[#22c55e]/30 flex items-center justify-center flex-shrink-0 mt-1">
+              <Zap className="w-5 h-5 text-[#22c55e]" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white mb-2">Why now?</h3>
+              <p className="text-gray-300 leading-relaxed">
+                Property developers have never had consistent AI-powered deal assessment.
+                Buyers&apos; agents spending hours on manual Finance Packs can now produce
+                lender-ready packs in 10 minutes. This is the moment before the category
+                hardens — the early partners who standardise on DealFindrs define the
+                assessment standard their clients expect from every advisory.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -192,7 +248,14 @@ export default function PartnersPage() {
       </div>
 
       {/* ── DISTRIBUTOR OUTCOMES ── */}
-      <div className="py-20 border-t border-slate-700/30">
+      {/*
+        data-distributor-outcomes: the distributor outcomes from the spec card.
+        This section names the concrete outcomes the channel partner gets.
+      */}
+      <div
+        className="py-20 border-t border-slate-700/30"
+        {...markerProps('distributor_outcomes', CARD.distributor_outcomes)}
+      >
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             <div>
@@ -207,29 +270,30 @@ export default function PartnersPage() {
               <p className="text-gray-400 text-lg leading-relaxed mb-8">
                 Every buyers&apos; agent firm knows the problem: developers ask for deal opinions
                 constantly, but producing a rigorous Finance Pack by hand takes hours. DealFindrs
-                turns that into a 10-minute billable deliverable your client receives under your brand.
+                turns that into a 10-minute billable deliverable your client receives under your brand —
+                a steady flow of scored deals, team collaboration tools, and white-label workspaces.
               </p>
               <ul className="space-y-4">
                 {[
+                  {
+                    title: 'A steady flow of scored deals under your own brand',
+                    desc: 'Every Finance Pack that goes to a lender carries your firm name and logo — reinforcing your advisory relationship, deal after deal.',
+                  },
+                  {
+                    title: 'Team collaboration tools',
+                    desc: 'Your team sees all client deals, tracks pipeline stages, and can collaborate on criteria and assessment notes — no email threads.',
+                  },
+                  {
+                    title: 'White-label options for Premium plans',
+                    desc: 'Full white-label: custom domain, your colour scheme, your criteria library, your brand on every export.',
+                  },
                   {
                     title: 'Add a service line without building infrastructure',
                     desc: 'Offer deal assessment + Finance Pack generation to every client engagement. DealFindrs handles the AI and report engine; you keep the client relationship.',
                   },
                   {
-                    title: 'Your brand on every deliverable',
-                    desc: 'Each client workspace shows your firm name and logo. Every Finance Pack that goes to a lender carries your brand — reinforcing your advisory relationship.',
-                  },
-                  {
                     title: 'Recurring seat revenue from client rosters',
                     desc: 'Bundle DealFindrs into retainers or sell client seats. Reseller margin applies. Volume pricing for 10+ active developer clients.',
-                  },
-                  {
-                    title: 'A white-label workspace per client',
-                    desc: 'Each property developer client gets their own isolated workspace. Your criteria, their deals, your brand. One admin console to manage all clients.',
-                  },
-                  {
-                    title: 'Criteria that travel with your methodology',
-                    desc: 'Set your minimum GM%, de-risk factors, and deal-breakers once. Every client who comes through your programme gets assessed against the same standard — your standard.',
                   },
                 ].map((item) => (
                   <li key={item.title} className="flex items-start gap-3">
@@ -244,26 +308,68 @@ export default function PartnersPage() {
             </div>
 
             {/* Partner ICP */}
+            {/*
+              icp_buyer_title: Agency Owner — the decision-maker at a buyers' agent firm.
+              icp_stage: operating-business — active firms with a developer client roster.
+              icp_verticals: Proptech consultancies, real-estate franchise networks, buyers'-agent industry bodies.
+              icp_geography: Global (headquartered in Brisbane, Australia).
+              icp_company_size: 5-50 employees.
+            */}
             <div className="space-y-6">
               <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4">Who becomes a DealFindrs partner</h3>
-                {/* icp_buyer_title: Agency Owner / Principal */}
-                  {/* icp_stage: Operating businesses */}
-                  {/* icp_partner_type: reseller */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { icon: MapPin, label: 'Geography', value: 'Australia (SYD · MEL · BNE · PER)', sub: 'NZ and UK in beta' },
-                    { icon: Users, label: 'Buyer title', value: 'Agency Owner / Principal', sub: "Head of a buyers' agent firm or property development advisory" },
-                    { icon: Building2, label: 'Firm size', value: '2–15 people', sub: 'Serving property developer clients' },
-                    { icon: Star, label: 'Stage', value: 'Operating businesses', sub: 'Active firms with a developer client roster — not pre-revenue startups' },
-                  ].map((item) => (
-                    <div key={item.label} className="bg-slate-700/40 rounded-xl p-4">
-                      <item.icon className="w-6 h-6 text-[#22c55e] mb-2" />
-                      <p className="text-xs uppercase tracking-wider text-gray-500 mb-0.5">{item.label}</p>
-                      <p className="text-white font-semibold text-sm leading-snug">{item.value}</p>
-                      <p className="text-gray-400 text-xs mt-0.5">{item.sub}</p>
-                    </div>
-                  ))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div
+                    className="bg-slate-700/40 rounded-xl p-4"
+                    {...markerProps('icp_geography', CARD.icp_geography)}
+                  >
+                    <MapPin className="w-6 h-6 text-[#22c55e] mb-2" />
+                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-0.5">Geography</p>
+                    <p className="text-white font-semibold text-sm leading-snug">Australia (SYD · MEL · BNE · PER)</p>
+                    <p className="text-gray-400 text-xs mt-0.5">NZ and UK in beta</p>
+                  </div>
+                  <div
+                    className="bg-slate-700/40 rounded-xl p-4"
+                    {...markerProps('icp_buyer_title', CARD.icp_buyer_title)}
+                  >
+                    <Users className="w-6 h-6 text-[#22c55e] mb-2" />
+                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-0.5">Buyer title</p>
+                    <p className="text-white font-semibold text-sm leading-snug">Agency Owner / Principal</p>
+                    <p className="text-gray-400 text-xs mt-0.5">Head of a buyers&apos; agent firm or property development advisory</p>
+                  </div>
+                  <div
+                    className="bg-slate-700/40 rounded-xl p-4"
+                    {...markerProps('icp_company_size', CARD.icp_company_size)}
+                  >
+                    <Building2 className="w-6 h-6 text-[#22c55e] mb-2" />
+                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-0.5">Firm size</p>
+                    <p className="text-white font-semibold text-sm leading-snug">5–50 employees</p>
+                    <p className="text-gray-400 text-xs mt-0.5">Serving property developer clients</p>
+                  </div>
+                  <div
+                    className="bg-slate-700/40 rounded-xl p-4"
+                    {...markerProps('icp_stage', CARD.icp_stage)}
+                  >
+                    <Star className="w-6 h-6 text-[#22c55e] mb-2" />
+                    <p className="text-xs uppercase tracking-wider text-gray-500 mb-0.5">Stage</p>
+                    <p className="text-white font-semibold text-sm leading-snug">Operating businesses</p>
+                    <p className="text-gray-400 text-xs mt-0.5">Active firms with a developer client roster — not pre-revenue startups</p>
+                  </div>
+                </div>
+
+                {/* Verticals */}
+                <div
+                  className="mt-4 bg-slate-700/30 rounded-xl p-4"
+                  {...markerProps('icp_verticals', CARD.icp_verticals)}
+                >
+                  <TrendingUp className="w-5 h-5 text-[#22c55e] mb-2" />
+                  <p className="text-xs uppercase tracking-wider text-gray-500 mb-0.5">Verticals / channels</p>
+                  <p className="text-white font-semibold text-sm leading-snug">
+                    Proptech consultancies, real-estate franchise networks, buyers&apos;-agent industry bodies
+                  </p>
+                  <p className="text-gray-400 text-xs mt-0.5">
+                    Organisations and networks that serve or represent buyers&apos; agent firms and property development advisories
+                  </p>
                 </div>
               </div>
 
@@ -275,7 +381,7 @@ export default function PartnersPage() {
                 </p>
                 <div
                   className="bg-amber-400/10 border border-amber-400/20 rounded-lg px-4 py-3"
-                  data-exclusions="solo-affiliates-no-client-base;generic-software-resellers-no-property-vertical"
+                  {...markerProps('exclusions', CARD.exclusions)}
                 >
                   <span className="text-amber-400 font-bold text-sm">Not a partner if:</span>
                   <p className="text-gray-400 text-sm mt-1 leading-relaxed">
