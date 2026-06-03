@@ -97,9 +97,12 @@ export default function PartnersPage() {
       {/* ── PARTNER HERO ── */}
       <div className="max-w-7xl mx-auto px-6 pt-20 pb-16">
         <div className="max-w-4xl">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-6">
+          <div
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#22c55e]/10 border border-[#22c55e]/20 rounded-full text-[#22c55e] text-sm mb-6"
+            data-icp-partner-type="reseller"
+          >
             <Users className="w-4 h-4" />
-            Partner Programme — Channel Reseller
+            Partner Programme — Channel Reseller for Agency Owners
           </div>
           <h1 className="text-5xl font-bold text-white leading-tight mb-6">
             Add a deal-assessment service<br />
@@ -107,10 +110,10 @@ export default function PartnersPage() {
           </h1>
           {/* Explanatory header: WHAT / DO / MATTERS */}
           <p className="text-xl text-gray-300 leading-relaxed mb-4 max-w-3xl">
-            DealFindrs partners are <strong className="text-white">buyers&apos; agent firms,
-            property development advisories, and real estate agencies</strong> — channel partners
-            who deploy DealFindrs as a branded assessment service to their property developer
-            and promoter clients.
+            DealFindrs partners are <strong className="text-white">agency owners and principals
+            of buyers&apos; agent firms, property development advisories, and real estate
+            agencies</strong> — operating businesses that resell DealFindrs as a branded
+            assessment service to their property developer and promoter clients.
           </p>
           <p className="text-gray-400 text-lg leading-relaxed mb-8 max-w-3xl">
             Your clients get a white-label workspace to run their deals. You get the credit for
@@ -244,12 +247,15 @@ export default function PartnersPage() {
             <div className="space-y-6">
               <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-6">
                 <h3 className="text-lg font-bold text-white mb-4">Who becomes a DealFindrs partner</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* icp_buyer_title: Agency Owner / Principal */}
+                  {/* icp_stage: Operating businesses */}
+                  {/* icp_partner_type: reseller */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {[
                     { icon: MapPin, label: 'Geography', value: 'Australia (SYD · MEL · BNE · PER)', sub: 'NZ and UK in beta' },
-                    { icon: Users, label: 'Archetype', value: 'Principal / Director', sub: 'Buyers\' agent firm or property advisory' },
+                    { icon: Users, label: 'Buyer title', value: 'Agency Owner / Principal', sub: "Head of a buyers' agent firm or property development advisory" },
                     { icon: Building2, label: 'Firm size', value: '2–15 people', sub: 'Serving property developer clients' },
-                    { icon: Star, label: 'Client roster', value: '5–50 active developer clients', sub: '10–50 opportunities per client per year' },
+                    { icon: Star, label: 'Stage', value: 'Operating businesses', sub: 'Active firms with a developer client roster — not pre-revenue startups' },
                   ].map((item) => (
                     <div key={item.label} className="bg-slate-700/40 rounded-xl p-4">
                       <item.icon className="w-6 h-6 text-[#22c55e] mb-2" />
@@ -267,12 +273,17 @@ export default function PartnersPage() {
                   The partner programme is for channel resellers only — firms that serve property
                   developer clients and want to offer assessment as a service.
                 </p>
-                <div className="bg-amber-400/10 border border-amber-400/20 rounded-lg px-4 py-3">
+                <div
+                  className="bg-amber-400/10 border border-amber-400/20 rounded-lg px-4 py-3"
+                  data-exclusions="solo-affiliates-no-client-base;generic-software-resellers-no-property-vertical"
+                >
                   <span className="text-amber-400 font-bold text-sm">Not a partner if:</span>
                   <p className="text-gray-400 text-sm mt-1 leading-relaxed">
-                    You are a property developer or promoter running your own deals (see the
-                    developer-facing pricing on the main page). The partner programme is for the
-                    firm that serves developers, not the developer themselves.
+                    Solo affiliates with no developer client base; generic software resellers
+                    with no property-sector vertical. If you are a property developer or
+                    promoter running your own deals, see the developer-facing pricing on the
+                    main page. The partner programme is for operating buyers&apos; agent firms
+                    and property advisories that actively serve a developer client roster.
                   </p>
                 </div>
               </div>

@@ -49,3 +49,7 @@ supabase/.temp
 
 .vercel
 .env*.local
+
+# QA / smoke-test configs with credentials — never commit
+session.config.json
+survey.json

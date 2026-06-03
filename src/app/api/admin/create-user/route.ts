@@ -1,11 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
-// Admin client with service role key - server-side only
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+// Admin client with service role key — server-side only.
+// Lazy-init so the module does NOT call createClient at import/build time.
+// An eager module-scope createClient throws "supabaseUrl is required" during
+// `next build` page-data collection when env isn't present (e.g. the portfolio
+// gate, which builds without runtime secrets). Create the client on first use.
+let _supabaseAdmin: ReturnType<typeof createClient> | null = null
+function getSupabaseAdmin() {
+  if (!_supabaseAdmin) {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!url || !key) throw new Error('Supabase credentials not configured')
+    _supabaseAdmin = createClient(url, key)
+  }
+  return _supabaseAdmin
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,6 +28,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const supabaseAdmin = getSupabaseAdmin()
 
     // Create user with auto-confirm (no invite email needed)
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
@@ -43,7 +55,7 @@ export async function POST(request: NextRequest) {
       if (Object.keys(updateData).length > 0) {
         const { error: profileError } = await supabaseAdmin
           .from('profiles')
-          .update(updateData)
+          .update(updateData as never)
           .eq('id', userData.user.id)
 
         if (profileError) {
