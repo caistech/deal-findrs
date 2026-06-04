@@ -3,17 +3,19 @@
 
 import { useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowRight, AlertCircle, Mail, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const next = searchParams.get('next') || '/dashboard'
+  const rawNext = searchParams.get('next') || '/dashboard'
+  // Only honour same-origin relative paths — refuse open-redirect attempts.
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard'
 
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
   const [magicLoading, setMagicLoading] = useState(false)
   const [magicSent, setMagicSent] = useState(false)
   const [email, setEmail] = useState('')
@@ -38,10 +40,14 @@ function LoginForm() {
         return
       }
 
-      // Successful login. router.push triggers a server navigation; the
-      // middleware will see the fresh session cookie and let us through.
-      router.push(next)
-      router.refresh()
+      // Successful login. Move into a deterministic "Redirecting…" state and
+      // perform a HARD navigation. A soft router.push left the form stuck on
+      // the spinner because the client component stayed mounted and the fresh
+      // session cookie wasn't always seen by middleware on the soft nav. A
+      // full-page assign guarantees the cookie is sent and middleware runs.
+      setRedirecting(true)
+      setLoading(false)
+      window.location.assign(next)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error during login')
       setLoading(false)
@@ -105,6 +111,16 @@ function LoginForm() {
             </div>
           )}
 
+          {redirecting && (
+            <div className="mb-4 flex items-start gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 text-sm">
+              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+              <span>
+                Signed in — redirecting you now. If this doesn&apos;t happen automatically,{' '}
+                <a href={next} className="font-semibold underline">go to your dashboard →</a>
+              </span>
+            </div>
+          )}
+
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
             <input
@@ -147,13 +163,13 @@ function LoginForm() {
 
           <button
             type="submit"
-            disabled={loading || magicLoading}
+            disabled={loading || magicLoading || redirecting}
             className="w-full py-4 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-xl font-bold text-lg hover:shadow-lg hover:shadow-amber-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {loading ? (
+            {loading || redirecting ? (
               <>
                 <div className="w-5 h-5 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
-                Logging in...
+                {redirecting ? 'Redirecting…' : 'Logging in...'}
               </>
             ) : (
               <>
