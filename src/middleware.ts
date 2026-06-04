@@ -18,12 +18,16 @@ import { isAdminEmail } from '@/lib/auth/admin-emails'
 // ── Auth-gated UI prefixes ──────────────────────────────────────
 // Any URL starting with one of these requires an active Supabase session.
 // If no session is present, the user is redirected to /login.
+// NOTE: /admin is intentionally NOT here — admin routes are governed by the
+// dedicated admin gate (isAdminPath, below), which both enforces the
+// ADMIN_EMAILS allowlist AND keeps /admin/login publicly reachable. Listing
+// /admin here would (incorrectly) bounce the logged-out admin login page to
+// the user /login.
 const AUTH_GATED_PREFIXES = [
   '/dashboard',
   '/opportunities',
   '/settings',
   '/team',
-  '/admin',
   '/analytics',
   '/setup',
   '/onboarding',
