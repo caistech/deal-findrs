@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe/client'
+import { requireAdmin } from '@/lib/auth/require-admin'
 
 const PRODUCTS = [
   {
@@ -72,10 +73,17 @@ const PRODUCTS = [
   },
 ]
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const admin = await requireAdmin(request)
+  if (admin.error) {
+    return NextResponse.json(
+      { error: admin.error },
+      { status: admin.error === 'forbidden' ? 403 : 401 }
+    )
+  }
   try {
     const stripe = getStripe()
-    
+
     // List existing products
     const products = await stripe.products.list({ limit: 100, active: true })
     const prices = await stripe.prices.list({ limit: 100, active: true })
@@ -109,6 +117,13 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const admin = await requireAdmin(request)
+  if (admin.error) {
+    return NextResponse.json(
+      { error: admin.error },
+      { status: admin.error === 'forbidden' ? 403 : 401 }
+    )
+  }
   try {
     const { action } = await request.json()
     const stripe = getStripe()
