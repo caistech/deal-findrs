@@ -37,7 +37,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   execute:
@@ -189,8 +188,6 @@ jobs:
       - name: Commit and push changes
         id: commit
         run: |
-          TIER="${{ inputs.permission_tier }}"
-
           git config user.name "easy-claude-code[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
@@ -201,21 +198,10 @@ jobs:
           if git diff --quiet && git diff --cached --quiet && [ -z "$(git ls-files --others --exclude-standard)" ]; then
             echo "No changes to commit"
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            echo "pr_url=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "has_changes=true" >> "$GITHUB_OUTPUT"
-
-          # Locked tier: report changes only — never commit, push, or open a PR.
-          # (Locked runs in plan mode, so reaching here with changes is unexpected;
-          # the explicit no-write path guarantees it can never push.)
-          if [ "$TIER" = "locked" ]; then
-            echo "Locked tier — reporting changes via diff/has_changes only, no commit/push/PR"
-            echo "pr_url=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
           git add -A
 
           TASK_SHORT=$(echo "$TASK" | head -c 72)
@@ -225,25 +211,10 @@ jobs:
 
           Co-Authored-By: Claude <noreply@anthropic.com>"
 
-          COMMIT_SHA=$(git rev-parse HEAD)
-          echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
-
-          if [ "$TIER" = "standard" ]; then
-            # Standard tier: branch + PR, never push to main.
-            # --base main is correct because all current products use main as default.
-            BRANCH="ecc/${{ inputs.command_id }}"
-            git checkout -b "$BRANCH"
-            git push -u origin "$BRANCH"
-            PR_URL=$(gh pr create --title "$TASK_SHORT" --body "Applied via Easy Claude Code. Task: $TASK" --head "$BRANCH" --base main)
-            echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
-          else
-            # Autonomous tier (default): commit + push direct to current branch.
-            git push
-            echo "pr_url=" >> "$GITHUB_OUTPUT"
-          fi
+          git push
+          echo "commit_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
         env:
           TASK: ${{ inputs.task }}
-          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
 
       - name: Generate diff summary
         id: diff
@@ -261,7 +232,6 @@ jobs:
           CLAUDE_EXIT: ${{ steps.claude.outputs.exit_code }}
           COMMIT_SHA: ${{ steps.commit.outputs.commit_sha }}
           HAS_CHANGES: ${{ steps.commit.outputs.has_changes }}
-          PR_URL: ${{ steps.commit.outputs.pr_url }}
           DIFF_STAT: ${{ steps.diff.outputs.diff_stat }}
           REVIEW_OUTPUT: ${{ steps.review.outputs.review_output }}
           COMMAND_ID: ${{ inputs.command_id }}
@@ -284,7 +254,6 @@ jobs:
             --arg result_summary "$SUMMARY" \
             --arg commit_sha "$COMMIT_SHA" \
             --arg has_changes "$HAS_CHANGES" \
-            --arg pr_url "$PR_URL" \
             --arg diff_stat "$DIFF_SHORT" \
             --arg review_output "$REVIEW_SHORT" \
             '{
@@ -293,7 +262,6 @@ jobs:
               result_summary: $result_summary,
               commit_sha: $commit_sha,
               has_changes: ($has_changes == "true"),
-              pr_url: $pr_url,
               diff_stat: $diff_stat,
               review_output: $review_output
             }' > /tmp/payload.json
