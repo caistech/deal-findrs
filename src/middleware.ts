@@ -13,16 +13,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { trustGate, trustLog, type TrustContext, type TrustOperation } from '@/lib/platform-trust'
+import { isAdminEmail } from '@/lib/auth/admin-emails'
 
 // ── Auth-gated UI prefixes ──────────────────────────────────────
 // Any URL starting with one of these requires an active Supabase session.
 // If no session is present, the user is redirected to /login.
+// NOTE: /admin is intentionally NOT here — admin routes are governed by the
+// dedicated admin gate (isAdminPath, below), which both enforces the
+// ADMIN_EMAILS allowlist AND keeps /admin/login publicly reachable. Listing
+// /admin here would (incorrectly) bounce the logged-out admin login page to
+// the user /login.
 const AUTH_GATED_PREFIXES = [
   '/dashboard',
   '/opportunities',
   '/settings',
   '/team',
-  '/admin',
   '/analytics',
   '/setup',
   '/onboarding',
@@ -30,6 +35,16 @@ const AUTH_GATED_PREFIXES = [
 
 function isAuthGated(pathname: string): boolean {
   return AUTH_GATED_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))
+}
+
+// ── Admin-only UI gate ──────────────────────────────────────────
+// Everything under /admin requires an ADMIN_EMAILS-allowlisted session, EXCEPT
+// /admin/login itself (the unauthenticated entry point). Without this, any
+// logged-in non-admin user could load /admin and reach the user-creation,
+// ElevenLabs and Stripe config screens — privilege escalation (VT_B2).
+function isAdminPath(pathname: string): boolean {
+  if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) return false
+  return pathname === '/admin' || pathname.startsWith('/admin/')
 }
 
 // ── Platform-trust scope rules (unchanged) ──────────────────────
@@ -96,6 +111,25 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  // ── Admin UI routes: require an allowlisted admin session ───
+  // Checked BEFORE the generic auth gate so unauthenticated admins land on the
+  // admin login (not the user login), and authenticated non-admins are bounced
+  // to their dashboard rather than seeing the control panel.
+  if (isAdminPath(pathname)) {
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin/login'
+      url.searchParams.set('next', pathname)
+      return NextResponse.redirect(url)
+    }
+    if (!isAdminEmail(user.email)) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/dashboard'
+      url.searchParams.set('error', 'admin_only')
+      return NextResponse.redirect(url)
+    }
+  }
 
   // ── Auth-gated UI routes: redirect to /login if no user ─────
   if (isAuthGated(pathname) && !user) {

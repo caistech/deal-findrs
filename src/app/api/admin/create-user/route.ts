@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth/require-admin'
 
 // Admin client with service role key — server-side only.
 // Lazy-init so the module does NOT call createClient at import/build time.
@@ -18,6 +19,17 @@ function getSupabaseAdmin() {
 }
 
 export async function POST(request: NextRequest) {
+  // Defence in depth: the middleware gates the /admin UI, but this route is
+  // reachable directly — verify the caller is an allowlisted admin before any
+  // privileged operation (creating users with assigned roles).
+  const admin = await requireAdmin(request)
+  if (admin.error) {
+    return NextResponse.json(
+      { error: admin.error },
+      { status: admin.error === 'forbidden' ? 403 : 401 }
+    )
+  }
+
   try {
     const { email, password, firstName, lastName, role, companyId } = await request.json()
 

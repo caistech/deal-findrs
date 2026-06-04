@@ -105,33 +105,37 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+            {/* Hidden on mobile to stop the header overflowing (caused
+                horizontal scroll at 375px). The banner CTA below covers the
+                mobile case; on mobile this collapses to an icon-only button. */}
             <Link
               href="/opportunities/new"
-              className="px-4 py-2 bg-[#22c55e] text-white rounded-lg text-sm font-bold hover:bg-[#4ade80] transition-all flex items-center gap-2"
+              aria-label="New Opportunity"
+              className="p-2 sm:px-4 sm:py-2 bg-[#22c55e] text-white rounded-lg text-sm font-bold hover:bg-[#4ade80] transition-all flex items-center justify-center sm:gap-2 min-w-[44px] min-h-[44px] sm:min-h-0"
             >
-              <Plus className="w-4 h-4" /> New Opportunity
+              <Plus className="w-4 h-4" /> <span className="hidden sm:inline">New Opportunity</span>
             </Link>
             <UserMenu />
           </div>
         }
       />
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* Welcome Banner */}
         <div className="bg-[#22c55e] rounded-2xl p-6 mb-8 text-white">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold mb-2">Welcome back! 👋</h1>
               <p className="text-white/80">
-                {mockDeals.length === 0 
+                {mockDeals.length === 0
                   ? "Get started by adding your first property development opportunity."
                   : `You have ${stats.amber} opportunity awaiting review. Add more to build your pipeline.`
                 }
               </p>
             </div>
-            <Link 
+            <Link
               href="/opportunities/new"
-              className="px-6 py-3 bg-white text-[#22c55e] rounded-xl font-semibold hover:bg-white/90 transition-colors flex items-center gap-2"
+              className="w-full sm:w-auto justify-center px-6 py-3 bg-white text-[#22c55e] rounded-xl font-semibold hover:bg-white/90 transition-colors flex items-center gap-2"
             >
               <Plus className="w-5 h-5" /> Add New Opportunity
             </Link>
@@ -139,7 +143,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
             { label: 'Green Light', count: stats.green, color: 'emerald', icon: '🟢' },
             { label: 'Amber', count: stats.amber, color: 'amber', icon: '🟡' },
@@ -164,23 +168,23 @@ export default function DashboardPage() {
 
         {/* Opportunities List */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-4 sm:px-6 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="text-lg font-bold text-gray-900">Recent Opportunities</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input 
-                  type="text" 
-                  placeholder="Search deals..." 
+                <input
+                  type="text"
+                  placeholder="Search deals..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#22c55e] w-64"
+                  className="pl-10 pr-4 py-2 text-base sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#22c55e] w-full sm:w-64"
                 />
               </div>
-              <select 
+              <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
+                className="px-4 py-2 text-base sm:text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
               >
                 <option value="all">All Status</option>
                 <option value="green">Green</option>
@@ -192,34 +196,39 @@ export default function DashboardPage() {
           
           <div className="divide-y divide-gray-100">
             {filteredDeals.map((deal) => (
-              <Link 
-                key={deal.id} 
+              <Link
+                key={deal.id}
                 href={`/opportunities/${deal.id}`}
-                className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-4"
+                className="px-4 sm:px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 sm:gap-4"
               >
-                <div className={`w-4 h-4 rounded-full ${getStatusColor(deal.status)}`} />
+                <div className={`w-4 h-4 flex-shrink-0 rounded-full ${getStatusColor(deal.status)}`} />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 truncate">{deal.name}</p>
-                  <p className="text-sm text-gray-500">{deal.location}</p>
+                  <p className="text-sm text-gray-500 truncate">{deal.location}</p>
+                  {/* Stage shown inline under the name on mobile, where the
+                      dedicated column is hidden. */}
+                  <span className="lg:hidden mt-1 inline-block px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
+                    {deal.stage}
+                  </span>
                 </div>
-                <div className="text-right">
+                <div className="hidden lg:block text-right max-w-[14rem]">
                   <span className="inline-block px-2.5 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
                     {deal.stage}
                   </span>
                 </div>
-                <div className="text-right">
+                <div className="hidden sm:block text-right">
                   <p className="font-bold text-gray-900">{deal.gm}</p>
                   <p className="text-xs text-gray-500">GM</p>
                 </div>
-                <div className="text-right w-16">
+                <div className="hidden md:block text-right w-16">
                   <p className="font-semibold text-gray-900">{deal.score}</p>
                   <p className="text-xs text-gray-500">Score</p>
                 </div>
-                <div className="text-right w-12">
+                <div className="hidden md:block text-right w-12">
                   <p className="font-semibold text-gray-900">{deal.lots}</p>
                   <p className="text-xs text-gray-500">Lots</p>
                 </div>
-                <ChevronRight className="w-5 h-5 text-gray-400" />
+                <ChevronRight className="w-5 h-5 flex-shrink-0 text-gray-400" />
               </Link>
             ))}
           </div>

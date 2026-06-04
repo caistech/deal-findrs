@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/lib/auth/require-admin'
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY
 
@@ -129,6 +130,13 @@ async function deleteAgent(agentId: string) {
 }
 
 export async function POST(request: NextRequest) {
+  const admin = await requireAdmin(request)
+  if (admin.error) {
+    return NextResponse.json(
+      { error: admin.error },
+      { status: admin.error === 'forbidden' ? 403 : 401 }
+    )
+  }
   if (!ELEVENLABS_API_KEY) {
     return NextResponse.json({ error: 'ELEVENLABS_API_KEY not configured' }, { status: 500 })
   }
@@ -193,7 +201,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const admin = await requireAdmin(request)
+  if (admin.error) {
+    return NextResponse.json(
+      { error: admin.error },
+      { status: admin.error === 'forbidden' ? 403 : 401 }
+    )
+  }
   if (!ELEVENLABS_API_KEY) {
     return NextResponse.json({ configured: false })
   }

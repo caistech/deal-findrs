@@ -250,7 +250,22 @@ export default function NewOpportunityPage() {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        setDraftError(data?.error || 'Could not save draft')
+        const code = data?.error
+        // The most common cause is the account having no company linked yet
+        // (RLS / membership check → 403). Translate the raw codes into an
+        // actionable message instead of failing silently.
+        if (res.status === 403 || code === 'no_company' || code === 'no_profile') {
+          setDraftError(
+            "Your account isn't linked to a company yet, so this deal can't be saved. " +
+            'Finish account setup, then try again.'
+          )
+        } else {
+          setDraftError(
+            typeof code === 'string' && code
+              ? `Could not save draft: ${code}`
+              : 'Could not save draft. Please try again.'
+          )
+        }
         return null
       }
       const data = await res.json()
@@ -1367,6 +1382,25 @@ export default function NewOpportunityPage() {
               </div>
             )}
           </div>
+
+          {/* Draft-save error (e.g. account not linked to a company → 403).
+              Rendered here so it's visible on whatever step the save was
+              attempted from — previously a Step-3 → documents save failure was
+              silent because the only error UI lived on the unreached documents step. */}
+          {draftError && (
+            <div className="mx-8 mt-4 flex flex-col sm:flex-row sm:items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+              <div className="flex items-start gap-2 flex-1">
+                <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <span>{draftError}</span>
+              </div>
+              <Link
+                href="/setup"
+                className="self-start sm:self-auto whitespace-nowrap px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+              >
+                Finish setup →
+              </Link>
+            </div>
+          )}
 
           {/* Navigation */}
           <div className="px-8 py-6 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
