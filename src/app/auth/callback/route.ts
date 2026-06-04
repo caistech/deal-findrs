@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { bootstrapCompany } from '@/lib/company/bootstrap'
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
@@ -48,13 +49,31 @@ export async function GET(request: NextRequest) {
     }
   )
 
-  const { error } = await supabase.auth.exchangeCodeForSession(code)
+  const { data: exchangeData, error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error) {
     console.error('[auth/callback] exchange failed:', error.message)
     return NextResponse.redirect(
       new URL(`/login?error=${encodeURIComponent(error.message)}`, request.url)
     )
+  }
+
+  // §8: guarantee a personal company the moment the account is usable. This is
+  // the reliable bootstrap point for the email-confirmation signup path —
+  // without it, a confirmed user who heads straight to the deal wizard hits a
+  // silent 403 on POST /api/opportunities/draft (no company_id linked).
+  // Idempotent: a no-op for magic-link/password-reset of an existing user.
+  const sessionUser = exchangeData?.user
+  if (sessionUser) {
+    try {
+      await bootstrapCompany(sessionUser)
+    } catch (bootstrapErr) {
+      // Non-fatal: /setup and /api/company/create retry this idempotently.
+      console.error(
+        '[auth/callback] company bootstrap failed (non-fatal):',
+        bootstrapErr instanceof Error ? bootstrapErr.message : bootstrapErr
+      )
+    }
   }
 
   return NextResponse.redirect(new URL(safeNext, request.url))
