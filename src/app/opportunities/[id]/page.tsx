@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { ArrowLeft, FileText, Edit, Archive, CheckCircle, AlertTriangle, TrendingUp, DollarSign, X, Loader2, Share2, Copy } from 'lucide-react'
 import { VoiceAssistant } from '@/components/voice/VoiceAssistant'
 import { DealJourney } from '@/components/common/DealJourney'
+import { AuthLayout } from '@/components/common/AuthLayout'
 
 // Type for opportunity matching database schema
 interface Opportunity {
@@ -545,35 +546,40 @@ export default function OpportunityDetailPage() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="flex items-center gap-3 text-gray-600">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Loading opportunity...</span>
+      <AuthLayout>
+        <div className="flex items-center justify-center py-24">
+          <div className="flex items-center gap-3 text-gray-600">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <span>Loading opportunity...</span>
+          </div>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   // Error state
   if (error || !opportunity) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'Opportunity not found'}</p>
-          <Link href="/opportunities" className="text-amber-600 hover:underline">
-            ← Back to Opportunities
-          </Link>
+      <AuthLayout>
+        <div className="flex items-center justify-center py-24">
+          <div className="text-center">
+            <p className="text-red-600 mb-4 text-base">{error || 'Opportunity not found'}</p>
+            <Link href="/opportunities" className="text-[#22c55e] hover:underline">
+              ← Back to Opportunities
+            </Link>
+          </div>
         </div>
-      </div>
+      </AuthLayout>
     )
   }
 
   const ragStatus = opportunity.rag_status || 'amber'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <AuthLayout>
+    <div className="bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4">
+      <nav className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <Link href="/opportunities" className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
             <ArrowLeft className="w-4 h-4" /> Back to Opportunities
@@ -889,5 +895,6 @@ export default function OpportunityDetailPage() {
         />
       )}
     </div>
+    </AuthLayout>
   )
 }

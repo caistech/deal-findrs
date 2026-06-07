@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, ArrowRight, ArrowLeft, CheckCircle, AlertTriangle, TrendingUp } from 'lucide-react'
 import { VoiceAssistant } from '@/components/voice/VoiceAssistant'
-import { createClient } from '@/lib/supabase/client'
+import { AuthLayout } from '@/components/common/AuthLayout'
 
 // Slug a human label into the stable key the engine reads from
 // company_settings jsonb arrays. Mirrors the key shape used by the
@@ -49,42 +49,30 @@ export default function SetupPage() {
 
   // Hydrate from saved settings if the user already has a company. Avoids
   // the "edit my settings → re-save → defaults overwrite my prior choices"
-  // bug. RLS "Users can view company settings" allows the read.
+  // bug. Fetch via the API so we don't need a client-side Supabase import.
   useEffect(() => {
-    const supabase = createClient()
     let cancelled = false
     ;(async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user || cancelled) return
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('company_id')
-        .eq('id', user.id)
-        .single()
-      if (!profile?.company_id || cancelled) return
-
-      const { data: settings } = await supabase
-        .from('company_settings')
-        .select('min_gm_green, min_gm_amber, critical_criteria, derisk_factors')
-        .eq('company_id', profile.company_id)
-        .single()
-      if (!settings || cancelled) return
-
-      setCriteria(prev => ({
-        minGmGreen: settings.min_gm_green != null ? Number(settings.min_gm_green) : prev.minGmGreen,
-        minGmAmber: settings.min_gm_amber != null ? Number(settings.min_gm_amber) : prev.minGmAmber,
-        criticalCriteria: Array.isArray(settings.critical_criteria) && settings.critical_criteria.length
-          ? settings.critical_criteria.map((c: { label: string; enabled: boolean }, i: number) => ({
-              id: i + 1, label: c.label, enabled: Boolean(c.enabled),
-            }))
-          : prev.criticalCriteria,
-        deRiskFactors: Array.isArray(settings.derisk_factors) && settings.derisk_factors.length
-          ? settings.derisk_factors.map((f: { label: string; points: number; enabled: boolean }, i: number) => ({
-              id: i + 1, label: f.label, points: Number(f.points) || 0, enabled: Boolean(f.enabled),
-            }))
-          : prev.deRiskFactors,
-      }))
+      try {
+        const res = await fetch('/api/company/settings-read')
+        if (!res.ok || cancelled) return
+        const { settings } = await res.json()
+        if (!settings || cancelled) return
+        setCriteria(prev => ({
+          minGmGreen: settings.min_gm_green != null ? Number(settings.min_gm_green) : prev.minGmGreen,
+          minGmAmber: settings.min_gm_amber != null ? Number(settings.min_gm_amber) : prev.minGmAmber,
+          criticalCriteria: Array.isArray(settings.critical_criteria) && settings.critical_criteria.length
+            ? settings.critical_criteria.map((c: { label: string; enabled: boolean }, i: number) => ({
+                id: i + 1, label: c.label, enabled: Boolean(c.enabled),
+              }))
+            : prev.criticalCriteria,
+          deRiskFactors: Array.isArray(settings.derisk_factors) && settings.derisk_factors.length
+            ? settings.derisk_factors.map((f: { label: string; points: number; enabled: boolean }, i: number) => ({
+                id: i + 1, label: f.label, points: Number(f.points) || 0, enabled: Boolean(f.enabled),
+              }))
+            : prev.deRiskFactors,
+        }))
+      } catch { /* non-fatal: use defaults */ }
     })()
     return () => { cancelled = true }
   }, [])
@@ -126,15 +114,13 @@ export default function SetupPage() {
       return
     }
 
-    // Step 2: persist the chosen criteria via the user-scoped client.
-    // RLS policy "Admins can update company settings" gates on
-    // company_memberships.can_manage_settings = true; /api/company/create
-    // sets that flag for the creating user, so this write is allowed
-    // immediately after step 1.
-    const supabase = createClient()
-    const { error: settingsError } = await supabase
-      .from('company_settings')
-      .update({
+    // Step 2: persist via the server-side settings route which uses upsert
+    // (fixes the "stuck spinning" bug where a direct .update() failed silently
+    // when the company_settings row didn't exist yet or RLS blocked the write).
+    const settingsRes = await fetch('/api/company/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         min_gm_green: criteria.minGmGreen,
         min_gm_amber: criteria.minGmAmber,
         critical_criteria: criteria.criticalCriteria.map(c => ({
@@ -148,14 +134,12 @@ export default function SetupPage() {
           points: f.points,
           enabled: f.enabled,
         })),
-      })
-      .eq('company_id', companyId)
+      }),
+    })
 
-    if (settingsError) {
-      const msg = /row[- ]level security|policy/i.test(settingsError.message)
-        ? 'Only company admins can save these criteria. Ask your admin to make this change.'
-        : settingsError.message
-      setError(`Couldn't save criteria: ${msg}`)
+    if (!settingsRes.ok) {
+      const body = await settingsRes.json().catch(() => ({}))
+      setError(`Couldn't save criteria: ${body?.error || `HTTP ${settingsRes.status}`}`)
       setLoading(false)
       return
     }
@@ -191,32 +175,15 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-indigo-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold">DF</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900">DealFindrs</span>
-          </Link>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <span className="w-8 h-8 bg-amber-500 text-white rounded-full flex items-center justify-center font-bold">1</span>
-            <span className="font-medium text-amber-600">Setup Criteria</span>
-            <span className="mx-2">→</span>
-            <span className="w-8 h-8 bg-gray-300 text-white rounded-full flex items-center justify-center font-bold">2</span>
-            <span className="text-gray-400">Add Opportunities</span>
-          </div>
+    <AuthLayout>
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* Explanatory header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Criteria Setup</h1>
+          <p className="text-gray-600 mt-1 text-base">
+            Define what makes a deal &quot;green light ready&quot; for your company. These criteria are used for every AI assessment you run.
+          </p>
         </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-6 py-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Set Your Deal Criteria</h1>
-          <p className="text-gray-600">Define what makes a deal &quot;green light ready&quot; for your company</p>
-        </div>
-
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
           {/* Voice Assistant Banner */}
           <VoiceAssistant
@@ -380,6 +347,6 @@ export default function SetupPage() {
           </div>
         </div>
       </div>
-    </div>
+    </AuthLayout>
   )
 }

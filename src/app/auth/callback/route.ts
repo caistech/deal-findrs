@@ -18,13 +18,16 @@ import { bootstrapCompany } from '@/lib/company/bootstrap'
 export async function GET(request: NextRequest) {
   const url = new URL(request.url)
   const code = url.searchParams.get('code')
+  // Supabase v2 magic links use token_hash instead of code (bug-knowledge: sf-supabase-magic-link-token-hash)
+  const tokenHash = url.searchParams.get('token_hash')
+  const type = url.searchParams.get('type') as 'signup' | 'recovery' | 'email' | 'magiclink' | null
   const next = url.searchParams.get('next') || '/dashboard'
 
   // Sanity-check `next` is a same-origin path. Refuse anything that looks
   // like an open-redirect attempt (absolute URL, protocol-relative URL).
   const safeNext = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
 
-  if (!code) {
+  if (!code && !tokenHash) {
     return NextResponse.redirect(
       new URL('/login?error=missing_code', request.url)
     )
@@ -49,7 +52,25 @@ export async function GET(request: NextRequest) {
     }
   )
 
-  const { data: exchangeData, error } = await supabase.auth.exchangeCodeForSession(code)
+  let exchangeData: { user: import('@supabase/supabase-js').User | null } | null = null
+  let error: { message: string } | null = null
+
+  if (tokenHash && type) {
+    // Handle Supabase v2 magic link / OTP path
+    const { data, error: otpError } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+    if (otpError) {
+      error = otpError
+    } else {
+      exchangeData = data
+    }
+  } else if (code) {
+    const { data, error: codeError } = await supabase.auth.exchangeCodeForSession(code)
+    if (codeError) {
+      error = codeError
+    } else {
+      exchangeData = data
+    }
+  }
 
   if (error) {
     console.error('[auth/callback] exchange failed:', error.message)
@@ -63,7 +84,7 @@ export async function GET(request: NextRequest) {
   // without it, a confirmed user who heads straight to the deal wizard hits a
   // silent 403 on POST /api/opportunities/draft (no company_id linked).
   // Idempotent: a no-op for magic-link/password-reset of an existing user.
-  const sessionUser = exchangeData?.user
+  const sessionUser = (exchangeData as { user?: import('@supabase/supabase-js').User } | null)?.user
   if (sessionUser) {
     try {
       await bootstrapCompany(sessionUser)

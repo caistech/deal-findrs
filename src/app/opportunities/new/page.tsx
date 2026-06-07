@@ -9,6 +9,7 @@ import { VoiceInput } from '@/components/voice/VoiceInput'
 import { DocumentUpload } from '@/components/voice/DocumentUpload'
 import AddressAutocomplete from '@/components/common/AddressAutocomplete'
 import { DealJourney } from '@/components/common/DealJourney'
+import { AuthLayout } from '@/components/common/AuthLayout'
 import { usePropertyOnboarding, PropertyAssessment } from '@/lib/property-services'
 import type { PropertyProfile } from '@/lib/property-services'
 import type { GeocodedAddress, SiteIntelResult } from '@/lib/mapbox'
@@ -379,9 +380,10 @@ export default function NewOpportunityPage() {
   const financials = calculateFinancials()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <AuthLayout>
+    <div className="bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
-      <nav className="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-10">
+      <nav className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sticky top-0 z-10">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link href="/opportunities" className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
             <ArrowLeft className="w-4 h-4" /> Back
@@ -1453,5 +1455,6 @@ export default function NewOpportunityPage() {
         </div>
       </div>
     </div>
+    </AuthLayout>
   )
 }

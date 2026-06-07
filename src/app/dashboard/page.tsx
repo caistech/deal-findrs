@@ -3,9 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Plus, Search, ChevronRight, Bell, Mic } from 'lucide-react'
-import { CorporateHeader } from '@/components/corporate/CorporateHeader'
-import { CorporateFooter } from '@/components/corporate/CorporateFooter'
-import { UserMenu } from '@/components/UserMenu'
+import { AuthLayout } from '@/components/common/AuthLayout'
 
 // Sample deal used in the screenshot tour. The Branscomb V6 deal is the
 // engine's known-bad regression case — it MUST surface as RED to match what
@@ -55,90 +53,74 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col">
-      <CorporateHeader
-        productName="DealFindrs"
-        productAcronym="DF"
-        theme="light"
-        LinkComponent={Link}
-        activePath="/dashboard"
-        navItems={[
-          { href: '/dashboard', label: 'Dashboard' },
-          { href: '/opportunities', label: 'Opportunities' },
-          { href: '/analytics', label: 'Analytics' },
-          { href: '/settings', label: 'Settings' },
-        ]}
-        rightContent={
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors relative"
-              >
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-[#22c55e] rounded-full"></span>
-              </button>
+    <AuthLayout>
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* Explanatory header */}
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1 text-base">
+            Your deal pipeline at a glance. Add a new opportunity to start an AI-powered assessment.
+          </p>
+        </div>
 
-              {showNotifications && (
-                <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden z-50">
-                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                    <span className="font-semibold text-gray-900">Notifications</span>
-                    <button className="text-sm text-[#22c55e] hover:underline">Mark all read</button>
-                  </div>
-                  <div className="max-h-80 overflow-y-auto">
-                    <div className="px-4 py-3 hover:bg-gray-50 border-b border-gray-100">
-                      <p className="text-sm text-gray-900">Branscomb Rd assessment complete</p>
-                      <p className="text-xs text-gray-500 mt-1">Result: AMBER (Score: 78)</p>
-                      <p className="text-xs text-gray-400 mt-1">2 hours ago</p>
-                    </div>
-                    <div className="px-4 py-3 hover:bg-gray-50">
-                      <p className="text-sm text-gray-900">Welcome to DealFindrs!</p>
-                      <p className="text-xs text-gray-500 mt-1">Your 14-day free trial has started</p>
-                      <p className="text-xs text-gray-400 mt-1">1 day ago</p>
-                    </div>
-                  </div>
-                  <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
-                    <Link href="/settings" className="text-sm text-[#22c55e] hover:underline">
-                      Notification settings
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-            {/* Hidden on mobile to stop the header overflowing (caused
-                horizontal scroll at 375px). The banner CTA below covers the
-                mobile case; on mobile this collapses to an icon-only button. */}
-            <Link
-              href="/opportunities/new"
-              aria-label="New Opportunity"
-              className="p-2 sm:px-4 sm:py-2 bg-[#22c55e] text-white rounded-lg text-sm font-bold hover:bg-[#4ade80] transition-all flex items-center justify-center sm:gap-2 min-w-[44px] min-h-[44px] sm:min-h-0"
-            >
-              <Plus className="w-4 h-4" /> <span className="hidden sm:inline">New Opportunity</span>
-            </Link>
-            <UserMenu />
-          </div>
-        }
-      />
-
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* Welcome Banner */}
         <div className="bg-[#22c55e] rounded-2xl p-6 mb-8 text-white">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold mb-2">Welcome back! 👋</h1>
-              <p className="text-white/80">
+              <h2 className="text-xl font-bold mb-1">Welcome back!</h2>
+              <p className="text-white/80 text-base">
                 {mockDeals.length === 0
                   ? "Get started by adding your first property development opportunity."
                   : `You have ${stats.amber} opportunity awaiting review. Add more to build your pipeline.`
                 }
               </p>
             </div>
-            <Link
-              href="/opportunities/new"
-              className="w-full sm:w-auto justify-center px-6 py-3 bg-white text-[#22c55e] rounded-xl font-semibold hover:bg-white/90 transition-colors flex items-center gap-2"
-            >
-              <Plus className="w-5 h-5" /> Add New Opportunity
-            </Link>
+            <div className="flex items-center gap-3">
+              {/* Notifications */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-2.5 bg-white/20 hover:bg-white/30 rounded-xl transition-colors relative"
+                  aria-label="Notifications"
+                >
+                  <Bell className="w-5 h-5" />
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-white rounded-full" />
+                </button>
+
+                {showNotifications && (
+                  <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden z-50">
+                    <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                      <span className="font-semibold text-gray-900">Notifications</span>
+                      <button className="text-sm text-[#22c55e] hover:underline">Mark all read</button>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      <div className="px-4 py-3 hover:bg-gray-50 border-b border-gray-100">
+                        <p className="text-sm text-gray-900">Branscomb Rd assessment complete</p>
+                        <p className="text-xs text-gray-500 mt-1">Result: AMBER (Score: 78)</p>
+                        <p className="text-xs text-gray-400 mt-1">2 hours ago</p>
+                      </div>
+                      <div className="px-4 py-3 hover:bg-gray-50">
+                        <p className="text-sm text-gray-900">Welcome to DealFindrs!</p>
+                        <p className="text-xs text-gray-500 mt-1">Your 14-day free trial has started</p>
+                        <p className="text-xs text-gray-400 mt-1">1 day ago</p>
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 border-t border-gray-100 bg-gray-50">
+                      <Link href="/settings" className="text-sm text-[#22c55e] hover:underline">
+                        Notification settings
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <Link
+                href="/opportunities/new"
+                className="px-5 py-2.5 bg-white text-[#22c55e] rounded-xl font-semibold hover:bg-white/90 transition-colors flex items-center gap-2 min-h-[44px]"
+              >
+                <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Add Opportunity</span><span className="sm:hidden">New</span>
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -150,9 +132,9 @@ export default function DashboardPage() {
             { label: 'Red', count: stats.red, color: 'red', icon: '🔴' },
             { label: 'Pipeline Value', count: stats.pipelineValue, color: 'blue', icon: '💰' },
           ].map((stat, i) => (
-            <div 
-              key={i} 
-              className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+            <div
+              key={i}
+              className="bg-white rounded-2xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer min-h-[44px]"
               onClick={() => stat.label !== 'Pipeline Value' && setStatusFilter(stat.label.toLowerCase().replace(' light', ''))}
             >
               <div className="flex items-center justify-between">
@@ -178,13 +160,13 @@ export default function DashboardPage() {
                   placeholder="Search deals..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 text-base sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#22c55e] w-full sm:w-64"
+                  className="pl-10 pr-4 py-2 text-base border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#22c55e] w-full sm:w-56"
                 />
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 text-base sm:text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
+                className="px-4 py-2 text-base border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#22c55e]"
               >
                 <option value="all">All Status</option>
                 <option value="green">Green</option>
@@ -193,20 +175,18 @@ export default function DashboardPage() {
               </select>
             </div>
           </div>
-          
+
           <div className="divide-y divide-gray-100">
             {filteredDeals.map((deal) => (
               <Link
                 key={deal.id}
                 href={`/opportunities/${deal.id}`}
-                className="px-4 sm:px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors flex items-center gap-3 sm:gap-4"
+                className="px-4 sm:px-6 py-4 hover:bg-gray-50 transition-colors flex items-center gap-3 sm:gap-4"
               >
                 <div className={`w-4 h-4 flex-shrink-0 rounded-full ${getStatusColor(deal.status)}`} />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 truncate">{deal.name}</p>
                   <p className="text-sm text-gray-500 truncate">{deal.location}</p>
-                  {/* Stage shown inline under the name on mobile, where the
-                      dedicated column is hidden. */}
                   <span className="lg:hidden mt-1 inline-block px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full">
                     {deal.stage}
                   </span>
@@ -224,10 +204,6 @@ export default function DashboardPage() {
                   <p className="font-semibold text-gray-900">{deal.score}</p>
                   <p className="text-xs text-gray-500">Score</p>
                 </div>
-                <div className="hidden md:block text-right w-12">
-                  <p className="font-semibold text-gray-900">{deal.lots}</p>
-                  <p className="text-xs text-gray-500">Lots</p>
-                </div>
                 <ChevronRight className="w-5 h-5 flex-shrink-0 text-gray-400" />
               </Link>
             ))}
@@ -238,15 +214,15 @@ export default function DashboardPage() {
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Search className="w-8 h-8 text-gray-400" />
               </div>
-              <p className="text-gray-500 mb-4">
-                {searchQuery || statusFilter !== 'all' 
+              <p className="text-gray-500 mb-4 text-base">
+                {searchQuery || statusFilter !== 'all'
                   ? "No opportunities found matching your criteria."
                   : "No opportunities yet. Add your first one to get started!"
                 }
               </p>
-              <Link 
+              <Link
                 href="/opportunities/new"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#22c55e] text-white rounded-xl font-bold hover:bg-[#4ade80] hover:shadow-lg transition-all"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#22c55e] text-white rounded-xl font-bold hover:bg-[#4ade80] hover:shadow-lg transition-all min-h-[44px]"
               >
                 <Plus className="w-4 h-4" /> Add Your First Opportunity
               </Link>
@@ -255,7 +231,7 @@ export default function DashboardPage() {
 
           {filteredDeals.length > 0 && (
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
-              <Link 
+              <Link
                 href="/opportunities"
                 className="text-[#22c55e] font-medium hover:underline"
               >
@@ -264,44 +240,45 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
 
       {/* Voice Assistant FAB */}
-      <button 
+      <button
         onClick={() => setVoiceActive(!voiceActive)}
         className={`fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 ${
-          voiceActive 
-            ? 'bg-[#22c55e] scale-110' 
+          voiceActive
+            ? 'bg-[#22c55e] scale-110'
             : 'bg-[#22c55e] hover:scale-105'
         }`}
+        aria-label="Voice Assistant"
       >
         <Mic className={`w-6 h-6 text-white ${voiceActive ? 'animate-pulse' : ''}`} />
       </button>
 
       {/* Voice Dialog */}
       {voiceActive && (
-        <div className="fixed bottom-24 right-6 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden animate-fadeIn">
+        <div className="fixed bottom-24 right-6 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden z-50">
           <div className="bg-[#22c55e] px-4 py-3 flex items-center justify-between">
             <span className="text-white font-medium flex items-center gap-2">
               <Mic className="w-4 h-4 animate-pulse" /> Voice Assistant
             </span>
-            <button onClick={() => setVoiceActive(false)} className="text-white/80 hover:text-white">✕</button>
+            <button onClick={() => setVoiceActive(false)} className="text-white/80 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center">✕</button>
           </div>
           <div className="p-4">
-            <p className="text-gray-700 text-sm leading-relaxed">
-              "Hi! I can help you add new opportunities, review your pipeline, or explain assessment results. 
-              What would you like to do?"
+            <p className="text-gray-700 text-base leading-relaxed">
+              &ldquo;Hi! I can help you add new opportunities, review your pipeline, or explain assessment results.
+              What would you like to do?&rdquo;
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link 
+              <Link
                 href="/opportunities/new"
-                className="px-3 py-2 bg-[#22c55e]/10 text-[#22c55e] rounded-lg text-sm font-medium hover:bg-[#22c55e]/20 transition-colors"
+                className="px-3 py-2 bg-[#22c55e]/10 text-[#22c55e] rounded-lg text-sm font-medium hover:bg-[#22c55e]/20 transition-colors min-h-[44px] flex items-center"
               >
                 Add opportunity
               </Link>
-              <Link 
+              <Link
                 href="/opportunities/1"
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors min-h-[44px] flex items-center"
               >
                 Review Branscomb
               </Link>
@@ -309,8 +286,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      <CorporateFooter productName="DealFindrs" />
-    </div>
+    </AuthLayout>
   )
 }

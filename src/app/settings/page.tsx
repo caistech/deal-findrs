@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
-  Plus, Save, User, Building, Bell, Shield, CreditCard, Users, Key,
+  Save, User, Building, Bell, Shield, CreditCard, Users, Key,
   Eye, EyeOff, AlertCircle, CheckCircle2, ExternalLink,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { UserMenu } from '@/components/UserMenu'
+import { AuthLayout } from '@/components/common/AuthLayout'
 
 type ProfileRow = {
   id: string
@@ -306,48 +306,8 @@ export default function SettingsPage() {
   const initials = initialsFromProfile(profile)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-lg">DF</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">DealFindrs</span>
-            </Link>
-            <div className="flex items-center gap-1">
-              {[
-                { name: 'Dashboard', href: '/dashboard', active: false },
-                { name: 'Opportunities', href: '/opportunities', active: false },
-                { name: 'Analytics', href: '/analytics', active: false },
-                { name: 'Settings', href: '/settings', active: true },
-              ].map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    item.active ? 'bg-amber-50 text-amber-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
-                >
-                  {item.name}
-                </Link>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/opportunities/new"
-              className="px-4 py-2 bg-gradient-to-r from-amber-400 to-orange-500 text-slate-900 rounded-lg text-sm font-bold hover:shadow-lg transition-all flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" /> New Opportunity
-            </Link>
-            <UserMenu />
-          </div>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-6 py-8">
+    <AuthLayout>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
           <p className="text-gray-600 mt-1">
@@ -852,7 +812,7 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AuthLayout>
   )
 }
