@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAuth } from '@/lib/auth/require-auth'
 
-let _admin: ReturnType<typeof createClient> | null = null
+let _admin: any | null = null
 function getAdmin() {
   if (!_admin) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
