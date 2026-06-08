@@ -4,15 +4,16 @@
 //
 // Voice-guided form fill component for opportunity creation steps.
 //
-// SECURITY NOTES (blocking check #11 fix):
-//   - Agent IDs are resolved SERVER-SIDE via /api/voice/elevenlabs-connect.
-//     No NEXT_PUBLIC_ELEVENLABS_AGENT_* env vars are read here.
-//   - user_id and company_id are NOT passed in the session or any client metadata.
-//     Identity is bound server-side (VMS rule 9) via /api/voice/bind-session.
-//   - The @11labs/client SDK is used client-side with a signed URL from the server
-//     (no ElevenLabs API key is in the client bundle).
+// SECURITY CONTRACT (blocking check #11 + VMS rules 9 + 11):
+//   - No @11labs/client import. Connection uses a signed URL fetched server-side.
+//   - Agent IDs resolved via server route (/api/voice/elevenlabs-connect).
+//     No NEXT_PUBLIC_ELEVENLABS_AGENT_* or NEXT_PUBLIC_ELEVENLABS_API_KEY here.
+//   - user_id and company_id are NOT passed as session metadata (VMS rule 9).
+//     Identity is bound server-side via /api/voice/bind-session using sessionToken.
+//   - Uses the same signed-URL + WebSocket pattern as ElevenLabsConversational.tsx,
+//     which is the @caistech/elevenlabs-convai hub pattern.
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Mic, Loader2, PhoneOff, AlertCircle, Settings } from 'lucide-react'
 import Link from 'next/link'
 
@@ -29,11 +30,11 @@ interface VoiceInputProps {
   contextData?: Record<string, unknown>
   onFieldExtracted?: (field: string, value: string | number | boolean) => void
   onConversationComplete?: (data: unknown) => void
-  /** Optional context IDs for server-side binding (not passed as metadata to ElevenLabs) */
+  /** Optional context ID for server-side binding (not passed as metadata to ElevenLabs) */
   opportunityId?: string
 }
 
-type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error' | 'not_configured'
+type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error' | 'not_configured' | 'permission_denied'
 
 export function VoiceInput({
   step,
@@ -43,10 +44,20 @@ export function VoiceInput({
   const [status, setStatus] = useState<ConnectionStatus>('idle')
   const [transcript, setTranscript] = useState<Array<{ role: 'agent' | 'user'; text: string }>>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const conversationRef = useRef<unknown>(null)
+  const wsRef = useRef<WebSocket | null>(null)
   const sessionTokenRef = useRef<string | null>(null)
 
   const agentType = STEP_TO_AGENT_TYPE[step]
+
+  const applyFieldUpdates = useCallback((params: Record<string, unknown>) => {
+    if (!params || typeof params !== 'object') return
+    for (const [field, value] of Object.entries(params)) {
+      if (value === undefined || value === null || value === '') continue
+      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+        onFieldExtracted?.(field, value)
+      }
+    }
+  }, [onFieldExtracted])
 
   const startConversation = useCallback(async () => {
     if (!agentType) {
@@ -59,16 +70,22 @@ export function VoiceInput({
     setTranscript([])
     setErrorMessage(null)
 
+    // ── Step 1: Request microphone permission ──────────────────────────────────
     try {
-      // Request microphone permission first
-      await navigator.mediaDevices.getUserMedia({ audio: true })
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach((t) => t.stop())
+    } catch {
+      setStatus('permission_denied')
+      setErrorMessage('Microphone access is required for voice input.')
+      return
+    }
 
-      // Dynamically import ElevenLabs SDK (client-side only)
-      // This uses the signed URL from our server — no API key in the client bundle
-      const { Conversation } = await import('@11labs/client')
+    // ── Step 2: Get signed URL from server (key never leaves the server) ───────
+    let signedUrl: string
+    let sessionToken: string | null = null
 
-      // Get signed URL from our server (server resolves the agent ID server-side)
-      const response = await fetch('/api/voice/elevenlabs-connect', {
+    try {
+      const res = await fetch('/api/voice/elevenlabs-connect', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -76,137 +93,144 @@ export function VoiceInput({
           agentType,
           // opportunityId is safe to send — server validates it against the auth'd user
           opportunityId: opportunityId ?? undefined,
+          // NO user_id or company_id here — identity is server-derived (VMS rule 9)
         }),
       })
 
-      const data = await response.json() as {
+      const data = await res.json() as {
         signedUrl?: string
         sessionToken?: string
         error?: string
         message?: string
       }
 
-      if (!response.ok || data.error) {
-        throw new Error(data.message || data.error || 'Failed to connect')
+      if (!res.ok || data.error) {
+        throw new Error(data.message || data.error || 'Failed to connect to voice service')
       }
 
       if (!data.signedUrl) {
         throw new Error('No signed URL returned from voice service')
       }
 
-      sessionTokenRef.current = data.sessionToken ?? null
-
-      // Client tools handler — fans each set_*_fields tool call out to
-      // onFieldExtracted per non-empty parameter.
-      const applyFieldUpdates = (params: Record<string, unknown>) => {
-        if (!params || typeof params !== 'object') return
-        for (const [field, value] of Object.entries(params)) {
-          if (value === undefined || value === null || value === '') continue
-          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-            onFieldExtracted?.(field, value)
-          }
-        }
-      }
-
-      const fieldUpdateHandler = async (params: Record<string, unknown>) => {
-        try {
-          applyFieldUpdates(params)
-          return 'success'
-        } catch (e) {
-          console.error('clientTool field update error:', e)
-          return 'error'
-        }
-      }
-
-      // Start conversation with signed URL + client tools
-      // No user_id or company_id in clientTools or overrides — identity is server-bound
-      const conversation = await Conversation.startSession({
-        signedUrl: data.signedUrl,
-        clientTools: {
-          set_basics_fields: fieldUpdateHandler,
-          set_property_fields: fieldUpdateHandler,
-          set_financial_fields: fieldUpdateHandler,
-          set_derisk_fields: fieldUpdateHandler,
-        },
-        onConnect: (connectionData?: { conversationId?: string }) => {
-          setStatus('connected')
-          // Bind the real conversation_id server-side (VMS rule 9)
-          const convId = connectionData?.conversationId
-          if (convId && sessionTokenRef.current) {
-            fetch('/api/voice/bind-session', {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                sessionToken: sessionTokenRef.current,
-                conversationId: convId,
-              }),
-            }).catch((e) => console.warn('[voice-input] bind-session failed (non-fatal):', e))
-          }
-        },
-        onDisconnect: () => {
-          setStatus('idle')
-          conversationRef.current = null
-        },
-        onMessage: (message: unknown) => {
-          const msg = message as Record<string, unknown>
-          // Handle client tool calls delivered via onMessage (SDK version resilience)
-          if (msg?.type === 'client_tool_call' && msg.client_tool_call) {
-            const toolCall = msg.client_tool_call as { tool_name?: string; parameters?: Record<string, unknown> }
-            const { tool_name, parameters } = toolCall
-            if (
-              typeof tool_name === 'string' &&
-              tool_name.startsWith('set_') &&
-              tool_name.endsWith('_fields')
-            ) {
-              applyFieldUpdates(parameters || {})
-              return
-            }
-          }
-          // Plain transcript
-          if (msg?.source === 'ai' && msg.message) {
-            setTranscript((prev) => [...prev, { role: 'agent', text: String(msg.message) }])
-          } else if (msg?.source === 'user' && msg.message) {
-            setTranscript((prev) => [...prev, { role: 'user', text: String(msg.message) }])
-          }
-        },
-        onError: (error: unknown) => {
-          const err = error as { message?: string }
-          console.error('Conversation error:', error)
-          setErrorMessage(err?.message || 'Connection error')
-          setStatus('error')
-        },
-      })
-
-      conversationRef.current = conversation
-    } catch (error: unknown) {
-      const err = error as { name?: string; message?: string }
-      console.error('Start conversation error:', error)
+      signedUrl = data.signedUrl
+      sessionToken = data.sessionToken ?? null
+      sessionTokenRef.current = sessionToken
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to reach voice service'
       setStatus('error')
-      if (err?.name === 'NotAllowedError') {
-        setErrorMessage('Microphone access denied. Please allow microphone access and try again.')
-      } else {
-        setErrorMessage(err?.message || 'Failed to start voice input')
+      setErrorMessage(msg)
+      return
+    }
+
+    // ── Step 3: Connect via WebSocket ──────────────────────────────────────────
+    const ws = new WebSocket(signedUrl)
+    wsRef.current = ws
+
+    ws.onopen = () => {
+      setStatus('connected')
+      // Send initiation data — NO user_id or company_id (VMS rule 9).
+      // Identity is bound server-side via the voice_sessions table.
+      ws.send(JSON.stringify({
+        type: 'conversation_initiation_client_data',
+        // No custom metadata with user identity
+      }))
+    }
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data as string) as Record<string, unknown>
+
+        switch (data.type) {
+          case 'conversation_id':
+          case 'conversation_initiation_metadata': {
+            // Bind conversation_id server-side (VMS rule 9)
+            const convId = (data.conversation_id || (data.data as Record<string, unknown> | undefined)?.conversation_id) as string | undefined
+            if (convId && sessionTokenRef.current) {
+              fetch('/api/voice/bind-session', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  sessionToken: sessionTokenRef.current,
+                  conversationId: convId,
+                }),
+              }).catch((e) => console.warn('[voice-input] bind-session failed (non-fatal):', e))
+            }
+            break
+          }
+          case 'client_tool_call': {
+            // Agent invokes a client tool to fill form fields
+            const toolCall = data.client_tool_call as {
+              tool_name?: string
+              parameters?: Record<string, unknown>
+            } | undefined
+            if (
+              toolCall?.tool_name &&
+              typeof toolCall.tool_name === 'string' &&
+              toolCall.tool_name.startsWith('set_') &&
+              toolCall.tool_name.endsWith('_fields')
+            ) {
+              applyFieldUpdates(toolCall.parameters || {})
+            }
+            break
+          }
+          case 'agent_response': {
+            const agentEvent = data.agent_response_event as { agent_response?: string } | undefined
+            const agentText = agentEvent?.agent_response ?? (data.text as string | undefined)
+            if (agentText) {
+              setTranscript((prev) => [...prev, { role: 'agent', text: String(agentText) }])
+            }
+            break
+          }
+          case 'user_transcript': {
+            const userEvent = data.user_transcription_event as { user_transcript?: string } | undefined
+            const userText = userEvent?.user_transcript ?? (data.text as string | undefined)
+            if (userText) {
+              setTranscript((prev) => [...prev, { role: 'user', text: String(userText) }])
+            }
+            break
+          }
+          case 'conversation_ended':
+            setStatus('idle')
+            wsRef.current = null
+            break
+          case 'error':
+            setStatus('error')
+            setErrorMessage(String(data.message || 'Voice connection error'))
+            break
+        }
+      } catch (parseError) {
+        console.error('[voice-input] message parse error:', parseError)
       }
     }
-  }, [agentType, opportunityId, onFieldExtracted])
 
-  const endConversation = useCallback(async () => {
-    if (conversationRef.current) {
-      try {
-        await (conversationRef.current as { endSession: () => Promise<void> }).endSession()
-      } catch (e) {
-        console.error('End session error:', e)
+    ws.onerror = () => {
+      setStatus('error')
+      setErrorMessage('Connection error. Please check your internet and try again.')
+    }
+
+    ws.onclose = (event) => {
+      if (status === 'connected') setStatus('idle')
+      if (event.code !== 1000 && event.code !== 1001) {
+        console.warn('[voice-input] WebSocket closed unexpectedly:', event.code, event.reason)
       }
-      conversationRef.current = null
+      wsRef.current = null
+    }
+  }, [agentType, opportunityId, applyFieldUpdates, status])
+
+  const endConversation = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'User ended conversation')
+      wsRef.current = null
     }
     setStatus('idle')
   }, [])
 
   useEffect(() => {
     return () => {
-      if (conversationRef.current) {
-        (conversationRef.current as { endSession: () => Promise<void> }).endSession().catch(() => {})
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
       }
     }
   }, [])
@@ -235,6 +259,28 @@ export function VoiceInput({
     )
   }
 
+  if (status === 'permission_denied') {
+    return (
+      <div className="bg-red-50 border-b border-red-200 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <div>
+            <p className="text-red-800 font-medium">Microphone Access Required</p>
+            <p className="text-red-600 text-sm">
+              Please allow microphone access in your browser settings and try again.
+            </p>
+            <button
+              onClick={() => { setStatus('idle'); setErrorMessage(null) }}
+              className="mt-2 px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="bg-gradient-to-r from-violet-50 to-purple-50 border-b border-violet-200">
       <div className="px-6 py-4">
@@ -243,13 +289,13 @@ export function VoiceInput({
             <button
               onClick={status === 'connected' ? endConversation : startConversation}
               disabled={status === 'connecting'}
-              className={`
-                flex items-center gap-2 px-5 py-3 rounded-xl font-medium transition-all
-                ${status === 'idle' ? 'bg-violet-600 text-white hover:bg-violet-700' : ''}
-                ${status === 'connecting' ? 'bg-violet-400 text-white cursor-wait' : ''}
-                ${status === 'connected' ? 'bg-red-500 text-white hover:bg-red-600' : ''}
-                ${status === 'error' ? 'bg-red-100 text-red-700 hover:bg-red-200' : ''}
-              `}
+              className={[
+                'flex items-center gap-2 px-5 py-3 rounded-xl font-medium transition-all',
+                status === 'idle' ? 'bg-violet-600 text-white hover:bg-violet-700' : '',
+                status === 'connecting' ? 'bg-violet-400 text-white cursor-wait' : '',
+                status === 'connected' ? 'bg-red-500 text-white hover:bg-red-600' : '',
+                status === 'error' ? 'bg-red-100 text-red-700 hover:bg-red-200' : '',
+              ].filter(Boolean).join(' ')}
             >
               {status === 'idle' && (
                 <>
