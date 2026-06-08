@@ -33,11 +33,18 @@ CREATE INDEX IF NOT EXISTS voice_sessions_expires_at_idx
 -- RLS: users can only see their own sessions; service-role bypasses for webhook lookups
 ALTER TABLE voice_sessions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "voice_sessions_own_read" ON voice_sessions
-  FOR SELECT USING (auth.uid() = user_id);
-
-CREATE POLICY IF NOT EXISTS "voice_sessions_own_insert" ON voice_sessions
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+-- NOTE: Postgres has NO "CREATE POLICY IF NOT EXISTS" — it is a syntax error. Guard with a DO
+-- block that checks pg_policies, so the migration is idempotent + valid.
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='voice_sessions' AND policyname='voice_sessions_own_read') THEN
+    CREATE POLICY "voice_sessions_own_read" ON voice_sessions
+      FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public' AND tablename='voice_sessions' AND policyname='voice_sessions_own_insert') THEN
+    CREATE POLICY "voice_sessions_own_insert" ON voice_sessions
+      FOR INSERT WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
 
 -- Purge expired sessions (run via a scheduled job or on-demand)
 -- Service-role callers can DELETE; RLS does not restrict service-role.
