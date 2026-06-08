@@ -3,12 +3,11 @@
 
 import { useState, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, ArrowRight, AlertCircle, Mail, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 function AdminLoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const next = searchParams.get('next') || '/admin'
 
@@ -19,9 +18,6 @@ function AdminLoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
-
-  const adminEmails = (process.env.ADMIN_EMAILS || 'dennis@corporateaisolutions.com,mcmdennis@gmail.com')
-    .split(',').map(e => e.trim().toLowerCase())
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,15 +37,13 @@ function AdminLoginForm() {
         return
       }
 
-      if (!adminEmails.includes(email.toLowerCase())) {
-        setError('Access denied. This account is not authorized for admin access.')
-        await supabase.auth.signOut()
-        setLoading(false)
-        return
-      }
-
-      router.push(next)
-      router.refresh()
+      // Admin authorization is enforced SERVER-SIDE by middleware.ts (which reads ADMIN_EMAILS, a
+      // server-only env, and bounces a non-admin to /dashboard?error=admin_only). Do NOT re-check
+      // ADMIN_EMAILS here: in this 'use client' component process.env.ADMIN_EMAILS is undefined in
+      // the browser, so a client check silently falls back to the default list and wrongly denies
+      // (and signs out) any other allowlisted admin. Hard-navigate so the freshly-set auth cookie is
+      // sent on the /admin request (avoids the soft-nav cookie race that bounces to /admin/login).
+      window.location.assign(next)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unexpected error during login')
       setLoading(false)
