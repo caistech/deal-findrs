@@ -1,5 +1,18 @@
+// POST /api/webhooks/elevenlabs/opportunity-derisk
+//
+// Post-call webhook for the de-risk checklist voice agent.
+// Transcript-log only — form fields are written by client tools (set_derisk_fields).
+//
+// SECURITY CONTRACT (VMS rules 9 + 10):
+//   - HMAC verified BEFORE any processing. Unverified → 401. (rule 10)
+//   - Identity resolved from voice_sessions via conversation_id. (rule 9)
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { verifyElevenLabsWebhook } from '@/lib/elevenlabs/webhook-verify'
 
 let _supabaseAdmin: SupabaseClient | null = null
 
@@ -22,66 +35,58 @@ interface ElevenLabsWebhookPayload {
     message: string
     timestamp: string
   }>
-  metadata?: {
-    user_id?: string
-    company_id?: string
-    opportunity_id?: string
-  }
   extracted_data?: {
     type: string
-    data: any
+    data: Record<string, unknown>
   }
   duration_seconds?: number
 }
 
-/**
- * Transcript-log only. The form-fill flow is now driven by client tools
- * (set_derisk_fields). See opportunity-basics/route.ts for context.
- */
 export async function POST(request: NextRequest) {
-  try {
-    const payload: ElevenLabsWebhookPayload = await request.json()
-    const supabase = getSupabaseAdmin()
-
-    console.log('Opportunity de-risk webhook received:', payload.conversation_id)
-
-    await logTranscript(
-      supabase,
-      payload,
-      'opportunity_derisk',
-      payload.metadata?.company_id,
-      payload.metadata?.user_id,
-      payload.metadata?.opportunity_id
-    )
-
-    return NextResponse.json({ status: 'transcript_logged' })
-  } catch (error) {
-    console.error('Opportunity de-risk webhook error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  const verified = await verifyElevenLabsWebhook(request)
+  if (!verified.ok) {
+    console.error('[webhook/opportunity-derisk] HMAC verification failed:', verified.error)
+    return NextResponse.json({ error: verified.error }, { status: verified.status })
   }
-}
 
-async function logTranscript(
-  supabase: SupabaseClient,
-  payload: ElevenLabsWebhookPayload,
-  context: string,
-  companyId?: string,
-  userId?: string,
-  opportunityId?: string
-) {
+  let payload: ElevenLabsWebhookPayload
+  try {
+    payload = JSON.parse(verified.body)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
+  const supabase = getSupabaseAdmin()
+  const conversationId = payload.conversation_id
+
+  console.log('[webhook/opportunity-derisk] conversation_id:', conversationId)
+
+  const { data: session } = await supabase
+    .from('voice_sessions')
+    .select('user_id, company_id, opportunity_id')
+    .eq('conversation_id', conversationId)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle()
+
+  const userId = session?.user_id as string | undefined
+  const companyId = session?.company_id as string | undefined
+  const opportunityId = session?.opportunity_id as string | undefined
+
   const { error } = await supabase.from('voice_transcripts').insert({
-    company_id: companyId,
-    user_id: userId,
-    opportunity_id: opportunityId,
-    conversation_id: payload.conversation_id,
+    company_id: companyId ?? null,
+    user_id: userId ?? null,
+    opportunity_id: opportunityId ?? null,
+    conversation_id: conversationId,
     agent_id: payload.agent_id,
-    context,
+    context: 'opportunity_derisk',
     transcript: payload.transcript,
-    extracted_data: payload.extracted_data,
-    duration_seconds: payload.duration_seconds,
+    extracted_data: payload.extracted_data ?? null,
+    duration_seconds: payload.duration_seconds ?? null,
     status: payload.status,
   })
   if (error) {
-    console.error('voice_transcripts insert failed:', error.message)
+    console.error('[webhook/opportunity-derisk] voice_transcripts insert failed:', error.message)
   }
+
+  return NextResponse.json({ status: 'transcript_logged' })
 }
