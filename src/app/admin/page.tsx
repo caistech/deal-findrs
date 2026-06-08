@@ -86,10 +86,11 @@ export default function AdminPage() {
               <p className="text-gray-700">ANTHROPIC_API_KEY</p>
             </div>
             <div>
-              <p className="text-gray-500 mb-1"># ElevenLabs</p>
+              <p className="text-gray-500 mb-1"># ElevenLabs (all server-only — no NEXT_PUBLIC_ prefix)</p>
               <p className="text-gray-700">ELEVENLABS_API_KEY</p>
-              <p className="text-gray-700">NEXT_PUBLIC_ELEVENLABS_AGENT_SETUP</p>
-              <p className="text-gray-700">NEXT_PUBLIC_ELEVENLABS_AGENT_BASICS</p>
+              <p className="text-gray-700">ELEVENLABS_WEBHOOK_SECRET</p>
+              <p className="text-gray-700">ELEVENLABS_AGENT_SETUP</p>
+              <p className="text-gray-700">ELEVENLABS_AGENT_BASICS</p>
               <p className="text-gray-400">... (see /admin/elevenlabs)</p>
             </div>
             <div>

@@ -1,56 +1,55 @@
 'use client'
 
+// VoiceInput.tsx
+//
+// Voice-guided form fill component for opportunity creation steps.
+//
+// SECURITY NOTES (blocking check #11 fix):
+//   - Agent IDs are resolved SERVER-SIDE via /api/voice/elevenlabs-connect.
+//     No NEXT_PUBLIC_ELEVENLABS_AGENT_* env vars are read here.
+//   - user_id and company_id are NOT passed in the session or any client metadata.
+//     Identity is bound server-side (VMS rule 9) via /api/voice/bind-session.
+//   - The @11labs/client SDK is used client-side with a signed URL from the server
+//     (no ElevenLabs API key is in the client bundle).
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Mic, Loader2, PhoneOff, AlertCircle, Settings } from 'lucide-react'
 import Link from 'next/link'
 
-// Agent IDs from environment - check if they're actually set
-const AGENT_IDS: Record<string, string> = {
-  basics: process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_BASICS || '',
-  property: process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_PROPERTY || '',
-  financial: process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_FINANCIAL || '',
-  derisk: process.env.NEXT_PUBLIC_ELEVENLABS_AGENT_DERISK || '',
+// Map VoiceInput step names to voice.config.ts agent types
+const STEP_TO_AGENT_TYPE: Record<string, string> = {
+  basics: 'opportunity_basics',
+  property: 'opportunity_property',
+  financial: 'opportunity_financial',
+  derisk: 'opportunity_derisk',
 }
 
 interface VoiceInputProps {
   step: 'basics' | 'property' | 'financial' | 'derisk'
-  contextData?: Record<string, any>
+  contextData?: Record<string, unknown>
   onFieldExtracted?: (field: string, value: string | number | boolean) => void
-  onConversationComplete?: (data: any) => void
-  metadata?: {
-    user_id?: string
-    company_id?: string
-    opportunity_id?: string
-  }
+  onConversationComplete?: (data: unknown) => void
+  /** Optional context IDs for server-side binding (not passed as metadata to ElevenLabs) */
+  opportunityId?: string
 }
 
 type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'error' | 'not_configured'
 
 export function VoiceInput({
   step,
-  contextData,
   onFieldExtracted,
-  onConversationComplete,
-  metadata = {},
+  opportunityId,
 }: VoiceInputProps) {
   const [status, setStatus] = useState<ConnectionStatus>('idle')
   const [transcript, setTranscript] = useState<Array<{ role: 'agent' | 'user'; text: string }>>([])
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const conversationRef = useRef<any>(null)
+  const conversationRef = useRef<unknown>(null)
+  const sessionTokenRef = useRef<string | null>(null)
 
-  const agentId = AGENT_IDS[step]
-
-  // Check if agent is configured on mount
-  useEffect(() => {
-    // Check if ANY agent is configured (means setup was done)
-    const anyAgentConfigured = Object.values(AGENT_IDS).some(id => id && id.length > 0)
-    if (!anyAgentConfigured) {
-      setStatus('not_configured')
-    }
-  }, [])
+  const agentType = STEP_TO_AGENT_TYPE[step]
 
   const startConversation = useCallback(async () => {
-    if (!agentId) {
+    if (!agentType) {
       setErrorMessage('Voice agent not configured for this step.')
       setStatus('not_configured')
       return
@@ -65,24 +64,40 @@ export function VoiceInput({
       await navigator.mediaDevices.getUserMedia({ audio: true })
 
       // Dynamically import ElevenLabs SDK (client-side only)
+      // This uses the signed URL from our server — no API key in the client bundle
       const { Conversation } = await import('@11labs/client')
 
-      // Get signed URL from our server
+      // Get signed URL from our server (server resolves the agent ID server-side)
       const response = await fetch('/api/voice/elevenlabs-connect', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agentId }),
+        body: JSON.stringify({
+          agentType,
+          // opportunityId is safe to send — server validates it against the auth'd user
+          opportunityId: opportunityId ?? undefined,
+        }),
       })
 
-      const data = await response.json()
-
-      if (!response.ok || data.error) {
-        throw new Error(data.message || 'Failed to connect')
+      const data = await response.json() as {
+        signedUrl?: string
+        sessionToken?: string
+        error?: string
+        message?: string
       }
 
+      if (!response.ok || data.error) {
+        throw new Error(data.message || data.error || 'Failed to connect')
+      }
+
+      if (!data.signedUrl) {
+        throw new Error('No signed URL returned from voice service')
+      }
+
+      sessionTokenRef.current = data.sessionToken ?? null
+
       // Client tools handler — fans each set_*_fields tool call out to
-      // onFieldExtracted per non-empty parameter. The agent calls these
-      // tools as it collects info; the form on screen updates in real time.
+      // onFieldExtracted per non-empty parameter.
       const applyFieldUpdates = (params: Record<string, unknown>) => {
         if (!params || typeof params !== 'object') return
         for (const [field, value] of Object.entries(params)) {
@@ -104,64 +119,82 @@ export function VoiceInput({
       }
 
       // Start conversation with signed URL + client tools
+      // No user_id or company_id in clientTools or overrides — identity is server-bound
       const conversation = await Conversation.startSession({
         signedUrl: data.signedUrl,
         clientTools: {
-          set_basics_fields:    fieldUpdateHandler,
-          set_property_fields:  fieldUpdateHandler,
+          set_basics_fields: fieldUpdateHandler,
+          set_property_fields: fieldUpdateHandler,
           set_financial_fields: fieldUpdateHandler,
-          set_derisk_fields:    fieldUpdateHandler,
+          set_derisk_fields: fieldUpdateHandler,
         },
-        onConnect: () => {
+        onConnect: (connectionData?: { conversationId?: string }) => {
           setStatus('connected')
+          // Bind the real conversation_id server-side (VMS rule 9)
+          const convId = connectionData?.conversationId
+          if (convId && sessionTokenRef.current) {
+            fetch('/api/voice/bind-session', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sessionToken: sessionTokenRef.current,
+                conversationId: convId,
+              }),
+            }).catch((e) => console.warn('[voice-input] bind-session failed (non-fatal):', e))
+          }
         },
         onDisconnect: () => {
           setStatus('idle')
           conversationRef.current = null
         },
-        onMessage: (message: any) => {
-          // Defensive: some SDK message shapes deliver tool calls via
-          // onMessage rather than via clientTools handlers. Catch those
-          // too, so we're resilient to SDK version differences.
-          if (message?.type === 'client_tool_call' && message.client_tool_call) {
-            const { tool_name, parameters } = message.client_tool_call
-            if (typeof tool_name === 'string' && tool_name.startsWith('set_') && tool_name.endsWith('_fields')) {
+        onMessage: (message: unknown) => {
+          const msg = message as Record<string, unknown>
+          // Handle client tool calls delivered via onMessage (SDK version resilience)
+          if (msg?.type === 'client_tool_call' && msg.client_tool_call) {
+            const toolCall = msg.client_tool_call as { tool_name?: string; parameters?: Record<string, unknown> }
+            const { tool_name, parameters } = toolCall
+            if (
+              typeof tool_name === 'string' &&
+              tool_name.startsWith('set_') &&
+              tool_name.endsWith('_fields')
+            ) {
               applyFieldUpdates(parameters || {})
               return
             }
           }
           // Plain transcript
-          if (message?.source === 'ai' && message.message) {
-            setTranscript(prev => [...prev, { role: 'agent', text: message.message }])
-          } else if (message?.source === 'user' && message.message) {
-            setTranscript(prev => [...prev, { role: 'user', text: message.message }])
+          if (msg?.source === 'ai' && msg.message) {
+            setTranscript((prev) => [...prev, { role: 'agent', text: String(msg.message) }])
+          } else if (msg?.source === 'user' && msg.message) {
+            setTranscript((prev) => [...prev, { role: 'user', text: String(msg.message) }])
           }
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
+          const err = error as { message?: string }
           console.error('Conversation error:', error)
-          setErrorMessage(error.message || 'Connection error')
+          setErrorMessage(err?.message || 'Connection error')
           setStatus('error')
         },
       })
 
       conversationRef.current = conversation
-
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string }
       console.error('Start conversation error:', error)
       setStatus('error')
-      
-      if (error.name === 'NotAllowedError') {
+      if (err?.name === 'NotAllowedError') {
         setErrorMessage('Microphone access denied. Please allow microphone access and try again.')
       } else {
-        setErrorMessage(error.message || 'Failed to start voice input')
+        setErrorMessage(err?.message || 'Failed to start voice input')
       }
     }
-  }, [agentId])
+  }, [agentType, opportunityId, onFieldExtracted])
 
   const endConversation = useCallback(async () => {
     if (conversationRef.current) {
       try {
-        await conversationRef.current.endSession()
+        await (conversationRef.current as { endSession: () => Promise<void> }).endSession()
       } catch (e) {
         console.error('End session error:', e)
       }
@@ -170,16 +203,15 @@ export function VoiceInput({
     setStatus('idle')
   }, [])
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (conversationRef.current) {
-        conversationRef.current.endSession().catch(() => {})
+        (conversationRef.current as { endSession: () => Promise<void> }).endSession().catch(() => {})
       }
     }
   }, [])
 
-  // Not configured - show setup message
+  // Not configured — graceful degradation
   if (status === 'not_configured') {
     return (
       <div className="bg-amber-50 border-b border-amber-200 px-6 py-4">
@@ -188,13 +220,11 @@ export function VoiceInput({
             <AlertCircle className="w-5 h-5 text-amber-600" />
             <div>
               <p className="text-amber-800 font-medium">Voice Assistant Not Configured</p>
-              <p className="text-amber-600 text-sm">
-                Set up ElevenLabs agents to enable voice input
-              </p>
+              <p className="text-amber-600 text-sm">Set up ElevenLabs agents to enable voice input</p>
             </div>
           </div>
-          <Link 
-            href="/admin/elevenlabs" 
+          <Link
+            href="/admin/elevenlabs"
             className="flex items-center gap-2 px-3 py-2 bg-amber-100 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-200"
           >
             <Settings className="w-4 h-4" />
@@ -210,7 +240,6 @@ export function VoiceInput({
       <div className="px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Main control button */}
             <button
               onClick={status === 'connected' ? endConversation : startConversation}
               disabled={status === 'connecting'}
@@ -248,44 +277,37 @@ export function VoiceInput({
               )}
             </button>
 
-            {/* Status indicator */}
             {status === 'connected' && (
               <div className="flex items-center gap-2 text-violet-600">
                 <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-violet-500"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-violet-500" />
                 </span>
                 <span className="text-sm font-medium">Listening... speak naturally</span>
               </div>
             )}
           </div>
 
-          <p className="text-violet-600 text-sm">
-            🎤 AI assistant will help fill in the form
-          </p>
+          <p className="text-violet-600 text-sm">AI assistant will help fill in the form</p>
         </div>
 
-        {/* Error message */}
         {errorMessage && (
           <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {errorMessage}
           </div>
         )}
 
-        {/* Live transcript */}
         {transcript.length > 0 && (
           <div className="mt-4 max-h-40 overflow-y-auto space-y-2">
             {transcript.slice(-4).map((msg, i) => (
               <div
                 key={i}
                 className={`text-sm p-2 rounded-lg ${
-                  msg.role === 'agent'
-                    ? 'bg-violet-100 text-violet-900'
-                    : 'bg-white text-gray-900'
+                  msg.role === 'agent' ? 'bg-violet-100 text-violet-900' : 'bg-white text-gray-900'
                 }`}
               >
                 <span className="font-medium text-xs">
-                  {msg.role === 'agent' ? '🤖 Assistant: ' : '👤 You: '}
+                  {msg.role === 'agent' ? 'Assistant: ' : 'You: '}
                 </span>
                 {msg.text}
               </div>

@@ -1,0 +1,154 @@
+{
+  "product_slug": "deal-findrs",
+  "display_name": "DealFindrs",
+  "last_updated": "2026-06-08",
+  "env_vars": {
+    "required": [
+      {
+        "name": "NEXT_PUBLIC_SUPABASE_URL",
+        "description": "Supabase project URL",
+        "scope": "client+server"
+      },
+      {
+        "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "description": "Supabase anonymous (public) key",
+        "scope": "client+server"
+      },
+      {
+        "name": "SUPABASE_SERVICE_ROLE_KEY",
+        "description": "Supabase service-role key (sb_secret_ format). Server-only — never NEXT_PUBLIC_.",
+        "scope": "server-only"
+      },
+      {
+        "name": "ELEVENLABS_API_KEY",
+        "description": "ElevenLabs operator API key. Server-only — never NEXT_PUBLIC_. Used in /api/voice/elevenlabs-connect.",
+        "scope": "server-only"
+      },
+      {
+        "name": "ELEVENLABS_WEBHOOK_SECRET",
+        "description": "HMAC secret captured at webhook creation in ElevenLabs dashboard. Required for VMS rule 10 verification on all 6 voice webhooks.",
+        "scope": "server-only"
+      }
+    ],
+    "optional": [
+      {
+        "name": "ELEVENLABS_AGENT_SETUP",
+        "description": "ElevenLabs agent ID for the setup voice agent",
+        "scope": "server-only"
+      },
+      {
+        "name": "ELEVENLABS_AGENT_BASICS",
+        "description": "ElevenLabs agent ID for opportunity basics",
+        "scope": "server-only"
+      },
+      {
+        "name": "ELEVENLABS_AGENT_PROPERTY",
+        "description": "ElevenLabs agent ID for property details",
+        "scope": "server-only"
+      },
+      {
+        "name": "ELEVENLABS_AGENT_FINANCIAL",
+        "description": "ElevenLabs agent ID for financial details",
+        "scope": "server-only"
+      },
+      {
+        "name": "ELEVENLABS_AGENT_DERISK",
+        "description": "ElevenLabs agent ID for de-risk checklist",
+        "scope": "server-only"
+      },
+      {
+        "name": "ELEVENLABS_AGENT_ASSESSMENT",
+        "description": "ElevenLabs agent ID for assessment discussion",
+        "scope": "server-only"
+      },
+      {
+        "name": "STRIPE_SECRET_KEY",
+        "description": "Stripe secret key for billing",
+        "scope": "server-only"
+      },
+      {
+        "name": "STRIPE_WEBHOOK_SECRET",
+        "description": "Stripe webhook signature secret",
+        "scope": "server-only"
+      },
+      {
+        "name": "NEXT_PUBLIC_MAPBOX_TOKEN",
+        "description": "Mapbox public token for address autocomplete",
+        "scope": "client"
+      },
+      {
+        "name": "RESEND_FROM_EMAIL",
+        "description": "Transactional email sender. Must be noreply@updates.corporateaisolutions.com (R6).",
+        "scope": "server-only",
+        "default": "noreply@updates.corporateaisolutions.com"
+      },
+      {
+        "name": "PLATFORM_TRUST_PROJECT_ID",
+        "description": "Platform Trust project identifier — no hardcoded fallback",
+        "scope": "server-only"
+      },
+      {
+        "name": "PLATFORM_TRUST_SERVICE_KEY",
+        "description": "Platform Trust service key",
+        "scope": "server-only"
+      },
+      {
+        "name": "PLATFORM_TRUST_SUPABASE_URL",
+        "description": "Platform Trust Supabase URL",
+        "scope": "server-only"
+      }
+    ]
+  },
+  "supabase_tables": [
+    "companies",
+    "company_members",
+    "company_settings",
+    "opportunities",
+    "assessments",
+    "voice_transcripts",
+    "voice_sessions",
+    "partner_inquiries",
+    "activity_log",
+    "share_tokens"
+  ],
+  "external_services": [
+    {
+      "name": "ElevenLabs ConvAI",
+      "purpose": "Voice agent sessions for deal data collection and assessment discussion",
+      "auth": "ELEVENLABS_API_KEY (operator key, server-only)",
+      "webhooks": [
+        "/api/webhooks/elevenlabs/setup",
+        "/api/webhooks/elevenlabs/opportunity-basics",
+        "/api/webhooks/elevenlabs/opportunity-property",
+        "/api/webhooks/elevenlabs/opportunity-financial",
+        "/api/webhooks/elevenlabs/opportunity-derisk",
+        "/api/webhooks/elevenlabs/assessment"
+      ],
+      "hmac_verification": "ELEVENLABS_WEBHOOK_SECRET — required, fail-closed"
+    },
+    {
+      "name": "Stripe",
+      "purpose": "Subscription billing",
+      "auth": "STRIPE_SECRET_KEY",
+      "webhooks": ["/api/stripe/webhook"],
+      "hmac_verification": "STRIPE_WEBHOOK_SECRET"
+    },
+    {
+      "name": "Mapbox",
+      "purpose": "Address autocomplete on opportunity creation forms",
+      "auth": "NEXT_PUBLIC_MAPBOX_TOKEN (public, client-side)"
+    },
+    {
+      "name": "Supabase",
+      "purpose": "Database + auth + RLS",
+      "auth": "SUPABASE_SERVICE_ROLE_KEY (server routes) / NEXT_PUBLIC_SUPABASE_ANON_KEY (client)"
+    }
+  ],
+  "known_gaps": [
+    {
+      "id": "VT_D2_D3",
+      "description": "QA test accounts cannot be provisioned — SUPABASE_SERVICE_ROLE_KEY must be updated to sb_secret_ format in Vercel env",
+      "resolution": "Operator config: update env var in Vercel dashboard"
+    }
+  ]
+}

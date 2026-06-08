@@ -184,12 +184,14 @@ export async function POST(request: NextRequest) {
         agents: results,
         errors: errors.length > 0 ? errors : undefined,
         env: {
-          NEXT_PUBLIC_ELEVENLABS_AGENT_SETUP: results['setup'] || '',
-          NEXT_PUBLIC_ELEVENLABS_AGENT_BASICS: results['opportunity-basics'] || '',
-          NEXT_PUBLIC_ELEVENLABS_AGENT_PROPERTY: results['opportunity-property'] || '',
-          NEXT_PUBLIC_ELEVENLABS_AGENT_FINANCIAL: results['opportunity-financial'] || '',
-          NEXT_PUBLIC_ELEVENLABS_AGENT_DERISK: results['opportunity-derisk'] || '',
-          NEXT_PUBLIC_ELEVENLABS_AGENT_ASSESSMENT: results['assessment'] || '',
+          // Agent IDs are now server-only env vars (not NEXT_PUBLIC_*).
+          // Set these in Vercel as server-side environment variables.
+          ELEVENLABS_AGENT_SETUP: results['setup'] || '',
+          ELEVENLABS_AGENT_BASICS: results['opportunity-basics'] || '',
+          ELEVENLABS_AGENT_PROPERTY: results['opportunity-property'] || '',
+          ELEVENLABS_AGENT_FINANCIAL: results['opportunity-financial'] || '',
+          ELEVENLABS_AGENT_DERISK: results['opportunity-derisk'] || '',
+          ELEVENLABS_AGENT_ASSESSMENT: results['assessment'] || '',
         },
       })
     }
