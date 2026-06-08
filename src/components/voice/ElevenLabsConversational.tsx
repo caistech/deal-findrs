@@ -227,7 +227,7 @@ export function ElevenLabsConversational({
     )
   }
 
-  const statusColors: Record<typeof status, string> = {
+  const statusColors: Record<string, string> = {
     idle: 'bg-gray-100 text-gray-600 hover:bg-gray-200',
     connecting: 'bg-amber-100 text-amber-700',
     connected: 'bg-emerald-500 text-white',

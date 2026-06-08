@@ -1,3 +1,8 @@
+// Live-state route — cache-busting exports (HARD RULE)
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+export const fetchCache = 'force-no-store'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { getCompanyId } from '@/lib/auth/get-company-id'
@@ -20,14 +25,20 @@ export async function GET(request: NextRequest) {
     .eq('opportunity_id', opportunityId)
     .order('received_at', { ascending: false })
 
-  if (evidenceErr) return NextResponse.json({ error: 'db_error', detail: evidenceErr.message }, { status: 500 })
+  if (evidenceErr) {
+    console.error('[evidence GET] db error:', evidenceErr.message)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   const { data: links, error: linksErr } = await supabase
     .from('field_evidence_links')
     .select('id, claim_field, evidence_id, evidence_value_numeric, notes')
     .eq('opportunity_id', opportunityId)
 
-  if (linksErr) return NextResponse.json({ error: 'db_error', detail: linksErr.message }, { status: 500 })
+  if (linksErr) {
+    console.error('[evidence GET] links db error:', linksErr.message)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   return NextResponse.json({ evidence: evidence ?? [], links: links ?? [] })
 }
