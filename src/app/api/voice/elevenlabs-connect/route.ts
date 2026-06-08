@@ -28,7 +28,7 @@ import { getAgentConfig, type AgentType } from '@/lib/voice/voice.config'
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY
 
-let _admin: ReturnType<typeof createClient> | null = null
+let _admin: any | null = null
 function getAdmin() {
   if (!_admin) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
