@@ -1,3 +1,4 @@
+<!-- Verified by the SayFix auto-fix loop (smoke test) -->
 # 🚦 DealFindrs
 
 AI-Powered Project Development Opportunity Assessment Platform
