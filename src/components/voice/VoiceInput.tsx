@@ -286,6 +286,15 @@ export function VoiceInput({
       <div className="px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            {/* A face to talk to — the standard portfolio coach avatar (Morgan). */}
+            <div className="flex flex-col items-center">
+              <img
+                src="/female_avatar.jpeg"
+                alt="Morgan, your voice assistant"
+                className={`w-12 h-12 rounded-full object-cover ring-2 transition-colors ${status === 'connected' ? 'ring-violet-500' : 'ring-violet-200'}`}
+              />
+              <span className="mt-1 text-xs text-violet-500">{status === 'connected' ? 'Morgan — listening' : 'Morgan'}</span>
+            </div>
             <button
               onClick={status === 'connected' ? endConversation : startConversation}
               disabled={status === 'connecting'}
