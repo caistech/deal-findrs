@@ -66,7 +66,6 @@ const SCOPE_RULES: ScopeRule[] = [
   { pattern: '/api/assess',        scope: 'assessment',    operation: 'write' },
   { pattern: '/api/generate-im',   scope: 'assessment',    operation: 'write' },
   { pattern: '/api/onboarding',    scope: 'onboarding',    operation: 'write' },
-  { pattern: '/api/site-intel',    scope: 'onboarding',    operation: 'write' },
   { pattern: '/api/abn-lookup',    scope: 'opportunities', operation: 'read' },
 ]
 
