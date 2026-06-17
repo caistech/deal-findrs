@@ -81,7 +81,7 @@ export async function middleware(request: NextRequest) {
   // Build a response we can mutate cookies on. The @supabase/ssr session
   // refresh writes new auth cookies via `response.cookies.set` — we have
   // to keep this `response` reference live and pass through the same one.
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: { headers: request.headers },
   })
 
@@ -94,14 +94,15 @@ export async function middleware(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value
         },
+        // Write to the SAME response; never recreate it per call. Recreating dropped every
+        // cookie but the last when getUser() refreshes the chunked auth token → the user was
+        // bounced to login on refresh. (Reference fix: pipeline middleware @ 88e6948.)
         set(name: string, value: string, options: Record<string, unknown>) {
           request.cookies.set({ name, value, ...(options as any) })
-          response = NextResponse.next({ request: { headers: request.headers } })
           response.cookies.set({ name, value, ...(options as any) })
         },
         remove(name: string, options: Record<string, unknown>) {
           request.cookies.set({ name, value: '', ...(options as any) })
-          response = NextResponse.next({ request: { headers: request.headers } })
           response.cookies.set({ name, value: '', ...(options as any) })
         },
       },
