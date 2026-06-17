@@ -183,7 +183,7 @@ export default function NewOpportunityPage() {
   }
 
   // Handle Mapbox address selection — auto-fill fields + derive site intel + property profile
-  const handleAddressSelect = async (address: GeocodedAddress) => {
+  const handleAddressSelect = (address: GeocodedAddress) => {
     setFormData(prev => ({
       ...prev,
       address: `${address.street_number} ${address.street_name}`.trim(),
@@ -198,7 +198,13 @@ export default function NewOpportunityPage() {
     // Reset property profile when address changes
     property.reset()
 
-    // Derive property profile from property-services (runs in parallel with site intel)
+    // Derive everything from the canonical property-services `derive` API.
+    // It now resolves zoning, council/LGA, wind, climate and BAL nationally,
+    // so it is the single source for both the property profile and the
+    // persisted site-intel block. The old local /api/site-intel route (a fork
+    // of 5 per-product edge functions on dealfindrs' own Supabase) was retired
+    // in the property-services consumer migration.
+    setDerivingIntel(true)
     property.derive({
       address: address.formatted_address,
       lat: address.lat,
@@ -206,37 +212,31 @@ export default function NewOpportunityPage() {
       suburb: address.suburb,
       state: address.state_short,
       postcode: address.postcode,
-    }).then(profile => {
-      if (profile) {
-        applyPropertyProfile(profile)
-      }
     })
+      .then(profile => {
+        if (!profile) return
+        applyPropertyProfile(profile)
 
-    // Auto-derive site intelligence (existing flow)
-    setDerivingIntel(true)
-    try {
-      const res = await fetch('/api/site-intel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lat: address.lat,
-          lng: address.lng,
-          address: address.formatted_address,
-        }),
-      })
-      if (res.ok) {
-        const intel: SiteIntelResult = await res.json()
+        const intel: SiteIntelResult = {
+          climate_zone: profile.environment.climateZoneNumber,
+          climate_description: profile.environment.climateDescription,
+          wind_region: profile.environment.windRegion,
+          wind_speed: profile.environment.windSpeed,
+          bal_rating: profile.environment.bal,
+          bal_in_overlay: profile.environment.balInOverlay,
+          council_name: profile.metadata.lgaName,
+          council_code: profile.metadata.lgaCode,
+          zoning: profile.zoning?.code ?? null,
+          zone_name: profile.zoning?.name ?? null,
+        }
         setSiteIntel(intel)
         // Auto-fill zoning if derived
         if (intel.zoning) {
           setFormData(prev => ({ ...prev, currentZoning: intel.zoning || prev.currentZoning }))
         }
-      }
-    } catch (err) {
-      console.error('Site intel derivation error:', err)
-    } finally {
-      setDerivingIntel(false)
-    }
+      })
+      .catch(err => console.error('Site intel derivation error:', err))
+      .finally(() => setDerivingIntel(false))
   }
 
   const ensureDraft = async (): Promise<string | null> => {
