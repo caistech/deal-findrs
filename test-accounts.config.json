@@ -1,11 +1,12 @@
 {
-  "_comment": "Per-product QA identities, read by provision-qa-accounts.mjs AND the portfolio-gate test-accounts audit/fixer. Generated per product by new-product.mjs (which substitutes the QA test domain). A third-party deployment sets the QA_TEST_DOMAIN env var to its own domain so it provisions its own QA accounts ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â nothing here references the operator's personal email. qaDomain MUST be a real, mail-capable domain if the QA agents need to pass email-delivery checks (VT_C1/C3/C4); otherwise those run na.",
-  "qaDomain": "qa.corporateaisolutions.com",
+  "_comment": "Per-product QA identities (PRODUCT_STANDARDS §9.5). Four accounts: two human-operator admins (NEVER handed to an agent), one QA admin-agent (drives VT_A1–A4 only), one QA user-agent (drives VT_B1–B5 incl. VT_B2 blocked-from-/admin check). INVARIANT: adminAgentEmail ∈ ADMIN_EMAILS; userAgentEmail ∉ ADMIN_EMAILS.",
+  "qaDomain": "factory2key.com.au",
   "adminEmails": [
     "dennis@corporateaisolutions.com",
-    "mcmdennis@gmail.com"
+    "mcmdennis@gmail.com",
+    "dennis+qaadmin@factory2key.com.au"
   ],
-  "adminAgentEmail": "qa-admin@qa.corporateaisolutions.com",
-  "userAgentEmail": "qa-user@qa.corporateaisolutions.com",
-  "testUserEmail": "qa-user@qa.corporateaisolutions.com"
+  "adminAgentEmail": "dennis+qaadmin@factory2key.com.au",
+  "userAgentEmail": "dennis@factory2key.com.au",
+  "testUserEmail": "dennis@factory2key.com.au"
 }
