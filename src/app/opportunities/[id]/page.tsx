@@ -858,6 +858,13 @@ export default function OpportunityDetailPage() {
                 <DollarSign className="w-4 h-4" />
                 Dev Finance Pack
               </Link>
+              <Link
+                href={`/opportunities/${opportunityId}/deal-model`}
+                className="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <TrendingUp className="w-4 h-4" />
+                F2K Deal Model
+              </Link>
               {/* Distribution loop: share assessment */}
               <button
                 onClick={handleShare}

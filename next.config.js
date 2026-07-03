@@ -28,6 +28,10 @@ const securityHeaders = [
 ];
 
 const nextConfig = {
+  experimental: {
+    // Enables instrumentation.ts (register() at server boot / serverless cold start).
+    instrumentationHook: true,
+  },
   images: {
     domains: ['localhost'],
   },
