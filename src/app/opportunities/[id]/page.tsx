@@ -9,6 +9,7 @@ import { VoiceAssistant } from '@/components/voice/VoiceAssistant'
 import { DealJourney } from '@/components/common/DealJourney'
 import { AuthLayout } from '@/components/common/AuthLayout'
 import { ConstraintsYieldBrief } from '@/components/property/ConstraintsYieldBrief'
+import { KickoffPanel } from '@/components/property/KickoffPanel'
 import type { PropertyProfile } from '@/lib/property-services'
 
 // Type for opportunity matching database schema
@@ -696,6 +697,13 @@ export default function OpportunityDetailPage() {
             {/* Estate Constraints & Yield Brief — derived buildup from the persisted profile */}
             {opportunity.property_profile && (
               <ConstraintsYieldBrief profile={opportunity.property_profile} />
+            )}
+            {opportunity.property_profile && (
+              <KickoffPanel
+                opportunityId={opportunity.id}
+                profile={opportunity.property_profile}
+                state={opportunity.state}
+              />
             )}
             {/* Passed Criteria */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
