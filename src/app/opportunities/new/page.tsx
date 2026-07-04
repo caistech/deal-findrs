@@ -11,6 +11,7 @@ import AddressAutocomplete from '@/components/common/AddressAutocomplete'
 import { DealJourney } from '@/components/common/DealJourney'
 import { AuthLayout } from '@/components/common/AuthLayout'
 import { usePropertyOnboarding, PropertyAssessment } from '@/lib/property-services'
+import { ConstraintsYieldBrief } from '@/components/property/ConstraintsYieldBrief'
 import type { PropertyProfile } from '@/lib/property-services'
 import type { GeocodedAddress, SiteIntelResult } from '@/lib/mapbox'
 
@@ -747,6 +748,16 @@ export default function NewOpportunityPage() {
                       assessing={property.stage === "assessing"}
                       assessment={property.assessment}
                       product="dealfindrs"
+                    />
+                  </div>
+                )}
+
+                {/* Estate Constraints & Yield Brief — the derived buildup (yield is our analysis, not typed in) */}
+                {property.profile && (
+                  <div className="mt-4">
+                    <ConstraintsYieldBrief
+                      profile={property.profile}
+                      options={{ developerClaimedLots: Number(formData.numLots) || null }}
                     />
                   </div>
                 )}
