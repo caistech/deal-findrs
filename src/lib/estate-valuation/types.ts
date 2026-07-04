@@ -45,6 +45,18 @@ export interface AbsorptionCurve {
   benchmarkOnly: boolean
 }
 
+/** Constraint-driven site risk (overlays / contamination / flood) — the valuer's saleability lens. */
+export type SiteRiskLevel = 'low' | 'medium' | 'high' | 'critical'
+
+export interface SiteRiskAssessment {
+  level: SiteRiskLevel
+  /** The specific constraints that drove the level (for the pack narrative). */
+  factors: string[]
+  commentary: string
+  /** Multiplier applied to the benchmark open-market absorption rate (≤1 slows the sell-down). */
+  absorptionFactor: number
+}
+
 export interface EstateValuationPack {
   lots: number
   /** Finished-lot GRV per lot — the operator/study figure the valuer certifies. */
@@ -53,6 +65,8 @@ export interface EstateValuationPack {
   /** Independent Domain AVM cross-check (null client-side / when not fetched). */
   avm: AvmCrossCheck | null
   absorption: AbsorptionCurve
+  /** Site-constraint risk (overlays/contamination/flood) — informs the certified GRV + absorption. */
+  siteRisk: SiteRiskAssessment
 }
 
 /** Inputs to the pure buildup — the AVM is attached separately (it's async I/O). */
@@ -65,4 +79,10 @@ export interface EstateValuationInput {
   benchmarkRatePerMonth?: number
   /** Months the pre-sold tranche takes to settle. Default 3. */
   burstMonths?: number
+  /**
+   * Site constraints that bear on saleability/value: overlay names that require a report (flood,
+   * heritage, character, coastal…) + a contamination flag (e.g. from a panel-review write-back).
+   * Elevated risk slows the benchmark absorption and flags a GRV constraint-discount for review.
+   */
+  siteRisk?: { overlays?: string[]; contaminated?: boolean; floodAffected?: boolean }
 }

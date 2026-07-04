@@ -26,6 +26,28 @@ const SOFT_RATES_PER_LOT: { key: string; label: string; sydney: number }[] = [
   { key: 'legal_titling', label: 'Legal & titling', sydney: 1500 },
 ]
 
+/** Civil lines whose cost scales with slope (bulk earthworks + roadworks/kerbing on grade). */
+const SLOPE_SENSITIVE_KEYS = new Set(['earthworks', 'roadworks'])
+
+/**
+ * Slope → cost adjustment. Mirrors the buildup's topography flags (estate-buildup flags slope > 15%
+ * as a civil hard-stop). Returns a multiplier for the slope-sensitive civil lines plus an indicative
+ * per-lot retaining allowance (Sydney baseline, × region factor by the caller). Bands: flat ≤5% ·
+ * gentle 5–10% · moderate 10–15% · steep >15%.
+ */
+function slopeAdjustment(slopePercent: number | null | undefined): {
+  factor: number
+  band: string
+  retainingSydney: number
+} {
+  const s = slopePercent ?? null
+  if (s == null) return { factor: 1, band: 'slope unknown — flat assumed', retainingSydney: 0 }
+  if (s <= 5) return { factor: 1.0, band: 'flat (≤5%)', retainingSydney: 0 }
+  if (s <= 10) return { factor: 1.25, band: 'gentle (5–10%)', retainingSydney: 0 }
+  if (s <= 15) return { factor: 1.6, band: 'moderate (10–15%)', retainingSydney: 9000 }
+  return { factor: 2.2, band: 'steep (>15%)', retainingSydney: 22000 }
+}
+
 /** Project management as a % of civil (benchmark). */
 const PM_PCT_OF_CIVIL = 0.05
 /** Statutory infrastructure contributions / headworks per lot, Sydney baseline (× region factor). */
@@ -57,17 +79,41 @@ export function buildEstateCostPack(input: EstateCostInput): EstateCostPack {
   })
 
   // ── Civil / Infrastructure ──
+  // Slope scales the slope-sensitive lines (earthworks/roadworks); an explicit override still wins.
+  const slope = slopeAdjustment(input.terrain?.slopePercent)
   let civilPerLot = 0
   for (const r of CIVIL_RATES_PER_LOT) {
-    const v = rate(r.key, r.sydney)
+    const overridden = r.key in ov
+    const slopeScaled = !overridden && slope.factor !== 1 && SLOPE_SENSITIVE_KEYS.has(r.key)
+    const v = slopeScaled ? round(rate(r.key, r.sydney) * slope.factor) : rate(r.key, r.sydney)
     civilPerLot += v
     lines.push({
       key: r.key,
       label: r.label,
       category: 'Civil / Infrastructure',
       perLot: v,
-      basis: `Benchmark $${r.sydney.toLocaleString('en-AU')}/lot × region factor ${regionFactor.toFixed(2)}`,
+      basis: slopeScaled
+        ? `Benchmark $${r.sydney.toLocaleString('en-AU')}/lot × region factor ${regionFactor.toFixed(2)} × slope factor ${slope.factor.toFixed(2)} (${slope.band})`
+        : `Benchmark $${r.sydney.toLocaleString('en-AU')}/lot × region factor ${regionFactor.toFixed(2)}`,
       source: 'benchmark',
+    })
+  }
+
+  // Retaining & batter stabilisation — added on moderate/steep sites (or an explicit override).
+  const retainingPerLot =
+    'retaining' in ov ? ov['retaining'] : slope.retainingSydney > 0 ? round(slope.retainingSydney * regionFactor) : 0
+  if (retainingPerLot > 0) {
+    civilPerLot += retainingPerLot
+    lines.push({
+      key: 'retaining',
+      label: 'Retaining & batter stabilisation',
+      category: 'Civil / Infrastructure',
+      perLot: retainingPerLot,
+      basis:
+        'retaining' in ov
+          ? 'Operator-supplied retaining allowance per lot'
+          : `Slope ${slope.band} — indicative retaining allowance $${slope.retainingSydney.toLocaleString('en-AU')}/lot × region factor ${regionFactor.toFixed(2)}`,
+      source: 'retaining' in ov ? 'operator' : 'benchmark',
     })
   }
 

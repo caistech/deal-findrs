@@ -114,4 +114,29 @@ describe('estate constraints & yield buildup', () => {
     )
     expect(brief.gaps.some((g) => g.provenance === 'formal-required' && /Earthworks/.test(g.label))).toBe(true)
   })
+
+  it('leaves tenure + servicing gaps open with no panel write-backs', () => {
+    const brief = buildConstraintsYield(resolvedProfile())
+    expect(brief.gaps.some((g) => g.dimension === 'tenure')).toBe(true)
+    expect(brief.gaps.some((g) => g.dimension === 'services')).toBe(true)
+    expect(brief.lines.some((l) => l.key === 'title')).toBe(false)
+  })
+
+  it('clears the tenure + servicing gaps when panel write-backs resolve them', () => {
+    const brief = buildConstraintsYield(resolvedProfile(), {
+      resolvedPanel: {
+        title: 'Title clear — no encumbrances (LANDATA 2026-07)',
+        servicing: 'Sewer + water at boundary; power confirmed by Western Power',
+        contamination: 'EMR check clear',
+      },
+    })
+    // gaps resolved…
+    expect(brief.gaps.some((g) => g.dimension === 'tenure')).toBe(false)
+    expect(brief.gaps.some((g) => g.dimension === 'services')).toBe(false)
+    // …and surfaced as operator-resolved lines
+    const title = brief.lines.find((l) => l.key === 'title')
+    expect(title?.provenance).toBe('operator-resolved')
+    expect(brief.lines.find((l) => l.key === 'servicing')?.provenance).toBe('operator-resolved')
+    expect(brief.lines.find((l) => l.key === 'contamination')?.value).toMatch(/EMR/)
+  })
 })

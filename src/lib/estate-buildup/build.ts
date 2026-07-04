@@ -28,6 +28,7 @@ export function buildConstraintsYield(
   opts: BuildupOptions = {},
 ): ConstraintsYieldBrief {
   const threshold = opts.materialDiscrepancy ?? DEFAULT_MATERIAL_DISCREPANCY
+  const panel = opts.resolvedPanel ?? {}
   const lines: BuildupLine[] = []
   const gaps: BuildupGap[] = []
 
@@ -41,12 +42,23 @@ export function buildConstraintsYield(
     provenance: profile.lot ? 'derived' : 'needs-input',
     dataset: 'property-services lot data',
   })
-  gaps.push({
-    dimension: 'tenure',
-    label: 'Easements / covenants / road reserves',
-    provenance: 'needs-input',
-    detail: 'Not derivable from the desktop dataset — confirm from title search + registered plan.',
-  })
+  // A panel title write-back resolves the tenure gap (else it stays open as needs-input).
+  if (panel.title) {
+    lines.push({
+      key: 'title',
+      label: 'Title & encumbrances',
+      value: panel.title,
+      provenance: 'operator-resolved',
+      dataset: 'panel review (property write-back)',
+    })
+  } else {
+    gaps.push({
+      dimension: 'tenure',
+      label: 'Easements / covenants / road reserves',
+      provenance: 'needs-input',
+      detail: 'Not derivable from the desktop dataset — confirm from title search + registered plan.',
+    })
+  }
 
   // ── B. Planning (zoning + min lot) ──────────────────────────
   const resolved = opts.operatorResolved
@@ -199,13 +211,36 @@ export function buildConstraintsYield(
     })
   }
 
+  // A panel contamination write-back is surfaced as a line (it also drives the valuer's site-risk).
+  if (panel.contamination) {
+    lines.push({
+      key: 'contamination',
+      label: 'Contamination',
+      value: panel.contamination,
+      provenance: 'operator-resolved',
+      dataset: 'panel review (property write-back)',
+      severity: 'attention',
+    })
+  }
+
   // ── D/G. Services + cost — not derivable here (later stages) ─
-  gaps.push({
-    dimension: 'services',
-    label: 'Servicing (sewer/water/power/stormwater)',
-    provenance: 'needs-input',
-    detail: 'BYDA/DBYD enquiry + authority capacity — not in the desktop dataset.',
-  })
+  // A panel servicing write-back resolves the servicing gap (else it stays open as needs-input).
+  if (panel.servicing) {
+    lines.push({
+      key: 'servicing',
+      label: 'Servicing (sewer/water/power/stormwater)',
+      value: panel.servicing,
+      provenance: 'operator-resolved',
+      dataset: 'panel review (property write-back)',
+    })
+  } else {
+    gaps.push({
+      dimension: 'services',
+      label: 'Servicing (sewer/water/power/stormwater)',
+      provenance: 'needs-input',
+      detail: 'BYDA/DBYD enquiry + authority capacity — not in the desktop dataset.',
+    })
+  }
   gaps.push({
     dimension: 'cost',
     label: 'Civil / QS cost buildup',

@@ -10,11 +10,50 @@ import { fetchAvmCrossCheck } from '@/lib/estate-valuation/avm'
 import type { EstateValuationPack } from '@/lib/estate-valuation/types'
 import { getReviewPackTemplate } from '@/lib/review-packs/registry'
 import { renderReviewPack, reviewPackFilename } from '@/lib/review-packs/render'
+import { createPropertyServices, type PropertyProfile, type Contribution } from '@/lib/property-services'
 
 /** Normalise a stored pre-sales figure to a 0..1 fraction (columns store either 30 or 0.30). */
 function toFraction(v: number | null | undefined): number {
   const n = Number(v) || 0
   return n > 1 ? n / 100 : n
+}
+
+type PanelField = 'title' | 'contamination' | 'servicing' | 'native_title' | 'survey_geotech'
+const PANEL_FIELDS: PanelField[] = ['title', 'contamination', 'servicing', 'native_title', 'survey_geotech']
+
+/**
+ * Pull the panel-review write-backs for a site from the SHARED property-services store via dossier(),
+ * keyed field → latest summary. Fail-open + time-bounded (8s): any missing config / error / timeout
+ * returns {} so pack generation is never blocked. (dossier also runs the AI + AVM legs server-side;
+ * a dedicated contributions endpoint would be lighter — noted as a follow-up.)
+ */
+async function loadResolvedPanel(
+  address: string,
+  state: string | null,
+  lat?: number,
+  lng?: number,
+): Promise<Partial<Record<PanelField, string>>> {
+  const supabaseUrl = process.env.PROPERTY_SERVICES_URL ?? process.env.NEXT_PUBLIC_PROPERTY_SERVICES_URL ?? ''
+  const apiKey = process.env.PROPERTY_SERVICES_API_KEY ?? process.env.NEXT_PUBLIC_PROPERTY_SERVICES_API_KEY
+  if (!supabaseUrl || !apiKey || !address.trim()) return {}
+  try {
+    const client = createPropertyServices({ supabaseUrl, apiKey, product: 'dealfindrs' })
+    const res = (await Promise.race([
+      client.dossier({ address, lat, lng, state: state ?? undefined }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8_000)),
+    ])) as Awaited<ReturnType<typeof client.dossier>>
+    if (!res?.success || !res.data) return {}
+    const out: Partial<Record<PanelField, string>> = {}
+    // contribute() supersedes prior entries, so there is at most one active row per field.
+    for (const c of (res.data.contributions ?? []) as Contribution[]) {
+      if ((PANEL_FIELDS as string[]).includes(c.field) && c.summary && !out[c.field as PanelField]) {
+        out[c.field as PanelField] = c.summary
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
 }
 
 // @react-pdf/renderer needs the Node runtime; the render is per-request.
@@ -50,10 +89,23 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     .select('status, resolved_zone_code, resolved_min_lot_size, resolved_lots')
     .eq('opportunity_id', opp.id)
     .maybeSingle()
-  const options: BuildupOptions =
-    referral?.status === 'approved'
+  const profileFull = opp.property_profile as PropertyProfile
+
+  // Panel-review write-backs (title/contamination/servicing) pulled from the shared property store —
+  // they clear the buildup's tenure/servicing gaps and drive the valuer's site-risk. Fail-open.
+  const resolvedPanel = await loadResolvedPanel(
+    (opp.address as string) ?? '',
+    (opp.state as string) ?? null,
+    typeof profileFull.address?.lat === 'number' ? profileFull.address.lat : undefined,
+    typeof profileFull.address?.lng === 'number' ? profileFull.address.lng : undefined,
+  )
+
+  const options: BuildupOptions = {
+    ...(referral?.status === 'approved'
       ? { operatorResolved: { zoneCode: referral.resolved_zone_code, minLotSize: referral.resolved_min_lot_size, lots: referral.resolved_lots } }
-      : {}
+      : {}),
+    ...(Object.keys(resolvedPanel).length ? { resolvedPanel } : {}),
+  }
 
   const profile = opp.property_profile as { metadata?: { lgaName?: string | null } }
   const brief = buildConstraintsYield(opp.property_profile, options)
@@ -69,6 +121,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       lots,
       state: opp.state as string,
       landPerLot: landPrice && lots ? Math.round(landPrice / lots) : undefined,
+      // Slope scales earthworks/roadworks + adds a retaining line (steep ≠ flat cost).
+      terrain: profileFull.terrain
+        ? { slopePercent: profileFull.terrain.slopePercent, buildability: profileFull.terrain.buildability }
+        : undefined,
     })
   }
 
@@ -82,6 +138,11 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       lots,
       grvPerLot,
       preSalesPercent: toFraction(opp.derisk_pre_sales_percent as number | null),
+      // Overlays (report-required) + a panel contamination write-back drive site-risk → absorption.
+      siteRisk: {
+        overlays: (profileFull.overlays ?? []).filter((o) => o.requiresReport).map((o) => o.name),
+        contaminated: Boolean(resolvedPanel.contamination),
+      },
     })
     // Only pay for the AVM call when actually rendering the valuer pack.
     if (params.kind === 'valuer') {

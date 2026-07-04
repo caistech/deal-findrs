@@ -54,4 +54,30 @@ describe('buildEstateCostPack', () => {
     const pack = buildEstateCostPack({ lots: 10, state: 'WA', overrides: { earthworks: 5000 } })
     expect(pack.lines.find((l) => l.key === 'earthworks')!.perLot).toBe(5000)
   })
+
+  it('scales slope-sensitive civil lines + adds retaining on a steep site', () => {
+    const flat = buildEstateCostPack({ lots: 20, state: 'NSW', city: 'Sydney', terrain: { slopePercent: 3 } })
+    const steep = buildEstateCostPack({ lots: 20, state: 'NSW', city: 'Sydney', terrain: { slopePercent: 22 } })
+    // earthworks + roadworks scale up (factor 2.2 for >15%)
+    const ew = (p: typeof flat) => p.lines.find((l) => l.key === 'earthworks')!.perLot
+    const rw = (p: typeof flat) => p.lines.find((l) => l.key === 'roadworks')!.perLot
+    expect(ew(steep)).toBeGreaterThan(ew(flat))
+    expect(rw(steep)).toBeGreaterThan(rw(flat))
+    // a retaining line appears on the steep site only
+    expect(flat.lines.some((l) => l.key === 'retaining')).toBe(false)
+    expect(steep.lines.some((l) => l.key === 'retaining')).toBe(true)
+    // civil total (incl. retaining) is materially higher on the steep site
+    expect(steep.civilPerLot).toBeGreaterThan(flat.civilPerLot)
+    // slope-insensitive lines (e.g. water/sewer) are unchanged
+    const ws = (p: typeof flat) => p.lines.find((l) => l.key === 'water_sewer')!.perLot
+    expect(ws(steep)).toBe(ws(flat))
+  })
+
+  it('does not scale a slope-sensitive line when the operator overrides it', () => {
+    const pack = buildEstateCostPack({
+      lots: 10, state: 'NSW', city: 'Sydney',
+      terrain: { slopePercent: 22 }, overrides: { earthworks: 5000 },
+    })
+    expect(pack.lines.find((l) => l.key === 'earthworks')!.perLot).toBe(5000)
+  })
 })
