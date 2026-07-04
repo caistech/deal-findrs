@@ -14,6 +14,7 @@ interface Assessment {
   id: string; status: string; state: string | null; lga: string | null
   resolved_zone_code: string | null; resolved_min_lot_size: number | null; resolved_lots: number | null
   assigned_planner_id: string | null; assigned_planner_name: string | null; planner_gap: boolean
+  planner_notified_at: string | null
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -102,6 +103,10 @@ export function PlannerReferralPanel({ opportunityId, onResolved }: { opportunit
     } finally { setBusy(false) }
   }
 
+  // Whether the routed planner has an email on file (drives the "no email on file" hint).
+  const assignedCandidate = assessment?.assigned_planner_id ? candidates.find((c) => c.id === assessment.assigned_planner_id) : undefined
+  const assignedHasEmail = assignedCandidate ? Boolean(assignedCandidate.email) : undefined
+
   if (loading) {
     return <div className="bg-white rounded-xl border border-gray-200 p-6 flex items-center gap-2 text-gray-500"><Loader2 className="w-4 h-4 animate-spin" /> Loading referral…</div>
   }
@@ -139,6 +144,11 @@ export function PlannerReferralPanel({ opportunityId, onResolved }: { opportunit
                 <Send className="w-4 h-4 text-emerald-600 flex-shrink-0" />
                 <span className="text-xs text-gray-600">Routed to the {assessment.state} planner panel:</span>
                 <span className="text-xs font-semibold text-gray-900">{assessment.assigned_planner_name}</span>
+                {assessment.planner_notified_at ? (
+                  <span className="text-[0.65rem] text-emerald-700 flex items-center gap-0.5"><Check className="w-3 h-3" /> emailed {new Date(assessment.planner_notified_at).toLocaleDateString()}</span>
+                ) : assignedHasEmail === false ? (
+                  <span className="text-[0.65rem] text-amber-700">no email on file</span>
+                ) : null}
                 {candidates.length > 1 && (
                   <select
                     value={assessment.assigned_planner_id ?? ''}

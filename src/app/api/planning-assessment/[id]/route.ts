@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { getCompanyId } from '@/lib/auth/get-company-id'
+import { notifyPlanner } from '@/lib/estate-team/planner-notify'
 
 /**
  * Set the planner's structured resolution on an assessment (resolved zone / min-lot / lots) and/or
@@ -25,11 +26,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 
   // Reassign the referral to a different state-panel planner (routing override).
+  let reassignedTo: { name: string; email: string | null } | null = null
   if ('assignedPlannerId' in body) {
     if (body.assignedPlannerId) {
       const { data: planner } = await supabase
         .from('estate_team_members')
-        .select('id, name, firm, occupation')
+        .select('id, name, firm, email, occupation')
         .eq('id', String(body.assignedPlannerId))
         .maybeSingle()
       if (!planner || planner.occupation !== 'planner') {
@@ -38,6 +40,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       update.assigned_planner_id = planner.id
       update.assigned_planner_name = planner.firm ? `${planner.name} (${planner.firm})` : planner.name
       update.planner_gap = false
+      reassignedTo = { name: planner.name, email: planner.email ?? null }
     } else {
       update.assigned_planner_id = null
       update.assigned_planner_name = null
@@ -51,5 +54,33 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     .select()
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Email leg — notify the newly assigned planner (non-fatal).
+  if (reassignedTo?.email) {
+    const { data: findings } = await supabase
+      .from('planning_findings')
+      .select('claim')
+      .eq('assessment_id', params.id)
+      .order('sort_order')
+    const ctx = (data.site_context ?? {}) as { address?: string | null }
+    const send = await notifyPlanner({
+      plannerName: reassignedTo.name,
+      plannerEmail: reassignedTo.email,
+      siteLabel: data.site_label,
+      address: ctx.address ?? null,
+      state: data.state ?? null,
+      openItems: (findings ?? []).map((f) => f.claim as string),
+      opportunityId: data.opportunity_id,
+      operatorEmail: user.email,
+    })
+    if (send.ok) {
+      const notifiedAt = new Date().toISOString()
+      await supabase.from('planning_assessments').update({ planner_notified_at: notifiedAt }).eq('id', params.id)
+      data.planner_notified_at = notifiedAt
+    } else {
+      console.error('[planning-assessment] planner email failed:', send.error)
+    }
+  }
+
   return NextResponse.json({ assessment: data })
 }

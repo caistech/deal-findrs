@@ -5,6 +5,7 @@ import { getCompanyId } from '@/lib/auth/get-company-id'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import { retrievePlanning } from '@/lib/planning-kb/retrieve'
 import { routePlanner, plannerLabel } from '@/lib/estate-team/route-planner'
+import { notifyPlanner } from '@/lib/estate-team/planner-notify'
 import type { TeamMember } from '@/lib/estate-team/types'
 
 /** Active planners on a state's panel — the referral's routing candidates (id/name/firm/email). */
@@ -142,6 +143,28 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
   }
 
+  // Email leg of the refer-to-planner push — notify the routed planner (non-fatal; observability only).
+  let notifiedAt: string | null = null
+  if (route.assigned?.email) {
+    const send = await notifyPlanner({
+      plannerName: route.assigned.name,
+      plannerEmail: route.assigned.email,
+      siteLabel,
+      address: addr || null,
+      state: opp.state ?? null,
+      openItems: referralGaps.map((g) => g.label),
+      opportunityId: opp.id,
+      operatorEmail: user.email,
+    })
+    if (send.ok) {
+      notifiedAt = new Date().toISOString()
+      const { error: nErr } = await supabase.from('planning_assessments').update({ planner_notified_at: notifiedAt }).eq('id', assessment.id)
+      if (nErr) console.error('[planner-referral] notified_at update failed:', nErr.message)
+    } else {
+      console.error('[planner-referral] planner email failed:', send.error)
+    }
+  }
+
   const { data: findings } = await supabase.from('planning_findings').select('*').eq('assessment_id', assessment.id).order('sort_order')
-  return NextResponse.json({ assessment, findings: findings ?? [], plannerCandidates: route.candidates })
+  return NextResponse.json({ assessment: { ...assessment, planner_notified_at: notifiedAt }, findings: findings ?? [], plannerCandidates: route.candidates })
 }
