@@ -73,12 +73,12 @@ describe('registry', () => {
     expect(getReviewPackTemplate('nope')).toBeNull()
   })
 
-  it('gates QS behind the cost buildup and valuer behind Phase-3 data', () => {
-    const c = ctx() // no costPack
+  it('gates QS behind the cost buildup and valuer behind the GRV/valuation pack', () => {
+    const c = ctx() // no costPack, no valuationPack
     expect(getReviewPackTemplate('qs')!.available(c).ok).toBe(false)
     expect(getReviewPackTemplate('qs')!.available(c).reason).toMatch(/cost buildup/i)
     expect(getReviewPackTemplate('valuer')!.available(c).ok).toBe(false)
-    expect(getReviewPackTemplate('valuer')!.available(c).reason).toMatch(/Phase 3/)
+    expect(getReviewPackTemplate('valuer')!.available(c).reason).toMatch(/GRV per lot/i)
   })
 
   it('lists all three packs in hand-off order', () => {

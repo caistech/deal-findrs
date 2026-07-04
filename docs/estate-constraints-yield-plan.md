@@ -223,9 +223,28 @@ backend shipped 2026-05-27 but DealFindrs valuation wiring is still pending (use
   soft + contingency per lot; optional H&L home-construction line per captured lot) reusing devfinance's
   cost engine via the lot adapter → surface into `ReviewPackContext` → flip the **QS review pack**
   `available()` → feeds the deal-model cost components (`infraPerLot`/`softCostsPerLot`/etc.).
-- **3c — GRV & absorption / Checklist 3 (NEXT push).** GRV/lot from real Domain comps + a demand-backed
+- **3c — GRV & absorption / Checklist 3 (DONE core, 2026-07-04; D + live-AVM are follow-ons).** GRV/lot from real Domain comps + a demand-backed
   absorption curve from `waitlist_register` platform-demand → flip the **valuer review pack** → feeds
   deal-model `marketPricePerLot`. Replaces AI-synthetic comps + the scalar absorption.
+  - **Comps (Decision 1 = A+C, LOCKED):** auto-derive a weighted GRV/lot from real Domain comps (reuse
+    devfinance `calculateCompRelevance`; apply time/size adjustments, all shown), AND **confidence-gate**
+    — sparse/stale/dissimilar comps (< N comps, > X months, > Y km) **degrade to "indicative — valuer to
+    set"** rather than assert a false-precise number (degrade-don't-fake). Valuer certifies/overrides.
+  - **Absorption (Decision 2 = A→D, LOCKED):** two-phase curve — waitlist (× conversion %) pre-sold burst
+    → benchmark monthly tail; emit a **monthly take-up vector** and, if scope allows, **feed it into the
+    cash-flow** (`sensitivity.ts`, replacing the flat even spread) so absorption actually moves the
+    feasibility margin. No waitlist data → degrade to the benchmark tail only.
+  - **Dependency flags + data reality (verified 2026-07-04):** Domain is the **estimate-only (AVM)
+    tier** — `client.comparables()` returns a price ESTIMATE (`{lower,mid,upper,confidence,date}`) with
+    an **empty comps array**; there is NO sold-comps table to weight. So Decision 1 is realised as:
+    GRV/lot = operator/study figure (certified by the valuer), **cross-checked** against the Domain AVM
+    of the subject SITE (≈ current land value, a corroborating signal — not conflated with finished-lot
+    GRV), confidence-gated natively by Domain's raw `priceConfidence` enum (confident/recentlySold →
+    assert; historic/notAvailable/no-key → degrade to "indicative"). Built **key-optional** — degrades
+    with no `DOMAIN_API_KEY` (set on property-services Edge Function secrets, NOT Vercel). `waitlist_register`
+    is an evidence CATEGORY that gates a claimed `preSalesPercent` (not raw counts) — absorption uses that
+    evidence-gated pre-sales fraction; no evidence → benchmark tail only. The 2026-05-27 `PriceEstimateCard`
+    display work was never committed (absent from the repo) — comps wiring starts fresh here.
 - **3d — Bankable snapshot (NEXT push).** Certified pack outputs (back from the kickoff professionals)
   promote deal-model v1 (indicative) → v2 (bankable); apply the unapplied `deal_model_snapshots`
   migration (`20260703000000`). Closes the loop to the kickoff + F2K-Projects promotion.

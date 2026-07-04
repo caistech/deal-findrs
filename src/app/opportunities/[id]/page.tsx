@@ -38,6 +38,7 @@ interface Opportunity {
   contingency_amount: number
   total_project_cost: number
   avg_sale_price: number
+  derisk_pre_sales_percent?: number | null
   total_revenue: number
   gross_margin_dollars: number
   gross_margin_percent: number
@@ -739,6 +740,8 @@ export default function OpportunityDetailPage() {
                   city: opportunity.city ?? null,
                   state: opportunity.state ?? null,
                   lga: (opportunity.property_profile as PropertyProfile)?.metadata?.lgaName ?? null,
+                  avgSalePrice: opportunity.avg_sale_price ?? null,
+                  preSalesPercent: opportunity.derisk_pre_sales_percent ?? null,
                 }}
                 brief={estateBrief}
               />

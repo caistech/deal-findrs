@@ -6,11 +6,13 @@ import type { ConstraintsYieldBrief } from '@/lib/estate-buildup/types'
 import type { ReviewPackContext } from '@/lib/review-packs/types'
 import { listReviewPacks } from '@/lib/review-packs/registry'
 import { buildEstateCostPack } from '@/lib/estate-cost/build'
+import { buildValuationPack } from '@/lib/estate-valuation/build'
 
 /**
  * Professional review packs — "the buildup IS each professional's review pack". Lists the packs and
- * downloads the available ones (branded PDF from the route). The engineer pack renders off the
- * Constraints & Yield buildup now; QS/valuer are gated until their Phase-3 data exists.
+ * downloads the available ones (branded PDF from the route). Engineer renders off the Constraints &
+ * Yield buildup; QS off the lot-level cost buildup; valuer off GRV & absorption (the AVM cross-check
+ * is added server-side at render). A pack shows locked with a reason until its data source exists.
  */
 export function ReviewPacksPanel({
   opportunityId,
@@ -18,17 +20,23 @@ export function ReviewPacksPanel({
   brief,
 }: {
   opportunityId: string
-  opportunity: { name: string | null; address: string | null; city: string | null; state: string | null; lga: string | null }
+  opportunity: {
+    name: string | null; address: string | null; city: string | null; state: string | null; lga: string | null
+    avgSalePrice?: number | null; preSalesPercent?: number | null
+  }
   brief: ConstraintsYieldBrief
 }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Mirror the route: build the lot-level cost pack from the derived yield + state so the QS pack
-  // shows as available (land-subdivision only client-side; the PDF is rendered server-side).
+  // Mirror the route so each pack's availability is computed client-side (PDFs render server-side).
   const lots = brief.yield.authoritativeLots ?? 0
   const costPack = lots > 0 && opportunity.state ? buildEstateCostPack({ lots, state: opportunity.state }) : undefined
-  const ctx: ReviewPackContext = { opportunity: { id: opportunityId, ...opportunity }, brief, costPack, preparedOn: '' }
+  const grvPerLot = opportunity.avgSalePrice ?? 0
+  const preSales = (opportunity.preSalesPercent ?? 0) > 1 ? (opportunity.preSalesPercent ?? 0) / 100 : opportunity.preSalesPercent ?? 0
+  const valuationPack = lots > 0 && grvPerLot > 0 ? buildValuationPack({ lots, grvPerLot, preSalesPercent: preSales }) : undefined
+  const { avgSalePrice: _avg, preSalesPercent: _ps, ...oppMeta } = opportunity
+  const ctx: ReviewPackContext = { opportunity: { id: opportunityId, ...oppMeta }, brief, costPack, valuationPack, preparedOn: '' }
 
   async function download(kind: string) {
     setBusy(kind)

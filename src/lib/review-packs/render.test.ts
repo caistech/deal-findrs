@@ -40,8 +40,16 @@ describe('renderReviewPack (integration — real report-generator/react-pdf)', (
     expect(result.pageCount).toBeGreaterThanOrEqual(1)
   }, 30_000)
 
-  it('refuses to render a Phase-3-gated pack (valuer)', async () => {
-    await expect(renderReviewPack(getReviewPackTemplate('valuer')!, ctx)).rejects.toThrow(/Phase 3/)
+  it('renders the valuer pack to a valid PDF when a valuation pack is present', async () => {
+    const { buildValuationPack } = await import('@/lib/estate-valuation/build')
+    const withVal = { ...ctx, valuationPack: buildValuationPack({ lots: 30, grvPerLot: 420000, preSalesPercent: 0.3, benchmarkRatePerMonth: 3 }) }
+    const result = await renderReviewPack(getReviewPackTemplate('valuer')!, withVal)
+    expect(result.buffer.subarray(0, 5).toString('latin1')).toBe('%PDF-')
+    expect(result.pageCount).toBeGreaterThanOrEqual(1)
+  }, 30_000)
+
+  it('refuses to render a pack whose data source is absent', async () => {
+    await expect(renderReviewPack(getReviewPackTemplate('valuer')!, ctx)).rejects.toThrow(/GRV per lot/i)
   })
 })
 

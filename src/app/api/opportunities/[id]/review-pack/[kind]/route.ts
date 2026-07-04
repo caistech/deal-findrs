@@ -5,8 +5,17 @@ import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import type { BuildupOptions } from '@/lib/estate-buildup/types'
 import { buildEstateCostPack } from '@/lib/estate-cost/build'
 import type { EstateCostPack } from '@/lib/estate-cost/types'
+import { buildValuationPack } from '@/lib/estate-valuation/build'
+import { fetchAvmCrossCheck } from '@/lib/estate-valuation/avm'
+import type { EstateValuationPack } from '@/lib/estate-valuation/types'
 import { getReviewPackTemplate } from '@/lib/review-packs/registry'
 import { renderReviewPack, reviewPackFilename } from '@/lib/review-packs/render'
+
+/** Normalise a stored pre-sales figure to a 0..1 fraction (columns store either 30 or 0.30). */
+function toFraction(v: number | null | undefined): number {
+  const n = Number(v) || 0
+  return n > 1 ? n / 100 : n
+}
 
 // @react-pdf/renderer needs the Node runtime; the render is per-request.
 export const runtime = 'nodejs'
@@ -29,7 +38,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   const { data: opp, error: oppErr } = await supabase
     .from('opportunities')
-    .select('id, name, address, city, state, num_lots, land_purchase_price, property_profile')
+    .select('id, name, address, city, state, num_lots, land_purchase_price, avg_sale_price, derisk_pre_sales_percent, property_profile')
     .eq('id', params.id)
     .single()
   if (oppErr || !opp) return NextResponse.json({ error: 'opportunity_not_found' }, { status: 404 })
@@ -63,6 +72,28 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     })
   }
 
+  // GRV & absorption (Checklist 3) — GRV/lot from the operator's indicative sale price; absorption
+  // from the claimed pre-sales (evidence gated in the feasibility engine); AVM cross-check fetched
+  // server-side (key-optional, degrades). Present with a GRV unlocks the valuer pack.
+  const grvPerLot = Number(opp.avg_sale_price) || 0
+  let valuationPack: EstateValuationPack | undefined
+  if (lots > 0 && grvPerLot > 0) {
+    valuationPack = buildValuationPack({
+      lots,
+      grvPerLot,
+      preSalesPercent: toFraction(opp.derisk_pre_sales_percent as number | null),
+    })
+    // Only pay for the AVM call when actually rendering the valuer pack.
+    if (params.kind === 'valuer') {
+      const landPrice = opp.land_purchase_price as number | null
+      valuationPack.avm = await fetchAvmCrossCheck({
+        address: (opp.address as string) ?? '',
+        state: (opp.state as string) ?? null,
+        referenceValue: landPrice ?? null,
+      })
+    }
+  }
+
   const ctx = {
     opportunity: {
       id: opp.id as string,
@@ -74,6 +105,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     },
     brief,
     costPack,
+    valuationPack,
     preparedOn: new Date().toISOString().slice(0, 10),
   }
 
