@@ -73,11 +73,12 @@ describe('registry', () => {
     expect(getReviewPackTemplate('nope')).toBeNull()
   })
 
-  it('gates QS + valuer behind Phase-3 data', () => {
-    const c = ctx()
+  it('gates QS behind the cost buildup and valuer behind Phase-3 data', () => {
+    const c = ctx() // no costPack
     expect(getReviewPackTemplate('qs')!.available(c).ok).toBe(false)
+    expect(getReviewPackTemplate('qs')!.available(c).reason).toMatch(/cost buildup/i)
     expect(getReviewPackTemplate('valuer')!.available(c).ok).toBe(false)
-    expect(getReviewPackTemplate('qs')!.available(c).reason).toMatch(/Phase 3/)
+    expect(getReviewPackTemplate('valuer')!.available(c).reason).toMatch(/Phase 3/)
   })
 
   it('lists all three packs in hand-off order', () => {

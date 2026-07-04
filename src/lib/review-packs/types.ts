@@ -1,4 +1,5 @@
 import type { ConstraintsYieldBrief } from '@/lib/estate-buildup/types'
+import type { EstateCostPack } from '@/lib/estate-cost/types'
 
 /**
  * Professional review packs — "the buildup IS each professional's review pack".
@@ -23,6 +24,8 @@ export interface ReviewPackContext {
     lga: string | null
   }
   brief: ConstraintsYieldBrief
+  /** The lot-level QS cost buildup (Checklist 2) — present unlocks the QS pack. Absent for engineer-only. */
+  costPack?: EstateCostPack
   /** ISO date the pack was prepared (passed in so builders stay pure/testable). */
   preparedOn: string
 }

@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest'
 import type { ConstraintsYieldBrief } from '@/lib/estate-buildup/types'
 import type { ReviewPackContext } from './types'
 import { engineerPack } from './engineer'
+import { qsPack } from './qs'
 import { renderReviewPack, reviewPackFilename } from './render'
 import { getReviewPackTemplate } from './registry'
+import { buildEstateCostPack } from '@/lib/estate-cost/build'
 
 const brief: ConstraintsYieldBrief = {
   yield: { authoritativeLots: 28, derivedLots: 28, studyLots: null, developerClaimedLots: null, reconciliationNeeded: false, unbackedClaimConflict: false, basis: 'derived' },
@@ -31,8 +33,15 @@ describe('renderReviewPack (integration — real report-generator/react-pdf)', (
     expect(result.pageCount).toBeGreaterThanOrEqual(1)
   }, 30_000)
 
-  it('refuses to render a Phase-3-gated pack', async () => {
-    await expect(renderReviewPack(getReviewPackTemplate('qs')!, ctx)).rejects.toThrow(/Phase 3/)
+  it('renders the QS pack to a valid PDF when a cost pack is present', async () => {
+    const withCost = { ...ctx, costPack: buildEstateCostPack({ lots: 30, state: 'WA', city: 'Perth', landPerLot: 140000 }) }
+    const result = await renderReviewPack(qsPack, withCost)
+    expect(result.buffer.subarray(0, 5).toString('latin1')).toBe('%PDF-')
+    expect(result.pageCount).toBeGreaterThanOrEqual(1)
+  }, 30_000)
+
+  it('refuses to render a Phase-3-gated pack (valuer)', async () => {
+    await expect(renderReviewPack(getReviewPackTemplate('valuer')!, ctx)).rejects.toThrow(/Phase 3/)
   })
 })
 

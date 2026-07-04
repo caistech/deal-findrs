@@ -5,6 +5,7 @@ import { FileText, Download, Loader2, Lock } from 'lucide-react'
 import type { ConstraintsYieldBrief } from '@/lib/estate-buildup/types'
 import type { ReviewPackContext } from '@/lib/review-packs/types'
 import { listReviewPacks } from '@/lib/review-packs/registry'
+import { buildEstateCostPack } from '@/lib/estate-cost/build'
 
 /**
  * Professional review packs — "the buildup IS each professional's review pack". Lists the packs and
@@ -23,7 +24,11 @@ export function ReviewPacksPanel({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const ctx: ReviewPackContext = { opportunity: { id: opportunityId, ...opportunity }, brief, preparedOn: '' }
+  // Mirror the route: build the lot-level cost pack from the derived yield + state so the QS pack
+  // shows as available (land-subdivision only client-side; the PDF is rendered server-side).
+  const lots = brief.yield.authoritativeLots ?? 0
+  const costPack = lots > 0 && opportunity.state ? buildEstateCostPack({ lots, state: opportunity.state }) : undefined
+  const ctx: ReviewPackContext = { opportunity: { id: opportunityId, ...opportunity }, brief, costPack, preparedOn: '' }
 
   async function download(kind: string) {
     setBusy(kind)

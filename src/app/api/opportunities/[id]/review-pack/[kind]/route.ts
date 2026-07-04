@@ -3,6 +3,8 @@ import { requireAuth } from '@/lib/auth/require-auth'
 import { getCompanyId } from '@/lib/auth/get-company-id'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import type { BuildupOptions } from '@/lib/estate-buildup/types'
+import { buildEstateCostPack } from '@/lib/estate-cost/build'
+import type { EstateCostPack } from '@/lib/estate-cost/types'
 import { getReviewPackTemplate } from '@/lib/review-packs/registry'
 import { renderReviewPack, reviewPackFilename } from '@/lib/review-packs/render'
 
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   const { data: opp, error: oppErr } = await supabase
     .from('opportunities')
-    .select('id, name, address, city, state, property_profile')
+    .select('id, name, address, city, state, num_lots, land_purchase_price, property_profile')
     .eq('id', params.id)
     .single()
   if (oppErr || !opp) return NextResponse.json({ error: 'opportunity_not_found' }, { status: 404 })
@@ -47,6 +49,20 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   const profile = opp.property_profile as { metadata?: { lgaName?: string | null } }
   const brief = buildConstraintsYield(opp.property_profile, options)
 
+  // Lot-level QS cost buildup (Checklist 2) — built on the DERIVED authoritative yield (num_lots is
+  // the fallback only). Present unlocks the QS pack; land-subdivision only for now (H&L layers when
+  // the deal-model carries a capture rate). Kept as land-subdivision — no H&L capture from the record yet.
+  const lots = brief.yield.authoritativeLots ?? (opp.num_lots as number | null) ?? 0
+  let costPack: EstateCostPack | undefined
+  if (lots > 0 && opp.state) {
+    const landPrice = opp.land_purchase_price as number | null
+    costPack = buildEstateCostPack({
+      lots,
+      state: opp.state as string,
+      landPerLot: landPrice && lots ? Math.round(landPrice / lots) : undefined,
+    })
+  }
+
   const ctx = {
     opportunity: {
       id: opp.id as string,
@@ -57,6 +73,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       lga: profile.metadata?.lgaName ?? null,
     },
     brief,
+    costPack,
     preparedOn: new Date().toISOString().slice(0, 10),
   }
 
