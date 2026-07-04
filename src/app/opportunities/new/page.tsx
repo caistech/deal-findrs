@@ -37,6 +37,9 @@ export default function NewOpportunityPage() {
   const [draftId, setDraftId] = useState<string | null>(null)
   const [savingDraft, setSavingDraft] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
+  // Derived-yield authority: the lot count comes from our analysis, not a typed input.
+  const [derivedLots, setDerivedLots] = useState<number | null>(null)
+  const [profileDerived, setProfileDerived] = useState(false)
 
   // Property Services — shared property intelligence
   const property = usePropertyOnboarding({
@@ -149,6 +152,10 @@ export default function NewOpportunityPage() {
 
   // Auto-populate form fields from property profile
   const applyPropertyProfile = (profile: PropertyProfile) => {
+    // Derived yield is authoritative (policy: lot numbers are our analysis, not typed in).
+    const maxLots = profile.subdivision?.torrens?.maxLots ?? null
+    setProfileDerived(true)
+    setDerivedLots(maxLots)
     setFormData(prev => {
       const updates: Record<string, string | boolean> = {}
       // Lot size
@@ -160,12 +167,10 @@ export default function NewOpportunityPage() {
       if (profile.zoning?.code && !prev.currentZoning) {
         updates.currentZoning = profile.zoning.code
       }
-      // Subdivision lots
-      if (profile.subdivision?.torrens?.maxLots && !prev.numLots) {
-        updates.numLots = String(profile.subdivision.torrens.maxLots)
-        if (!prev.numDwellings) {
-          updates.numDwellings = String(profile.subdivision.torrens.maxLots)
-        }
+      // Subdivision lots — DERIVED yield is authoritative; overwrites any prior value.
+      if (maxLots != null) {
+        updates.numLots = String(maxLots)
+        updates.numDwellings = String(maxLots)
       }
       // Heritage overlay as risk factor
       const hasHeritage = profile.overlays.some(o => o.type.toLowerCase().includes('heritage'))
@@ -198,6 +203,8 @@ export default function NewOpportunityPage() {
 
     // Reset property profile when address changes
     property.reset()
+    setProfileDerived(false)
+    setDerivedLots(null)
 
     // Derive everything from the canonical property-services `derive` API.
     // It now resolves zoning, council/LGA, wind, climate and BAL nationally,
@@ -882,19 +889,26 @@ export default function NewOpportunityPage() {
 
                 <div className="grid grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Number of Lots *</label>
-                    <input 
-                      type="number"
-                      placeholder="37"
-                      value={formData.numLots}
-                      onChange={(e) => {
-                        updateField('numLots', e.target.value)
-                        if (!formData.numDwellings) {
-                          updateField('numDwellings', e.target.value)
-                        }
-                      }}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of Lots <span className="text-xs font-normal text-gray-500">(derived — our analysis)</span>
+                    </label>
+                    {profileDerived && derivedLots != null ? (
+                      <div className="w-full px-4 py-3 border border-emerald-200 bg-emerald-50 rounded-xl flex items-center justify-between">
+                        <span className="font-semibold text-gray-900">{derivedLots}</span>
+                        <span className="text-xs text-emerald-700">derived from subdivision analysis</span>
+                      </div>
+                    ) : profileDerived ? (
+                      <div className="w-full px-4 py-3 border border-indigo-200 bg-indigo-50 rounded-xl text-sm text-indigo-700">
+                        Pending planner referral — zoning must be resolved to derive the yield.
+                      </div>
+                    ) : (
+                      <div className="w-full px-4 py-3 border border-gray-200 bg-gray-50 rounded-xl text-sm text-gray-400">
+                        Select an address to derive the yield.
+                      </div>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      Yield is derived from the datasets. A shared feasibility study is required to override it.
+                    </p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Number of Dwellings</label>
