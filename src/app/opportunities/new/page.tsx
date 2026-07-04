@@ -247,7 +247,7 @@ export default function NewOpportunityPage() {
       const res = await fetch('/api/opportunities/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formData, siteIntel, coords }),
+        body: JSON.stringify({ formData, siteIntel, coords, propertyProfile: property.profile }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -664,6 +664,36 @@ export default function NewOpportunityPage() {
                               <p className="text-xs text-gray-500">{property.profile.zoning.name}</p>
                               {property.profile.zoning.subdivisionPermitted && (
                                 <p className="text-xs text-emerald-600 font-medium mt-0.5">Subdivision permitted</p>
+                              )}
+                            </div>
+                          )}
+                          {/* Zoning not auto-resolved (e.g. partial LGA coverage) — manual lookup + zone picker */}
+                          {!property.profile.zoning && (
+                            <div className="bg-white rounded-lg px-3 py-2 border border-amber-200">
+                              <p className="text-xs text-gray-500">Zoning</p>
+                              <p className="text-sm font-medium text-amber-700">Not auto-resolved here</p>
+                              {property.profile.metadata?.zoningManualLookup && (
+                                <a
+                                  href={property.profile.metadata.zoningManualLookup.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-emerald-700 underline mt-0.5 inline-block"
+                                  title={property.profile.metadata.zoningManualLookup.instructions}
+                                >
+                                  Look it up on {property.profile.metadata.zoningManualLookup.source}
+                                </a>
+                              )}
+                              {property.profile.metadata?.availableZones && property.profile.metadata.availableZones.length > 0 && (
+                                <select
+                                  value={formData.currentZoning || ''}
+                                  onChange={(e) => setFormData(prev => ({ ...prev, currentZoning: e.target.value }))}
+                                  className="mt-1 w-full text-xs border border-gray-300 rounded px-2 py-1 min-h-[36px] focus:ring-2 focus:ring-emerald-500"
+                                >
+                                  <option value="">Select zone…</option>
+                                  {property.profile.metadata.availableZones.map((z) => (
+                                    <option key={z.code} value={z.code}>{z.code} — {z.name}</option>
+                                  ))}
+                                </select>
                               )}
                             </div>
                           )}

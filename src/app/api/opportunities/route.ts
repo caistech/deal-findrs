@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin()
     const body = await request.json()
-    const { formData, opportunity, result, siteIntel, coords } = body
+    const { formData, opportunity, result, siteIntel, coords, propertyProfile } = body
 
     // Calculate financials
     const numDwellings = parseInt(formData.numDwellings) || parseInt(formData.numLots) || 0
@@ -108,6 +108,9 @@ export async function POST(request: NextRequest) {
         council_name: siteIntel.council_name || null,
         council_code: siteIntel.council_code || null,
       } : {}),
+      // Full property-services derive result — the complete constraints/yield dataset
+      // (lot, zoning detail, environment, terrain, overlays, subdivision analysis, metadata).
+      ...(propertyProfile ? { property_profile: propertyProfile } : {}),
     }
 
     const { data: opp, error: insertError } = await supabase

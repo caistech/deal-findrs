@@ -35,11 +35,12 @@ export async function POST(request: NextRequest) {
   if (company.error) return NextResponse.json({ error: company.error }, { status: 403 })
 
   const body = await request.json().catch(() => ({}))
-  const { id, formData = {}, siteIntel, coords } = body as {
+  const { id, formData = {}, siteIntel, coords, propertyProfile } = body as {
     id?: string
     formData?: Record<string, unknown>
     siteIntel?: Record<string, unknown>
     coords?: { lat: number; lng: number }
+    propertyProfile?: Record<string, unknown>
   }
 
   const numDwellings = Number(formData.numDwellings) || Number(formData.numLots) || 0
@@ -121,6 +122,10 @@ export async function POST(request: NextRequest) {
       council_name: siteIntel.council_name || null,
       council_code: siteIntel.council_code || null,
     } : {}),
+    // Full property-services derive result — the complete constraints/yield dataset
+    // (lot, zoning detail, environment, terrain, overlays, subdivision analysis, metadata).
+    // Previously the rich profile was fetched then dropped; persist it verbatim.
+    ...(propertyProfile ? { property_profile: propertyProfile } : {}),
   }
 
   const admin = getSupabaseAdmin()
