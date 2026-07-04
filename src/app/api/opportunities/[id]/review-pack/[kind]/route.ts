@@ -22,10 +22,10 @@ type PanelField = 'title' | 'contamination' | 'servicing' | 'native_title' | 'su
 const PANEL_FIELDS: PanelField[] = ['title', 'contamination', 'servicing', 'native_title', 'survey_geotech']
 
 /**
- * Pull the panel-review write-backs for a site from the SHARED property-services store via dossier(),
- * keyed field → latest summary. Fail-open + time-bounded (8s): any missing config / error / timeout
- * returns {} so pack generation is never blocked. (dossier also runs the AI + AVM legs server-side;
- * a dedicated contributions endpoint would be lighter — noted as a follow-up.)
+ * Pull the panel-review write-backs for a site from the SHARED property-services store via the
+ * lightweight contributions() read (a single indexed table read — NO derive/assess/AVM legs), keyed
+ * field → latest summary. Fail-open + time-bounded (5s): any missing config / error / timeout returns
+ * {} so pack generation is never blocked.
  */
 async function loadResolvedPanel(
   address: string,
@@ -39,13 +39,13 @@ async function loadResolvedPanel(
   try {
     const client = createPropertyServices({ supabaseUrl, apiKey, product: 'dealfindrs' })
     const res = (await Promise.race([
-      client.dossier({ address, lat, lng, state: state ?? undefined }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8_000)),
-    ])) as Awaited<ReturnType<typeof client.dossier>>
-    if (!res?.success || !res.data) return {}
+      client.contributions({ address, lat, lng, state: state ?? undefined }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5_000)),
+    ])) as Awaited<ReturnType<typeof client.contributions>>
+    if (!res?.success) return {}
     const out: Partial<Record<PanelField, string>> = {}
     // contribute() supersedes prior entries, so there is at most one active row per field.
-    for (const c of (res.data.contributions ?? []) as Contribution[]) {
+    for (const c of (res.contributions ?? []) as Contribution[]) {
       if ((PANEL_FIELDS as string[]).includes(c.field) && c.summary && !out[c.field as PanelField]) {
         out[c.field as PanelField] = c.summary
       }
