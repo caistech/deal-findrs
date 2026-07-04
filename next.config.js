@@ -35,7 +35,8 @@ const nextConfig = {
   images: {
     domains: ['localhost'],
   },
-  transpilePackages: ['@caistech/platform-trust-middleware', '@caistech/property-services-sdk'],
+  // report-generator ships ESM with extensionless relative imports — transpiling lets webpack resolve them.
+  transpilePackages: ['@caistech/platform-trust-middleware', '@caistech/property-services-sdk', '@caistech/report-generator', '@react-pdf/renderer'],
   async headers() {
     return [
       {

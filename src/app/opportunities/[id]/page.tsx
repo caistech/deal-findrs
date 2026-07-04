@@ -11,6 +11,7 @@ import { AuthLayout } from '@/components/common/AuthLayout'
 import { ConstraintsYieldBrief } from '@/components/property/ConstraintsYieldBrief'
 import { KickoffPanel } from '@/components/property/KickoffPanel'
 import { PlannerReferralPanel } from '@/components/property/PlannerReferralPanel'
+import { ReviewPacksPanel } from '@/components/property/ReviewPacksPanel'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import type { PropertyProfile } from '@/lib/property-services'
 
@@ -727,6 +728,19 @@ export default function OpportunityDetailPage() {
                 profile={opportunity.property_profile}
                 state={opportunity.state}
                 options={{ operatorResolved }}
+              />
+            )}
+            {opportunity.property_profile && estateBrief && (
+              <ReviewPacksPanel
+                opportunityId={opportunity.id}
+                opportunity={{
+                  name: opportunity.name ?? null,
+                  address: opportunity.address ?? null,
+                  city: opportunity.city ?? null,
+                  state: opportunity.state ?? null,
+                  lga: (opportunity.property_profile as PropertyProfile)?.metadata?.lgaName ?? null,
+                }}
+                brief={estateBrief}
               />
             )}
             {/* Passed Criteria */}

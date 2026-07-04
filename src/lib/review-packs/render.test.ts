@@ -1,0 +1,44 @@
+import { describe, it, expect } from 'vitest'
+import type { ConstraintsYieldBrief } from '@/lib/estate-buildup/types'
+import type { ReviewPackContext } from './types'
+import { engineerPack } from './engineer'
+import { renderReviewPack, reviewPackFilename } from './render'
+import { getReviewPackTemplate } from './registry'
+
+const brief: ConstraintsYieldBrief = {
+  yield: { authoritativeLots: 28, derivedLots: 28, studyLots: null, developerClaimedLots: null, reconciliationNeeded: false, unbackedClaimConflict: false, basis: 'derived' },
+  lines: [
+    { key: 'parcel', label: 'Parcel', value: 'Lot 5 / DP99', provenance: 'derived', dataset: 'lot data' },
+    { key: 'zoning', label: 'Zoning', value: 'R30', provenance: 'derived', dataset: 'planning' },
+    { key: 'yield', label: 'Yield (lots)', value: 28, provenance: 'derived', dataset: 'subdivision analysis' },
+  ],
+  gaps: [{ dimension: 'services', label: 'Servicing', provenance: 'needs-input', detail: 'BYDA.' }],
+  requiresPlannerReferral: false,
+}
+
+const ctx: ReviewPackContext = {
+  opportunity: { id: 'o1', name: 'Test Estate', address: '1 Test St', city: 'Perth', state: 'WA', lga: 'Stirling' },
+  brief,
+  preparedOn: '2026-07-04',
+}
+
+describe('renderReviewPack (integration — real report-generator/react-pdf)', () => {
+  it('renders the engineer pack to a valid PDF buffer', async () => {
+    const result = await renderReviewPack(engineerPack, ctx)
+    expect(result.buffer.length).toBeGreaterThan(1000)
+    // PDF magic bytes
+    expect(result.buffer.subarray(0, 5).toString('latin1')).toBe('%PDF-')
+    expect(result.pageCount).toBeGreaterThanOrEqual(1)
+  }, 30_000)
+
+  it('refuses to render a Phase-3-gated pack', async () => {
+    await expect(renderReviewPack(getReviewPackTemplate('qs')!, ctx)).rejects.toThrow(/Phase 3/)
+  })
+})
+
+describe('reviewPackFilename', () => {
+  it('slugifies the opportunity name', () => {
+    expect(reviewPackFilename('engineer', 'Riverbend Estate!')).toBe('riverbend-estate-engineer-review-pack.pdf')
+    expect(reviewPackFilename('qs', null)).toBe('estate-qs-review-pack.pdf')
+  })
+})
