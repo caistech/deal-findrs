@@ -20,6 +20,8 @@ export async function generateFeasibilityStudy(
     ltvTarget: number;        // e.g. 0.65
     salesStartMonth: number;  // when settlements begin
     salesPeriodMonths: number;
+    /** Demand-backed take-up fractions per month (Phase 3c-D) — overrides the even revenue spread. */
+    salesProfile?: number[];
   }
 ): Promise<FeasibilityStudy> {
   // ─── Revenue (from Valuation module) ─────────────
@@ -46,6 +48,7 @@ export async function generateFeasibilityStudy(
     programMonths: qsReport.constructionProgramMonths,
     salesStartMonth: financeParams.salesStartMonth,
     salesPeriodMonths: financeParams.salesPeriodMonths,
+    salesProfile: financeParams.salesProfile,
     interestRate: financeParams.interestRate,
     loanAmount,
   });

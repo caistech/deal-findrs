@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateFeasibilityStudy } from '@/lib/devfinance';
 import { DevFinanceProject } from '@/lib/devfinance/types';
+import { buildValuationPack, absorptionToSalesProfile } from '@/lib/estate-valuation/build';
 import {
   saveFeasibilityStudy,
   getFeasibilityStudy,
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
         ltvTarget: number;
         salesStartMonth: number;
         salesPeriodMonths: number;
+        salesProfile?: number[];
       };
     };
 
@@ -57,12 +59,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Demand-backed take-up (Phase 3c-D): an explicit salesProfile wins; otherwise derive one from the
+    // opportunity's pre-sales evidence so a front-loaded absorption curve shortens the holding period +
+    // cuts finance cost. With no pre-sales evidence we leave it unset → the existing even spread (unchanged).
+    let salesProfile = financeParams.salesProfile;
+    if (!salesProfile || salesProfile.length === 0) {
+      const opp = resolvedProject.opportunity;
+      const rawPreSales = (opp.preSalesPercent ?? 0);
+      const preSalesPercent = rawPreSales > 1 ? rawPreSales / 100 : rawPreSales;
+      const lots = opp.numLots || opp.numDwellings || resolvedProject.unitMix.reduce((s, u) => s + u.count, 0) || 0;
+      if (preSalesPercent > 0 && lots > 0) {
+        const pack = buildValuationPack({ lots, grvPerLot: 1, preSalesPercent, benchmarkRatePerMonth: Math.max(1, Math.round(lots / Math.max(1, financeParams.salesPeriodMonths))) });
+        salesProfile = absorptionToSalesProfile(pack.absorption.monthly);
+      }
+    }
+
     // Generate
     const study = await generateFeasibilityStudy(
       resolvedProject,
       resolvedQS,
       resolvedVal,
-      financeParams
+      { ...financeParams, salesProfile }
     );
 
     // Persist

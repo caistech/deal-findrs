@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildValuationPack, gateAvmConfidence } from './build'
+import { buildValuationPack, gateAvmConfidence, absorptionToSalesProfile } from './build'
 
 describe('gateAvmConfidence', () => {
   it('asserts on confident / recentlySold, degrades otherwise', () => {
@@ -47,5 +47,18 @@ describe('buildValuationPack — absorption two-phase curve', () => {
   it('defaults the benchmark rate from estate size (never below 2/month)', () => {
     expect(buildValuationPack({ lots: 6, grvPerLot: 1 }).absorption.benchmarkRatePerMonth).toBe(2)
     expect(buildValuationPack({ lots: 60, grvPerLot: 1 }).absorption.benchmarkRatePerMonth).toBe(5)
+  })
+})
+
+describe('absorptionToSalesProfile (3c-D)', () => {
+  it('converts a take-up vector to revenue fractions summing to 1', () => {
+    const profile = absorptionToSalesProfile([10, 4, 4, 2])
+    expect(profile.reduce((s, v) => s + v, 0)).toBeCloseTo(1, 6)
+    expect(profile[0]).toBeCloseTo(0.5, 6) // 10/20 front-loaded
+  })
+
+  it('returns [] for an empty/zero vector (cash-flow falls back to even spread)', () => {
+    expect(absorptionToSalesProfile([])).toEqual([])
+    expect(absorptionToSalesProfile([0, 0])).toEqual([])
   })
 })

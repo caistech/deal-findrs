@@ -57,6 +57,18 @@ function buildAbsorption(lots: number, input: EstateValuationInput): AbsorptionC
   }
 }
 
+/**
+ * Convert an absorption monthly take-up vector (lots/month) into revenue fractions per month
+ * (summing to 1) — the `salesProfile` the devfinance cash-flow consumes (Phase 3c-D), so a
+ * front-loaded absorption curve actually shortens the holding period + cuts finance cost. Returns []
+ * for an empty/zero vector (the cash-flow then falls back to its even spread).
+ */
+export function absorptionToSalesProfile(monthly: number[]): number[] {
+  const total = monthly.reduce((s, v) => s + v, 0)
+  if (total <= 0) return []
+  return monthly.map((v) => v / total)
+}
+
 export function buildValuationPack(input: EstateValuationInput): EstateValuationPack {
   const lots = Math.max(0, Math.round(input.lots))
   const grvPerLot = Math.max(0, Math.round(input.grvPerLot))

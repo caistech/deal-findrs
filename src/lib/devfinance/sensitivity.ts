@@ -68,9 +68,13 @@ interface CashFlowInput {
   drawDown: DrawDownMilestone[];
   programMonths: number;
   salesStartMonth: number;   // when presales/settlements begin (relative to construction start)
-  salesPeriodMonths: number; // over how many months revenue is received
+  salesPeriodMonths: number; // over how many months revenue is received (even-spread fallback)
   interestRate: number;      // annual
   loanAmount: number;
+  // Demand-backed take-up (Phase 3c-D): per-month fractions of total revenue, aligned to
+  // salesStartMonth (index 0 = salesStartMonth). When present, this REPLACES the even spread —
+  // a front-loaded absorption curve shortens the holding period + cuts finance cost. Sums to ~1.
+  salesProfile?: number[];
 }
 
 export function generateCashFlow(input: CashFlowInput): {
@@ -79,7 +83,8 @@ export function generateCashFlow(input: CashFlowInput): {
   peakDebtMonth: number;
   totalInterest: number;
 } {
-  const totalMonths = Math.max(input.programMonths, input.salesStartMonth + input.salesPeriodMonths) + 1;
+  const salesSpan = input.salesProfile && input.salesProfile.length > 0 ? input.salesProfile.length : input.salesPeriodMonths;
+  const totalMonths = Math.max(input.programMonths, input.salesStartMonth + salesSpan) + 1;
   const monthlyRate = input.interestRate / 12;
 
   const periods: CashFlowPeriod[] = [];
@@ -122,8 +127,13 @@ export function generateCashFlow(input: CashFlowInput): {
       costs += monthlyOtherCost;
     }
 
-    // Revenue during sales period
-    if (month >= input.salesStartMonth &&
+    // Revenue during sales period — demand-backed profile if given, else the even spread.
+    if (input.salesProfile && input.salesProfile.length > 0) {
+      const idx = month - input.salesStartMonth;
+      if (idx >= 0 && idx < input.salesProfile.length) {
+        revenue = input.totalRevenue * input.salesProfile[idx];
+      }
+    } else if (month >= input.salesStartMonth &&
         month < input.salesStartMonth + input.salesPeriodMonths) {
       revenue = monthlyRevenue;
     }
