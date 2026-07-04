@@ -14,6 +14,15 @@ import {
   type StageGateTicks,
   type DealModelResult,
 } from '@/lib/deal-model'
+import { buildConstraintsYield } from '@/lib/estate-buildup/build'
+import type { PropertyProfile } from '@/lib/property-services'
+
+/** Where the pre-filled lot count came from — the derived estate buildup is authoritative over num_lots. */
+type YieldTrace = {
+  source: 'derived' | 'planner-resolved' | 'un-derivable' | 'opportunity'
+  authoritativeLots: number | null
+  derivedLots: number | null
+}
 
 // ─── Stage-gate field metadata (the 21 evidence gates) ─────────
 const GATE_GROUPS: { group: string; fields: { key: keyof StageGateTicks; label: string }[] }[] = [
@@ -111,28 +120,62 @@ export default function DealModelPage() {
   const [promoting, setPromoting] = useState(false)
   const [promoted, setPromoted] = useState(false)
   const [promoteError, setPromoteError] = useState<string | null>(null)
+  const [yieldTrace, setYieldTrace] = useState<YieldTrace | null>(null)
 
   const set = useCallback(<K extends keyof FormState>(key: K, val: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: val }))
     setSaved(null)
   }, [])
 
-  // Pre-fill what we can from the opportunity record.
+  // Pre-fill what we can from the opportunity record. Lot count is bridged from the estate buildup's
+  // DERIVED authoritative yield (Phase 3a) — that is our analysis, and it governs over the free-text
+  // num_lots. Falls back to num_lots only when there's no property profile to derive from.
   useEffect(() => {
     async function load() {
       try {
         const res = await fetch(`/api/opportunities/${opportunityId}`)
-        if (res.ok) {
-          const { opportunity: o } = await res.json()
-          const lots = o?.num_lots || 0
-          setForm((prev) => ({
-            ...prev,
-            lots,
-            marketPricePerLot: o?.avg_sale_price || 0,
-            landPerLot: lots ? Math.round((o?.land_purchase_price || 0) / lots) : 0,
-            infraPerLot: lots ? Math.round((o?.infrastructure_costs || 0) / lots) : 0,
-          }))
+        if (!res.ok) return
+        const { opportunity: o } = await res.json()
+
+        // Derive the authoritative yield from the estate buildup when a profile exists, honouring an
+        // approved planner referral (mirrors the opportunity page).
+        let derivedYield: YieldTrace | null = null
+        if (o?.property_profile) {
+          let operatorResolved: { zoneCode?: string | null; minLotSize?: number | null; lots?: number | null } | undefined
+          try {
+            const refRes = await fetch(`/api/opportunities/${opportunityId}/planner-referral`)
+            if (refRes.ok) {
+              const { assessment } = await refRes.json()
+              if (assessment?.status === 'approved') {
+                operatorResolved = { zoneCode: assessment.resolved_zone_code, minLotSize: assessment.resolved_min_lot_size, lots: assessment.resolved_lots }
+              }
+            }
+          } catch {
+            // referral is optional context; fall back to the plain derived yield
+          }
+          const brief = buildConstraintsYield(o.property_profile as PropertyProfile, { operatorResolved })
+          const y = brief.yield
+          derivedYield = {
+            source: brief.requiresPlannerReferral
+              ? 'un-derivable'
+              : y.basis === 'operator-resolved'
+                ? 'planner-resolved'
+                : 'derived',
+            authoritativeLots: y.authoritativeLots,
+            derivedLots: y.derivedLots,
+          }
         }
+
+        // Lot count: derived-authoritative wins; else the opportunity's num_lots.
+        const lots = derivedYield?.authoritativeLots ?? o?.num_lots ?? 0
+        setYieldTrace(derivedYield ?? { source: 'opportunity', authoritativeLots: o?.num_lots ?? null, derivedLots: null })
+        setForm((prev) => ({
+          ...prev,
+          lots,
+          marketPricePerLot: o?.avg_sale_price || 0,
+          landPerLot: lots ? Math.round((o?.land_purchase_price || 0) / lots) : 0,
+          infraPerLot: lots ? Math.round((o?.infrastructure_costs || 0) / lots) : 0,
+        }))
       } catch {
         // pre-fill is best-effort; the operator can enter everything by hand
       } finally {
@@ -254,6 +297,22 @@ export default function DealModelPage() {
               <section className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
                 <h2 className="font-semibold text-gray-900 mb-1">Estate economics (from the indicative study)</h2>
                 <p className="text-sm text-gray-500 mb-4">Per-lot figures unless marked total.</p>
+                {yieldTrace && yieldTrace.source !== 'opportunity' && (
+                  <div className={`mb-4 text-xs rounded-lg p-2.5 border ${
+                    yieldTrace.source === 'un-derivable'
+                      ? 'bg-amber-50 border-amber-200 text-amber-800'
+                      : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  }`}>
+                    {yieldTrace.source === 'un-derivable' ? (
+                      <>Estate yield is <strong>un-derivable</strong> from the datasets (zoning unresolved) — resolve the{' '}
+                        <Link href={`/opportunities/${opportunityId}`} className="underline font-medium">planner referral</Link> so the lot count is analysis-backed. Enter a working figure meanwhile.</>
+                    ) : (
+                      <>Estate lots pre-filled from the <strong>derived buildup</strong>
+                        {yieldTrace.source === 'planner-resolved' ? ' (planner-resolved)' : ' (our analysis, authoritative over the developer’s number)'}:{' '}
+                        <strong>{yieldTrace.authoritativeLots} lots</strong>. Editable, but this is the figure the evaluation is built on.</>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <NumberField label="Estate lots" value={form.lots} onChange={(n) => set('lots', n)} />
                   <NumberField label="Market price / lot" value={form.marketPricePerLot} onChange={(n) => set('marketPricePerLot', n)} step={1000} suffix="$" />

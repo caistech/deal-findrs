@@ -182,6 +182,50 @@ directory + one nomination engine; planner is the special case that also gets re
 + gap flags + review packs, the kickoff artifact records a light meeting log — attendees, their
 acceptance/decline, and actions/owners — so the kickoff is a tracked record, not just a recommendation.
 
-## Phase 3 — separate (later)
-Feasibility / QS cost pack (Checklist 2) + GRV & absorption model (Checklist 3) into the models —
-the devfinance modules + the V5 deal-model + the platform demand data as absorption evidence.
+## Phase 3 — Checklist 2 (feasibility/QS cost) + Checklist 3 (GRV & absorption) — GROUNDED PLAN (2026-07-04)
+
+### Ground truth (from a three-agent code survey)
+Three systems share only an opportunity id: **estate-buildup** (lot-based, physical, derived yield;
+knows no money) → **review-packs** (engineer live; QS/valuer gated `available:false`, context has NO
+cost/GRV field); **devfinance** (mature but **per-dwelling** — QS cost buildup, GRV/valuation with
+comparables, feasibility; absorption is only a scalar `absorptionRateMonths` heuristic
+`max(6, ceil(units/3))`); **deal-model V5** (**lot-based** verdict GO/ADJUST/REJECT + uplift split +
+locked snapshot + promotion to F2K-Projects; inputs from a manual form pre-filled off stale
+`num_lots`/`avg_sale_price`, NOT the estate yield). Platform-demand `waitlist_register` data lives in
+`src/lib/feasibility/` (adversarial engine), unconnected to absorption. Real Domain comparables
+backend shipped 2026-05-27 but DealFindrs valuation wiring is still pending (uses AI-synthetic comps).
+**Net: Phase 3 is WIRE + evidence-harden, not rebuild.**
+
+### Decisions LOCKED 2026-07-04
+- **Finance home = the lot-based deal-model (Q1 → A).** Deal-model is the authoritative economics +
+  verdict + promotion surface. Reuse devfinance's cost-rate / GRV comp-weighting / absorption logic as
+  computation libraries via a **thin lot-level adapter**; the review packs pull from that. Do NOT bend
+  the per-dwelling devfinance model onto per-lot land economics, and do NOT run two disagreeing verdict
+  surfaces.
+- **House-and-land is a LAYERABLE per-lot construction component (not now, but never precluded).**
+  Target is 100% H&L; expect 30–50% capture. The deal-model already carries `homeCaptureRate`
+  (the capture %) + `modularMarginPerHome`, so H&L economics are already modelled at the verdict level.
+  The lot-level QS adapter must carry an **optional per-lot home-construction line** (reuse devfinance's
+  per-dwelling cost engine for the captured lots) that we switch on when H&L is in scope. Per-lot land
+  subdivision is the base; H&L layers on top.
+- **Scope of THIS push = 3a + 3b (Q2 → A).** Ship the yield→finance bridge and the QS review pack off a
+  lot-level cost buildup first (concrete, certifiable, de-risks the heavy absorption model). GRV + the
+  demand-backed absorption model + the valuer pack come next (3c).
+- **Evidence bar (non-negotiable, from the review-pack purpose):** a pack must be certifiable by the
+  professional — so 3c uses REAL Domain comps (not AI-synthetic) and a demand-backed absorption curve
+  (not the scalar guess). The whole point is review/certify, not rebuild.
+
+### Sub-phases
+- **3a — Bridge (THIS push).** Wire the estate buildup's derived **`authoritativeLots`** into the
+  deal-model input pre-fill (replace stale `num_lots`), with a trace note + an un-derivable→planner
+  referral flag. Emit the declared-but-unused `cost` gap from the buildup (→ points at the QS pack).
+- **3b — QS cost pack / Checklist 2 (THIS push).** A **lot-level cost buildup** (land + civil/infra +
+  soft + contingency per lot; optional H&L home-construction line per captured lot) reusing devfinance's
+  cost engine via the lot adapter → surface into `ReviewPackContext` → flip the **QS review pack**
+  `available()` → feeds the deal-model cost components (`infraPerLot`/`softCostsPerLot`/etc.).
+- **3c — GRV & absorption / Checklist 3 (NEXT push).** GRV/lot from real Domain comps + a demand-backed
+  absorption curve from `waitlist_register` platform-demand → flip the **valuer review pack** → feeds
+  deal-model `marketPricePerLot`. Replaces AI-synthetic comps + the scalar absorption.
+- **3d — Bankable snapshot (NEXT push).** Certified pack outputs (back from the kickoff professionals)
+  promote deal-model v1 (indicative) → v2 (bankable); apply the unapplied `deal_model_snapshots`
+  migration (`20260703000000`). Closes the loop to the kickoff + F2K-Projects promotion.

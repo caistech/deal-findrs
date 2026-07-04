@@ -206,6 +206,12 @@ export function buildConstraintsYield(
     provenance: 'needs-input',
     detail: 'BYDA/DBYD enquiry + authority capacity — not in the desktop dataset.',
   })
+  gaps.push({
+    dimension: 'cost',
+    label: 'Civil / QS cost buildup',
+    provenance: 'needs-input',
+    detail: 'Construction/civil cost is out of scope for the desktop derive — built in the QS cost pack (Checklist 2) and fed to the deal-model.',
+  })
 
   return {
     yield: yieldRes,
