@@ -40,6 +40,11 @@ export default function NewOpportunityPage() {
   // Derived-yield authority: the lot count comes from our analysis, not a typed input.
   const [derivedLots, setDerivedLots] = useState<number | null>(null)
   const [profileDerived, setProfileDerived] = useState(false)
+  // Developer-provided yield figures: only a feasibility study is admissible (reconciled);
+  // an anecdotal figure is captured for reference only.
+  const [hasFeasibilityStudy, setHasFeasibilityStudy] = useState(false)
+  const [feasibilityStudyLots, setFeasibilityStudyLots] = useState('')
+  const [developerStatedLots, setDeveloperStatedLots] = useState('')
 
   // Property Services — shared property intelligence
   const property = usePropertyOnboarding({
@@ -764,7 +769,10 @@ export default function NewOpportunityPage() {
                   <div className="mt-4">
                     <ConstraintsYieldBrief
                       profile={property.profile}
-                      options={{ developerClaimedLots: Number(formData.numLots) || null }}
+                      options={{
+                        feasibilityStudyLots: hasFeasibilityStudy ? (Number(feasibilityStudyLots) || null) : null,
+                        developerClaimedLots: Number(developerStatedLots) || null,
+                      }}
                     />
                   </div>
                 )}
@@ -921,6 +929,51 @@ export default function NewOpportunityPage() {
                     />
                   </div>
                 </div>
+
+                {/* Developer-provided yield — only a feasibility study is admissible */}
+                {profileDerived && (
+                  <div className="mt-4 bg-white rounded-xl border border-gray-200 p-4">
+                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={hasFeasibilityStudy}
+                        onChange={(e) => setHasFeasibilityStudy(e.target.checked)}
+                        className="w-4 h-4 accent-emerald-500"
+                      />
+                      Developer has a shared feasibility study
+                    </label>
+                    {hasFeasibilityStudy && (
+                      <div className="mt-2">
+                        <label className="block text-xs text-gray-500 mb-1">
+                          Study lot yield <span className="text-violet-600">(admissible — reconciled against our analysis)</span>
+                        </label>
+                        <input
+                          type="number"
+                          value={feasibilityStudyLots}
+                          onChange={(e) => setFeasibilityStudyLots(e.target.value)}
+                          placeholder="e.g. 32"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                    )}
+                    <div className="mt-3">
+                      <label className="block text-xs text-gray-500 mb-1">
+                        Developer&apos;s stated yield <span className="text-gray-400">(anecdotal — reference only, not used)</span>
+                      </label>
+                      <input
+                        type="number"
+                        value={developerStatedLots}
+                        onChange={(e) => setDeveloperStatedLots(e.target.value)}
+                        placeholder="optional"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      Our derived yield governs. A feasibility study is reconciled for discrepancies; an unbacked
+                      anecdotal figure above our analysis is a pass unless the developer accepts it.
+                    </p>
+                  </div>
+                )}
 
                 <hr className="my-6" />
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">

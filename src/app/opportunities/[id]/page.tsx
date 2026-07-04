@@ -695,10 +695,7 @@ export default function OpportunityDetailPage() {
           <div className="col-span-2 space-y-6">
             {/* Estate Constraints & Yield Brief — derived buildup from the persisted profile */}
             {opportunity.property_profile && (
-              <ConstraintsYieldBrief
-                profile={opportunity.property_profile}
-                options={{ developerClaimedLots: opportunity.num_lots || null }}
-              />
+              <ConstraintsYieldBrief profile={opportunity.property_profile} />
             )}
             {/* Passed Criteria */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
