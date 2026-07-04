@@ -1,16 +1,19 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { UserCog, Loader2, Check, X, Pencil, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
+import { UserCog, Loader2, Check, X, Pencil, ExternalLink, Send, AlertTriangle } from 'lucide-react'
 
 interface Citation { title: string; source_url: string; version_date: string | null }
 interface Finding {
   id: string; dimension: string; claim: string; ai_rationale: string; current_text: string | null
   citations: Citation[]; confidence: string; needs_human: boolean; status: string; reviewer_note: string | null
 }
+interface PlannerCandidate { id: string; name: string; firm: string | null; email: string | null }
 interface Assessment {
   id: string; status: string; state: string | null; lga: string | null
   resolved_zone_code: string | null; resolved_min_lot_size: number | null; resolved_lots: number | null
+  assigned_planner_id: string | null; assigned_planner_name: string | null; planner_gap: boolean
 }
 
 const STATUS_BADGE: Record<string, string> = {
@@ -26,6 +29,7 @@ const STATUS_BADGE: Record<string, string> = {
 export function PlannerReferralPanel({ opportunityId, onResolved }: { opportunityId: string; onResolved: () => void }) {
   const [assessment, setAssessment] = useState<Assessment | null>(null)
   const [findings, setFindings] = useState<Finding[]>([])
+  const [candidates, setCandidates] = useState<PlannerCandidate[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
@@ -40,6 +44,7 @@ export function PlannerReferralPanel({ opportunityId, onResolved }: { opportunit
         const d = await r.json()
         setAssessment(d.assessment)
         setFindings(d.findings || [])
+        setCandidates(d.plannerCandidates || [])
         if (d.assessment) setRes({
           zone: d.assessment.resolved_zone_code || '',
           minLot: d.assessment.resolved_min_lot_size?.toString() || '',
@@ -56,7 +61,19 @@ export function PlannerReferralPanel({ opportunityId, onResolved }: { opportunit
     setBusy(true)
     try {
       const r = await fetch(`/api/opportunities/${opportunityId}/planner-referral`, { method: 'POST' })
-      if (r.ok) { const d = await r.json(); setAssessment(d.assessment); setFindings(d.findings || []) }
+      if (r.ok) { const d = await r.json(); setAssessment(d.assessment); setFindings(d.findings || []); setCandidates(d.plannerCandidates || []) }
+    } finally { setBusy(false) }
+  }
+
+  async function reassign(plannerId: string) {
+    if (!assessment) return
+    setBusy(true)
+    try {
+      const r = await fetch(`/api/planning-assessment/${assessment.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedPlannerId: plannerId || null }),
+      })
+      if (r.ok) await load()
     } finally { setBusy(false) }
   }
 
@@ -107,6 +124,38 @@ export function PlannerReferralPanel({ opportunityId, onResolved }: { opportunit
         </button>
       ) : (
         <div className="space-y-4">
+          {/* Routing — the referral is pushed to the state's planner panel */}
+          <div className={`rounded-lg border p-3 ${assessment.planner_gap ? 'border-amber-200 bg-amber-50' : 'border-emerald-100 bg-emerald-50/60'}`}>
+            {assessment.planner_gap ? (
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-800">
+                  No planner on the <span className="font-semibold">{assessment.state || 'this state'}</span> panel — this referral
+                  can&apos;t be routed. <Link href="/estate-team" className="underline font-medium">Add a planner to the directory</Link> to route it.
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Send className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                <span className="text-xs text-gray-600">Routed to the {assessment.state} planner panel:</span>
+                <span className="text-xs font-semibold text-gray-900">{assessment.assigned_planner_name}</span>
+                {candidates.length > 1 && (
+                  <select
+                    value={assessment.assigned_planner_id ?? ''}
+                    onChange={(e) => reassign(e.target.value)}
+                    disabled={busy}
+                    className="ml-auto text-xs border border-gray-300 rounded px-1.5 py-1 bg-white disabled:opacity-60"
+                    aria-label="Reassign planner"
+                  >
+                    {candidates.map((c) => (
+                      <option key={c.id} value={c.id}>{c.firm ? `${c.name} (${c.firm})` : c.name}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Findings */}
           <div className="space-y-3">
             {findings.map((f) => (

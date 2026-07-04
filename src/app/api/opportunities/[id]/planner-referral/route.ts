@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { getCompanyId } from '@/lib/auth/get-company-id'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import { retrievePlanning } from '@/lib/planning-kb/retrieve'
+import { routePlanner, plannerLabel } from '@/lib/estate-team/route-planner'
+import type { TeamMember } from '@/lib/estate-team/types'
+
+/** Active planners on a state's panel — the referral's routing candidates (id/name/firm/email). */
+async function loadStatePlanners(supabase: SupabaseClient, state: string | null | undefined): Promise<TeamMember[]> {
+  const { data } = await supabase.from('estate_team_members').select('*').eq('active', true).eq('occupation', 'planner')
+  return routePlanner((data ?? []) as TeamMember[], state).candidates
+}
 
 /** Fetch the planner referral (assessment + findings) for an opportunity. */
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -17,14 +26,15 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     .select('*')
     .eq('opportunity_id', params.id)
     .maybeSingle()
-  if (!assessment) return NextResponse.json({ assessment: null, findings: [] })
+  if (!assessment) return NextResponse.json({ assessment: null, findings: [], plannerCandidates: [] })
 
   const { data: findings } = await supabase
     .from('planning_findings')
     .select('*')
     .eq('assessment_id', assessment.id)
     .order('sort_order')
-  return NextResponse.json({ assessment, findings: findings ?? [] })
+  const plannerCandidates = await loadStatePlanners(supabase, assessment.state)
+  return NextResponse.json({ assessment, findings: findings ?? [], plannerCandidates })
 }
 
 /**
@@ -61,13 +71,18 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (existing) {
     const { data: findings } = await supabase.from('planning_findings').select('*').eq('assessment_id', existing.id).order('sort_order')
     const { data: assessment } = await supabase.from('planning_assessments').select('*').eq('id', existing.id).single()
-    return NextResponse.json({ assessment, findings: findings ?? [] })
+    const plannerCandidates = await loadStatePlanners(supabase, assessment?.state)
+    return NextResponse.json({ assessment, findings: findings ?? [], plannerCandidates })
   }
 
   const profile = opp.property_profile as { metadata?: { lgaName?: string | null }; summary?: string }
   const lga = profile.metadata?.lgaName ?? null
   const addr = [opp.address, opp.city, opp.state].filter(Boolean).join(', ')
   const siteLabel = (opp.name as string) || addr || 'Estate site'
+
+  // Route the referral to the state's planner panel (the planner slice of the team directory).
+  const { data: dir } = await supabase.from('estate_team_members').select('*').eq('active', true).eq('occupation', 'planner')
+  const route = routePlanner((dir ?? []) as TeamMember[], opp.state)
 
   const { data: assessment, error: aErr } = await supabase
     .from('planning_assessments')
@@ -79,6 +94,9 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       state: opp.state ?? null,
       lga,
       status: 'in_review',
+      assigned_planner_id: route.assigned?.id ?? null,
+      assigned_planner_name: route.assigned ? plannerLabel(route.assigned) : null,
+      planner_gap: route.gap,
       created_by: user.id,
     })
     .select()
@@ -125,5 +143,5 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   }
 
   const { data: findings } = await supabase.from('planning_findings').select('*').eq('assessment_id', assessment.id).order('sort_order')
-  return NextResponse.json({ assessment, findings: findings ?? [] })
+  return NextResponse.json({ assessment, findings: findings ?? [], plannerCandidates: route.candidates })
 }

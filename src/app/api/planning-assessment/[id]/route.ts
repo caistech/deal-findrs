@@ -24,6 +24,26 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     update.status = body.status
   }
 
+  // Reassign the referral to a different state-panel planner (routing override).
+  if ('assignedPlannerId' in body) {
+    if (body.assignedPlannerId) {
+      const { data: planner } = await supabase
+        .from('estate_team_members')
+        .select('id, name, firm, occupation')
+        .eq('id', String(body.assignedPlannerId))
+        .maybeSingle()
+      if (!planner || planner.occupation !== 'planner') {
+        return NextResponse.json({ error: 'invalid_planner' }, { status: 400 })
+      }
+      update.assigned_planner_id = planner.id
+      update.assigned_planner_name = planner.firm ? `${planner.name} (${planner.firm})` : planner.name
+      update.planner_gap = false
+    } else {
+      update.assigned_planner_id = null
+      update.assigned_planner_name = null
+    }
+  }
+
   const { data, error } = await supabase
     .from('planning_assessments')
     .update(update)
