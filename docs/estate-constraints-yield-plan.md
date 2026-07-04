@@ -245,6 +245,11 @@ backend shipped 2026-05-27 but DealFindrs valuation wiring is still pending (use
     is an evidence CATEGORY that gates a claimed `preSalesPercent` (not raw counts) — absorption uses that
     evidence-gated pre-sales fraction; no evidence → benchmark tail only. The 2026-05-27 `PriceEstimateCard`
     display work was never committed (absent from the repo) — comps wiring starts fresh here.
-- **3d — Bankable snapshot (NEXT push).** Certified pack outputs (back from the kickoff professionals)
-  promote deal-model v1 (indicative) → v2 (bankable); apply the unapplied `deal_model_snapshots`
-  migration (`20260703000000`). Closes the loop to the kickoff + F2K-Projects promotion.
+- **3d — Bankable snapshot (DONE 2026-07-04).** `deal_model_snapshots` + `estate_pack_certifications`
+  migrations applied live (obakurzlpzisflnnjzzo). Review packs are certified (engineer/QS/valuer) via
+  `pack-certification`; the compute route gates `grade:'bankable'` (v2) on QS + valuer certs; the
+  deal-model page offers "Save as bankable (v2)". Closes the loop to the kickoff + F2K-Projects promotion.
+
+**PHASE 3 COMPLETE (2026-07-04):** 3a bridge · 3b QS pack · 3c GRV+absorption+valuer pack · 3c-D
+absorption→cash-flow · 3d bankable snapshot. Only pending: the Domain `DOMAIN_API_KEY` (Edge Function
+secrets) to make the AVM cross-check live — the build is key-optional and degrades until then.
