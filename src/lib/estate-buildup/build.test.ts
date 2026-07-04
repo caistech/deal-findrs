@@ -86,6 +86,19 @@ describe('estate constraints & yield buildup', () => {
     expect(brief.gaps.some((g) => g.dimension === 'density_yield' && g.provenance === 'planner-referral')).toBe(true)
   })
 
+  it('clears the referral when a planner resolves the zone + yield', () => {
+    const nullZoned = resolvedProfile({ zoning: null, subdivision: null })
+    const brief = buildConstraintsYield(nullZoned, {
+      operatorResolved: { zoneCode: 'Emerging Community', minLotSize: 400, lots: 24 },
+    })
+    expect(brief.requiresPlannerReferral).toBe(false)
+    expect(brief.yield.basis).toBe('operator-resolved')
+    expect(brief.yield.authoritativeLots).toBe(24)
+    expect(brief.gaps.some((g) => g.dimension === 'zoning_use')).toBe(false)
+    const zoningLine = brief.lines.find((l) => l.key === 'zoning')
+    expect(zoningLine?.provenance).toBe('operator-resolved')
+  })
+
   it('raises a formal-required gap for an overlay needing a specialist report', () => {
     const brief = buildConstraintsYield(
       resolvedProfile({

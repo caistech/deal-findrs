@@ -49,7 +49,9 @@ export function buildConstraintsYield(
   })
 
   // ── B. Planning (zoning + min lot) ──────────────────────────
-  const minLotSize = profile.zoning?.minimumLotSize ?? profile.subdivision?.torrens?.minLotSize ?? null
+  const resolved = opts.operatorResolved
+  const minLotSize =
+    resolved?.minLotSize ?? profile.zoning?.minimumLotSize ?? profile.subdivision?.torrens?.minLotSize ?? null
   if (profile.zoning) {
     lines.push({
       key: 'zoning',
@@ -65,6 +67,23 @@ export function buildConstraintsYield(
       unit: 'sqm',
       provenance: minLotSize != null ? 'derived' : 'needs-input',
       dataset: 'zoning controls',
+    })
+  } else if (resolved?.zoneCode) {
+    // A planner resolved the zone (approved referral) → operator-resolved, no referral.
+    lines.push({
+      key: 'zoning',
+      label: 'Zoning',
+      value: `${resolved.zoneCode} (planner-resolved)`,
+      provenance: 'operator-resolved',
+      dataset: 'planner referral',
+    })
+    lines.push({
+      key: 'minLotSize',
+      label: 'Minimum lot size',
+      value: minLotSize,
+      unit: 'sqm',
+      provenance: minLotSize != null ? 'operator-resolved' : 'needs-input',
+      dataset: 'planner referral',
     })
   } else {
     // Zoning unresolved (e.g. partial LGA coverage) → planner referral; yield can't be derived.
@@ -158,8 +177,13 @@ export function buildConstraintsYield(
     key: 'yield',
     label: 'Yield (lots)',
     value: yieldRes.authoritativeLots,
-    provenance: yieldRes.basis === 'un-derivable' ? 'planner-referral' : 'derived',
-    dataset: 'subdivision analysis',
+    provenance:
+      yieldRes.basis === 'un-derivable'
+        ? 'planner-referral'
+        : yieldRes.basis === 'operator-resolved'
+          ? 'operator-resolved'
+          : 'derived',
+    dataset: yieldRes.basis === 'operator-resolved' ? 'planner referral' : 'subdivision analysis',
     working:
       derivedLots != null && minLotSize != null
         ? `Torrens subdivision analysis — net developable area ÷ min lot size (${minLotSize} sqm)`
@@ -187,7 +211,8 @@ export function buildConstraintsYield(
     yield: yieldRes,
     lines,
     gaps,
-    requiresPlannerReferral: yieldRes.basis === 'un-derivable' || !profile.zoning,
+    requiresPlannerReferral:
+      yieldRes.basis === 'un-derivable' || (!profile.zoning && !resolved?.zoneCode),
   }
 }
 
@@ -200,6 +225,21 @@ function resolveYield(args: {
   const { derivedLots, opts, threshold } = args
   const studyLots = opts.feasibilityStudyLots ?? null
   const developerClaimedLots = opts.developerClaimedLots ?? null
+  const resolvedLots = opts.operatorResolved?.lots ?? null
+
+  // A planner resolved the yield (approved referral) → authoritative, referral cleared.
+  if (resolvedLots != null) {
+    return {
+      authoritativeLots: resolvedLots,
+      derivedLots,
+      studyLots,
+      developerClaimedLots,
+      reconciliationNeeded: false,
+      unbackedClaimConflict: false,
+      basis: 'operator-resolved',
+      note: 'Yield resolved by the planner referral.',
+    }
+  }
 
   // Un-derivable → referral; nothing authoritative yet.
   if (derivedLots == null) {

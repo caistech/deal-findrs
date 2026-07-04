@@ -57,7 +57,7 @@ export interface YieldResolution {
   reconciliationNeeded: boolean
   /** Set when an anecdotal claim materially exceeds derived and is unbacked → likely pass. */
   unbackedClaimConflict: boolean
-  basis: 'derived' | 'feasibility-study' | 'un-derivable'
+  basis: 'derived' | 'feasibility-study' | 'operator-resolved' | 'un-derivable'
   note?: string
 }
 
@@ -79,4 +79,13 @@ export interface BuildupOptions {
   developerClaimedLots?: number | null
   /** Threshold for flagging a material yield discrepancy (fraction, default 0.15 = 15%). */
   materialDiscrepancy?: number
+  /**
+   * A planner's resolution (from an approved planning referral) — resolves what the datasets
+   * couldn't. Fed back into the buildup with 'operator-resolved' provenance; clears the referral.
+   */
+  operatorResolved?: {
+    zoneCode?: string | null
+    minLotSize?: number | null
+    lots?: number | null
+  }
 }
