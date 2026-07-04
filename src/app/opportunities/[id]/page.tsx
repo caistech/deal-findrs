@@ -12,6 +12,7 @@ import { ConstraintsYieldBrief } from '@/components/property/ConstraintsYieldBri
 import { KickoffPanel } from '@/components/property/KickoffPanel'
 import { PlannerReferralPanel } from '@/components/property/PlannerReferralPanel'
 import { ReviewPacksPanel } from '@/components/property/ReviewPacksPanel'
+import { PanelReviewPanel } from '@/components/property/PanelReviewPanel'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import type { PropertyProfile } from '@/lib/property-services'
 
@@ -745,6 +746,9 @@ export default function OpportunityDetailPage() {
                 }}
                 brief={estateBrief}
               />
+            )}
+            {opportunity.property_profile && (
+              <PanelReviewPanel opportunityId={opportunity.id} address={opportunity.address ?? null} />
             )}
             {/* Passed Criteria */}
             <div className="bg-white rounded-xl border border-gray-200 p-6">
