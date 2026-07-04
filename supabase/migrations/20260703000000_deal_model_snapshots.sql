@@ -1,11 +1,10 @@
--- F2K Deal Model — immutable snapshot store  (DRAFT — NOT YET APPLIED)
+-- F2K Deal Model — immutable snapshot store
 --
--- ⚠️ This migration is drafted for review and is NOT to be pushed to the live
---    DB (zzajvnhsesqrrepflrrx is REVENUE-tier) until Dennis signs off the two
---    open decisions in docs/deal-model-integration-findings.md:
---      1. verdict governance (does V5 govern the promotion gate?)
---      2. whether the RAG credibility overlay column is populated at write time.
---    The schema below is compatible with all three governance options.
+-- Governance sign-off COMPLETE (docs/deal-model-integration-findings.md, 2026-07-03):
+--   1. Verdict governance — V5 GO/ADJUST/REJECT governs the promotion gate. RESOLVED.
+--   2. RAG credibility overlay — kept alongside, nullable, populated at write time. RESOLVED.
+-- Applied to DealFindrs' own DB (obakurzlpzisflnnjzzo) 2026-07-04 (the FK to opportunities/companies
+-- dictates this DB — the earlier draft header's `zzajvnhsesqrrepflrrx` ref was stale/incorrect).
 --
 -- Stores the output of @caistech/deal-model (the F2K partnership economics) as an
 -- IMMUTABLE, VERSIONED snapshot tied to an opportunity. This is the "snapshot and

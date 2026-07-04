@@ -4,6 +4,8 @@ import { getCompanyId } from '@/lib/auth/get-company-id'
 import { runDealModel } from '@/lib/deal-model'
 import { saveDealModelSnapshot, type DealModelGrade } from '@/lib/deal-model/db'
 import type { DealModelDealInput } from '@/lib/deal-model/types'
+import { missingForBankable } from '@/lib/review-packs/certification'
+import type { ReviewPackKind } from '@/lib/review-packs/types'
 
 /**
  * Compute the F2K deal model for an ingested deal and persist an immutable snapshot.
@@ -43,6 +45,23 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'missing_input' }, { status: 400 })
   }
   const grade: DealModelGrade = body.grade === 'bankable' ? 'bankable' : 'indicative'
+
+  // Bankable (v2) is gated on the certified financial packs (QS + registered valuation). An
+  // indicative (v1) snapshot has no such gate.
+  if (grade === 'bankable') {
+    const { data: certs } = await supabase
+      .from('estate_pack_certifications')
+      .select('kind')
+      .eq('opportunity_id', body.input.opportunityId)
+    const certified = (certs ?? []).map((c) => c.kind as ReviewPackKind)
+    const missing = missingForBankable(certified)
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { error: 'bankable_requires_certifications', missing },
+        { status: 409 },
+      )
+    }
+  }
 
   // Pure compute — the engine is the single source of truth for the verdict.
   const { verdict, result } = runDealModel(body.input)

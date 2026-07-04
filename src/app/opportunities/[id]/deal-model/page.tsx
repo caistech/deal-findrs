@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Calculator, Save, CheckCircle2, Send } from 'lucide-react'
+import { ArrowLeft, Loader2, Calculator, Save, CheckCircle2, Send, BadgeCheck } from 'lucide-react'
 import { AuthLayout } from '@/components/common/AuthLayout'
 import {
   computeDeal,
@@ -196,7 +196,7 @@ export default function DealModelPage() {
 
   const autoStage = useMemo(() => assignStage(form.stageGate), [form.stageGate])
 
-  const handleCompute = useCallback(async () => {
+  const handleCompute = useCallback(async (grade: 'indicative' | 'bankable' = 'indicative') => {
     setSaving(true)
     setError(null)
     try {
@@ -205,12 +205,17 @@ export default function DealModelPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           input: { ...form, opportunityId },
-          grade: 'indicative',
+          grade,
           overrideReason: overrideReason || null,
         }),
       })
       const body = await res.json()
-      if (!res.ok) throw new Error(body.error || 'Compute failed')
+      if (!res.ok) {
+        if (body.error === 'bankable_requires_certifications') {
+          throw new Error(`Bankable snapshot needs certified packs: ${(body.missing || []).join(' + ')}. Certify them in the Review Packs panel first.`)
+        }
+        throw new Error(body.error || 'Compute failed')
+      }
       setSaved({ version: body.version, grade: body.grade })
       setPromoted(false)
       setPromoteError(null)
@@ -454,13 +459,23 @@ export default function DealModelPage() {
                     </div>
 
                     <button
-                      onClick={handleCompute}
+                      onClick={() => handleCompute('indicative')}
                       disabled={saving || form.lots <= 0}
                       className="mt-5 w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
                     >
                       {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      {saving ? 'Saving snapshot…' : 'Compute & save snapshot'}
+                      {saving ? 'Saving snapshot…' : 'Compute & save indicative (v1)'}
                     </button>
+
+                    <button
+                      onClick={() => handleCompute('bankable')}
+                      disabled={saving || form.lots <= 0}
+                      className="mt-2 w-full px-4 py-3 border border-emerald-300 bg-white text-emerald-700 rounded-xl font-bold hover:bg-emerald-50 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      title="Requires the QS + valuer review packs certified"
+                    >
+                      <BadgeCheck className="w-4 h-4" /> Save as bankable (v2)
+                    </button>
+                    <p className="mt-1 text-xs text-gray-500">Bankable requires the QS + valuer review packs certified (Review Packs panel on the opportunity).</p>
 
                     {saved && (
                       <div className="mt-3 flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
