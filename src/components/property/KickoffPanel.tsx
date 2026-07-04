@@ -6,6 +6,7 @@ import type { PropertyProfile } from '@/lib/property-services'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import { requiredOccupations, assembleKickoffTeam } from '@/lib/estate-team/assemble'
 import { OCCUPATION_LABELS, type TeamMember, type Occupation } from '@/lib/estate-team/types'
+import type { BuildupOptions } from '@/lib/estate-buildup/types'
 
 const TIER_BADGE: Record<string, string> = {
   core: 'bg-slate-100 text-slate-700',
@@ -20,7 +21,7 @@ interface Attendee { id: string; occupation: string; name: string | null; accept
 interface Action { id: string; description: string; owner: string | null; status: string; due_date: string | null }
 interface Kickoff { id: string; status: string }
 
-export function KickoffPanel({ opportunityId, profile, state }: { opportunityId: string; profile: PropertyProfile; state: string | null }) {
+export function KickoffPanel({ opportunityId, profile, state, options }: { opportunityId: string; profile: PropertyProfile; state: string | null; options?: BuildupOptions }) {
   const [directory, setDirectory] = useState<TeamMember[]>([])
   const [kickoff, setKickoff] = useState<Kickoff | null>(null)
   const [attendees, setAttendees] = useState<Attendee[]>([])
@@ -49,11 +50,11 @@ export function KickoffPanel({ opportunityId, profile, state }: { opportunityId:
 
   // Live assembly from the derived brief + the directory (client-safe pure engine).
   const assembled = useMemo(() => {
-    const brief = buildConstraintsYield(profile, {})
+    const brief = buildConstraintsYield(profile, options ?? {})
     const context = { state: state || 'WA' }
     const req = requiredOccupations(brief, context)
     return assembleKickoffTeam(req, directory, context)
-  }, [profile, directory, state])
+  }, [profile, directory, state, options])
 
   async function createMeetingLog() {
     setCreating(true)

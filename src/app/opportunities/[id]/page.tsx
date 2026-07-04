@@ -10,6 +10,8 @@ import { DealJourney } from '@/components/common/DealJourney'
 import { AuthLayout } from '@/components/common/AuthLayout'
 import { ConstraintsYieldBrief } from '@/components/property/ConstraintsYieldBrief'
 import { KickoffPanel } from '@/components/property/KickoffPanel'
+import { PlannerReferralPanel } from '@/components/property/PlannerReferralPanel'
+import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import type { PropertyProfile } from '@/lib/property-services'
 
 // Type for opportunity matching database schema
@@ -376,6 +378,17 @@ export default function OpportunityDetailPage() {
 
   // Opportunity state with proper defaults
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null)
+  // Planner referral (if any) — its approved resolution flows back into the buildup.
+  const [referral, setReferral] = useState<{ status: string; resolved_zone_code: string | null; resolved_min_lot_size: number | null; resolved_lots: number | null } | null>(null)
+
+  const fetchReferral = useCallback(() => {
+    if (!opportunityId) return
+    fetch(`/api/opportunities/${opportunityId}/planner-referral`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setReferral(d.assessment))
+      .catch(() => {})
+  }, [opportunityId])
+  useEffect(() => { fetchReferral() }, [fetchReferral])
 
   // Fetch opportunity data on mount
   useEffect(() => {
@@ -580,6 +593,13 @@ export default function OpportunityDetailPage() {
 
   const ragStatus = opportunity.rag_status || 'amber'
 
+  const operatorResolved = referral?.status === 'approved'
+    ? { zoneCode: referral.resolved_zone_code, minLotSize: referral.resolved_min_lot_size, lots: referral.resolved_lots }
+    : undefined
+  const estateBrief = opportunity.property_profile
+    ? buildConstraintsYield(opportunity.property_profile, { operatorResolved })
+    : null
+
   return (
     <AuthLayout>
     <div className="bg-gradient-to-br from-slate-50 to-blue-50">
@@ -696,13 +716,17 @@ export default function OpportunityDetailPage() {
           <div className="col-span-2 space-y-6">
             {/* Estate Constraints & Yield Brief — derived buildup from the persisted profile */}
             {opportunity.property_profile && (
-              <ConstraintsYieldBrief profile={opportunity.property_profile} />
+              <ConstraintsYieldBrief profile={opportunity.property_profile} options={{ operatorResolved }} />
+            )}
+            {opportunity.property_profile && estateBrief?.requiresPlannerReferral && (
+              <PlannerReferralPanel opportunityId={opportunity.id} onResolved={fetchReferral} />
             )}
             {opportunity.property_profile && (
               <KickoffPanel
                 opportunityId={opportunity.id}
                 profile={opportunity.property_profile}
                 state={opportunity.state}
+                options={{ operatorResolved }}
               />
             )}
             {/* Passed Criteria */}
