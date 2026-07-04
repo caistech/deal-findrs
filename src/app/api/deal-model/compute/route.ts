@@ -10,9 +10,10 @@ import type { ReviewPackKind } from '@/lib/review-packs/types'
 /**
  * Compute the F2K deal model for an ingested deal and persist an immutable snapshot.
  *
- * Governance (signed off 2026-07-03): the V5 GO/ADJUST/REJECT verdict governs the
- * promotion gate; the adversarial RAG rides alongside as a credibility overlay
- * (passed through as `ragStatus`, non-blocking).
+ * Governance (signed off 2026-07-03): the deal-model GO/ADJUST/REJECT verdict governs
+ * the promotion gate; the adversarial RAG rides alongside as a credibility overlay
+ * (passed through as `ragStatus`, non-blocking). Engine: @caistech/deal-model V7
+ * (contributions recovered in the base; agent 3.5% + flat-12% defaults).
  *
  * Body: { input: DealModelDealInput, grade: 'indicative'|'bankable',
  *         ragStatus?, overrideReason? }

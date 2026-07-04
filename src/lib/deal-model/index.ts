@@ -33,6 +33,7 @@ export function toDealModelInputs(input: DealModelDealInput): DealModelInputs {
     stageGate: input.stageGate,
     stageOverride: input.stageOverride,
     f2kShareOverride: input.f2kShareOverride,
+    constants: input.constants,
   }
 }
 

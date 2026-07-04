@@ -26,6 +26,9 @@ const SAMPLE: DealModelDealInput = {
   f2kContributionTotal: 0,
   modularMarginPerHome: 30_000,
   stageGate: emptyStageGate(),
+  // Pin the V5 agent rate — the V7 default moved to 3.5%, which would flip this sample
+  // to REJECT. This test is the V5-verdict regression anchor through the DealFindrs surface.
+  constants: { agentCommissionPct: 0.02 },
 }
 
 describe('deal-model adapter', () => {

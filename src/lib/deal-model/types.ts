@@ -1,5 +1,6 @@
 import type {
   CivilMode,
+  DealModelConstants,
   FundingMode,
   Stage,
   StageGateTicks,
@@ -50,6 +51,14 @@ export interface DealModelDealInput {
   stageOverride?: Stage
   /** Manual F2K uplift-share override (logged separately). */
   f2kShareOverride?: number
+
+  /**
+   * Per-deal policy overrides (agent commission, internal-rate deduction, introducer,
+   * thresholds, tranche terms). Anything omitted falls back to the V7 `DEFAULT_CONSTANTS`.
+   * All defaults are editable here (e.g. Seafields sets `internalDeduction: 0` for a flat
+   * 12% rate and `introducerPctOfLand: 0`).
+   */
+  constants?: Partial<DealModelConstants>
 }
 
 /** The headline outcome a DealFindrs caller cares about. */
@@ -62,4 +71,4 @@ export interface DealModelVerdict {
   netUpliftPctOfBase: number
 }
 
-export type { CivilMode, FundingMode, Stage, StageGateTicks, Verdict }
+export type { CivilMode, DealModelConstants, FundingMode, Stage, StageGateTicks, Verdict }
