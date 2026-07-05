@@ -13,7 +13,7 @@ import type { EstateSensitivity } from '@/lib/estate-sensitivity/types'
  * See docs/estate-constraints-yield-plan.md ("professional review packs").
  */
 
-export type ReviewPackKind = 'engineer' | 'qs' | 'valuer'
+export type ReviewPackKind = 'engineer' | 'qs' | 'valuer' | 'qs-progress'
 
 /** Everything a template renders from — the opportunity meta + the derived buildup. */
 export interface ReviewPackContext {

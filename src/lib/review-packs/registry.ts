@@ -1,6 +1,7 @@
 import type { ReviewPackKind, ReviewPackTemplate } from './types'
 import { engineerPack } from './engineer'
 import { qsPack } from './qs'
+import { qsProgressPack } from './qs-progress'
 import { valuerPack } from './valuer'
 
 /**
@@ -15,6 +16,7 @@ const TEMPLATES: Record<ReviewPackKind, ReviewPackTemplate> = {
   engineer: engineerPack,
   qs: qsPack,
   valuer: valuerPack,
+  'qs-progress': qsProgressPack,
 }
 
 export function getReviewPackTemplate(kind: string): ReviewPackTemplate | null {
@@ -23,5 +25,5 @@ export function getReviewPackTemplate(kind: string): ReviewPackTemplate | null {
 
 /** All packs, in hand-off order — for the UI to list availability. */
 export function listReviewPacks(): ReviewPackTemplate[] {
-  return [engineerPack, qsPack, valuerPack]
+  return [engineerPack, qsPack, valuerPack, qsProgressPack]
 }
