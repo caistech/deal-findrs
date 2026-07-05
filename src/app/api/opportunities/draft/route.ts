@@ -35,11 +35,11 @@ export async function POST(request: NextRequest) {
   if (company.error) return NextResponse.json({ error: company.error }, { status: 403 })
 
   const body = await request.json().catch(() => ({}))
-  const { id, formData = {}, siteIntel, coords, propertyProfile } = body as {
+  // siteIntel + coords are accepted for backward-compat with older clients but no longer
+  // persisted as denormalized columns — the canonical dataset is propertyProfile.
+  const { id, formData = {}, propertyProfile } = body as {
     id?: string
     formData?: Record<string, unknown>
-    siteIntel?: Record<string, unknown>
-    coords?: { lat: number; lng: number }
     propertyProfile?: Record<string, unknown>
   }
 
@@ -114,17 +114,12 @@ export async function POST(request: NextRequest) {
     development_goals: formData.developmentGoals || null,
     brief_description: formData.briefDescription || null,
 
-    ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
-    ...(siteIntel ? {
-      climate_zone: siteIntel.climate_zone || null,
-      wind_region: siteIntel.wind_region || null,
-      bal_rating: siteIntel.bal_rating || null,
-      council_name: siteIntel.council_name || null,
-      council_code: siteIntel.council_code || null,
-    } : {}),
-    // Full property-services derive result — the complete constraints/yield dataset
-    // (lot, zoning detail, environment, terrain, overlays, subdivision analysis, metadata).
-    // Previously the rich profile was fetched then dropped; persist it verbatim.
+    // Full property-services derive result — the single canonical property dataset
+    // (coords, lot, zoning detail, council/LGA, environment (climate/wind/BAL), terrain,
+    // overlays, subdivision analysis, metadata). This supersedes the legacy denormalized
+    // columns (latitude/longitude/climate_zone/wind_region/bal_rating/council_name/
+    // council_code) — which never existed on this table and 500'd the insert. All that
+    // data now lives inside property_profile; read it from there, never a shadow column.
     ...(propertyProfile ? { property_profile: propertyProfile } : {}),
   }
 

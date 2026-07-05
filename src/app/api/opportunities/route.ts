@@ -12,7 +12,9 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin()
     const body = await request.json()
-    const { formData, opportunity, result, siteIntel, coords, propertyProfile } = body
+    // siteIntel + coords accepted for backward-compat but no longer persisted as denormalized
+    // columns — the canonical property dataset is propertyProfile (property-services derive).
+    const { formData, opportunity, result, propertyProfile } = body
 
     // Calculate financials
     const numDwellings = parseInt(formData.numDwellings) || parseInt(formData.numLots) || 0
@@ -97,19 +99,11 @@ export async function POST(request: NextRequest) {
       development_goals: formData.developmentGoals || null,
       brief_description: formData.briefDescription || null,
 
-      // Coordinates
-      ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
-
-      // Site intelligence (derived from address)
-      ...(siteIntel ? {
-        climate_zone: siteIntel.climate_zone || null,
-        wind_region: siteIntel.wind_region || null,
-        bal_rating: siteIntel.bal_rating || null,
-        council_name: siteIntel.council_name || null,
-        council_code: siteIntel.council_code || null,
-      } : {}),
-      // Full property-services derive result — the complete constraints/yield dataset
-      // (lot, zoning detail, environment, terrain, overlays, subdivision analysis, metadata).
+      // Full property-services derive result — the single canonical property dataset
+      // (coords, lot, zoning detail, council/LGA, environment (climate/wind/BAL), terrain,
+      // overlays, subdivision analysis, metadata). Supersedes the legacy denormalized columns
+      // (latitude/longitude/climate_zone/wind_region/bal_rating/council_name/council_code),
+      // which do not exist on this table and 500'd the insert. Read from property_profile.
       ...(propertyProfile ? { property_profile: propertyProfile } : {}),
     }
 

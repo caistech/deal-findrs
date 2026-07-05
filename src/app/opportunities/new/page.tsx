@@ -1,7 +1,7 @@
 // @explanatory-header-exempt — nested workflow page; entry-point header lives on the parent surface
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Check, AlertCircle, Loader2, Zap, TrendingUp, AlertTriangle, Building2, Layers } from 'lucide-react'
@@ -16,12 +16,11 @@ import { ConstraintsYieldBrief } from '@/components/property/ConstraintsYieldBri
 import type { PropertyProfile } from '@/lib/property-services'
 import type { GeocodedAddress, SiteIntelResult } from '@/lib/mapbox'
 
-type Step = 'basics' | 'approval' | 'property' | 'financial' | 'documents' | 'review'
+type Step = 'basics' | 'property' | 'financial' | 'documents' | 'review'
 
 // Map form steps to ElevenLabs agent steps
 const VOICE_STEPS: Record<Step, 'basics' | 'property' | 'financial' | 'derisk' | null> = {
   basics: 'basics',
-  approval: null,  // No voice for the approval-ingest step
   property: 'property',
   financial: 'financial',
   documents: null, // No voice for documents step
@@ -129,7 +128,6 @@ export default function NewOpportunityPage() {
 
   const steps: { key: Step; label: string; icon: string }[] = [
     { key: 'basics', label: 'Basics', icon: '📍' },
-    { key: 'approval', label: 'Approval', icon: '📋' },
     { key: 'property', label: 'Property', icon: '🏗️' },
     { key: 'financial', label: 'Financial', icon: '💰' },
     { key: 'documents', label: 'Documents', icon: '📄' },
@@ -256,15 +254,18 @@ export default function NewOpportunityPage() {
       .finally(() => setDerivingIntel(false))
   }
 
+  // Create the draft on first call, then UPDATE it in place on every subsequent call so the row
+  // always carries the latest form state. This matters because the draft is now created early
+  // (on address-select, so the page-1 approval upload has something to attach to) — financial
+  // fields entered afterwards must still be persisted before /api/assess runs against the row.
   const ensureDraft = async (): Promise<string | null> => {
-    if (draftId) return draftId
     setSavingDraft(true)
     setDraftError(null)
     try {
       const res = await fetch('/api/opportunities/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ formData, siteIntel, coords, propertyProfile: property.profile }),
+        body: JSON.stringify({ id: draftId ?? undefined, formData, propertyProfile: property.profile }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -288,8 +289,8 @@ export default function NewOpportunityPage() {
       }
       const data = await res.json()
       const id = data?.opportunity?.id
-      if (id) setDraftId(id)
-      return id ?? null
+      if (id && id !== draftId) setDraftId(id)
+      return id ?? draftId ?? null
     } catch (err) {
       setDraftError('Could not save draft')
       return null
@@ -298,13 +299,24 @@ export default function NewOpportunityPage() {
     }
   }
 
+  // Once an address is selected (coords set), create the draft so the page-1 approval upload has a
+  // real opportunity to attach to. Fires once per address selection; subsequent ensureDraft() calls
+  // update the same row in place.
+  useEffect(() => {
+    if (coords && formData.address && !draftId && !savingDraft) {
+      void ensureDraft()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coords])
+
   const nextStep = async () => {
     const nextIndex = currentStepIndex + 1
     if (nextIndex >= steps.length) return
     const nextKey = steps[nextIndex].key
-    // Entering the approval or documents step requires a saved opportunity ID so that the approval
-    // ingest + evidence uploads have something real to attach to.
-    if (nextKey === 'approval' || nextKey === 'documents') {
+    // Entering the documents step requires a saved opportunity ID so that evidence uploads have
+    // something real to attach to. (The draft is normally already created on address-select so the
+    // page-1 approval upload can attach — this is the fallback if it hasn't been.)
+    if (nextKey === 'documents') {
       const id = await ensureDraft()
       if (!id) return // surface error; don't advance
     }
@@ -781,6 +793,46 @@ export default function NewOpportunityPage() {
                   </div>
                 )}
 
+                {/* Establish current status from documents — the authoritative zoning/yield resolver.
+                    Address-derive resolves what it can; the WAPC approval resolves the rest (the
+                    biggest part of the process). Lives here on page 1 so zoning is settled before the
+                    Property step, which becomes confirm-not-enter. */}
+                {formData.address && (
+                  draftId ? (
+                    <div className="mt-4 space-y-3">
+                      <ApprovalIngestPanel
+                        opportunityId={draftId}
+                        onIngested={(lots) => {
+                          setApprovalIngested(true)
+                          if (lots) {
+                            setDerivedLots(lots)
+                            setFormData(prev => ({ ...prev, numLots: String(lots), numDwellings: String(lots) }))
+                          }
+                        }}
+                      />
+                      <p className="text-sm text-gray-500">
+                        Optional — if you have the subdivision approval, upload it to set the deal&apos;s current
+                        status, approved yield and conditions. No approval yet? The buildup above derives what it
+                        can and flags a planner referral.
+                      </p>
+                      {approvalIngested && (
+                        <p className="text-sm text-emerald-700">
+                          Status, approved yield and conditions are set — they carry through to the property,
+                          financial, assessment and review-pack steps.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-medium text-amber-900">Saving the deal as a draft…</p>
+                      <p className="mt-1 text-sm text-amber-700">
+                        The approval upload needs a saved opportunity to attach to.{' '}
+                        {draftError ? `Error: ${draftError}.` : 'This takes a moment after you select an address.'}
+                      </p>
+                    </div>
+                  )
+                )}
+
                 <hr className="my-6" />
                 <h3 className="font-semibold text-gray-900">Landowner Details</h3>
 
@@ -826,38 +878,6 @@ export default function NewOpportunityPage() {
                     />
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* ===== STEP: APPROVAL (establish current status from the approval, up front) ===== */}
-            {currentStep === 'approval' && draftId && (
-              <div className="space-y-4">
-                <ApprovalIngestPanel
-                  opportunityId={draftId}
-                  onIngested={(lots) => {
-                    setApprovalIngested(true)
-                    if (lots) setDerivedLots(lots)
-                  }}
-                />
-                <p className="text-sm text-gray-500">
-                  Optional — if you have the subdivision approval, upload it to set the deal&apos;s current status,
-                  approved yield and conditions before you go on. No approval yet? Skip ahead and the buildup will
-                  derive what it can and flag a planner referral.
-                </p>
-                {approvalIngested && (
-                  <p className="text-sm text-emerald-700">
-                    Status, approved yield and conditions are set — they carry through to the property, financial,
-                    assessment and review-pack steps.
-                  </p>
-                )}
-              </div>
-            )}
-            {currentStep === 'approval' && !draftId && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
-                <p className="font-medium text-amber-900">Saving deal as a draft…</p>
-                <p className="mt-1 text-sm text-amber-700">
-                  The approval upload needs a saved opportunity to attach to. {draftError ? `Error: ${draftError}.` : 'This usually takes a moment.'}
-                </p>
               </div>
             )}
 
