@@ -8,11 +8,11 @@ import type { EstateCostPack } from '@/lib/estate-cost/types'
 import { buildValuationPack, buildValuerPnl, buildValuerDcf } from '@/lib/estate-valuation/build'
 import { buildSensitivity } from '@/lib/estate-sensitivity/build'
 import type { EstateSensitivity } from '@/lib/estate-sensitivity/types'
-import { fetchAvmCrossCheck } from '@/lib/estate-valuation/avm'
+import { fetchAvmComparison, shapeAvmCrossCheck, isAvmSnapshotFresh, type AvmSnapshot } from '@/lib/estate-valuation/avm'
 import type { EstateValuationPack } from '@/lib/estate-valuation/types'
 import { getReviewPackTemplate } from '@/lib/review-packs/registry'
 import { renderReviewPack, reviewPackFilename } from '@/lib/review-packs/render'
-import { createPropertyServices, type PropertyProfile, type Contribution } from '@/lib/property-services'
+import { createPropertyServices, type PropertyProfile, type PriceComparison, type Contribution } from '@/lib/property-services'
 
 /** Normalise a stored pre-sales figure to a 0..1 fraction (columns store either 30 or 0.30). */
 function toFraction(v: number | null | undefined): number {
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   const { data: opp, error: oppErr } = await supabase
     .from('opportunities')
-    .select('id, name, address, city, state, num_lots, land_purchase_price, avg_sale_price, derisk_pre_sales_percent, property_profile')
+    .select('id, name, address, city, state, num_lots, land_purchase_price, avg_sale_price, derisk_pre_sales_percent, property_profile, avm_snapshot')
     .eq('id', params.id)
     .single()
   if (oppErr || !opp) return NextResponse.json({ error: 'opportunity_not_found' }, { status: 404 })
@@ -195,11 +195,31 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Only pay for the AVM call when actually rendering the valuer pack.
     if (params.kind === 'valuer') {
       const landPrice = opp.land_purchase_price as number | null
-      valuationPack.avm = await fetchAvmCrossCheck({
-        address: (opp.address as string) ?? '',
-        state: (opp.state as string) ?? null,
-        referenceValue: landPrice ?? null,
-      })
+      // Reuse a persisted AVM snapshot (<30 days) to avoid re-calling the paid Domain comparables API
+      // on every render; otherwise fetch the full PriceComparison, persist it, then shape. Divergence
+      // is recomputed from the current land price on shape, so the cross-check behavior is unchanged.
+      const snapshot = opp.avm_snapshot as AvmSnapshot | null
+      let comparison: PriceComparison | null
+      let unavailableReason: string | undefined
+      if (isAvmSnapshotFresh(snapshot)) {
+        comparison = snapshot.comparison
+      } else {
+        const fetched = await fetchAvmComparison({
+          address: (opp.address as string) ?? '',
+          state: (opp.state as string) ?? null,
+        })
+        comparison = fetched.comparison
+        unavailableReason = fetched.unavailableReason
+        if (comparison) {
+          const snap: AvmSnapshot = { comparison, fetchedAt: new Date().toISOString() }
+          const { error: snapErr } = await supabase
+            .from('opportunities')
+            .update({ avm_snapshot: snap } as never)
+            .eq('id', opp.id)
+          if (snapErr) console.error('[review-pack] avm snapshot persist failed:', snapErr.message)
+        }
+      }
+      valuationPack.avm = shapeAvmCrossCheck(comparison, landPrice ?? null, unavailableReason)
       // Residual-land P&L (B6) — deducts the QS pack's development cost (the cost/value tie-out, A2)
       // + profit & risk from the GST-netted realisation to derive what the site is worth.
       if (costPack) {
