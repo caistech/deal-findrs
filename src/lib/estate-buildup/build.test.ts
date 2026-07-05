@@ -140,3 +140,33 @@ describe('estate constraints & yield buildup', () => {
     expect(brief.lines.find((l) => l.key === 'contamination')?.value).toMatch(/EMR/)
   })
 })
+
+describe('approvalConditions — WAPC conditions drive the buildup (Phase 2)', () => {
+  it('a servicing condition resolves the servicing gap as conditioned', () => {
+    const brief = buildConstraintsYield(resolvedProfile(), {
+      approvalConditions: { wapcRef: '202888', servicing: true },
+    })
+    expect(brief.gaps.some((g) => g.dimension === 'services')).toBe(false)
+    const line = brief.lines.find((l) => l.key === 'servicing')
+    expect(line?.value).toContain('Conditioned per approval')
+    expect(line?.value).toContain('202888')
+  })
+
+  it('geotech + water-management conditions raise formal-required constraints', () => {
+    const brief = buildConstraintsYield(resolvedProfile(), {
+      approvalConditions: { geotech: true, waterManagement: true },
+    })
+    const constraints = brief.gaps.filter((g) => g.dimension === 'constraints').map((g) => g.label)
+    expect(constraints.some((l) => /Geotechnical report/.test(l))).toBe(true)
+    expect(constraints.some((l) => /Water Management Report/.test(l))).toBe(true)
+  })
+
+  it('a contamination/UXO condition surfaces the contamination line', () => {
+    const brief = buildConstraintsYield(resolvedProfile(), {
+      approvalConditions: { contamination: 'Residual UXO possible (per approval advice)' },
+    })
+    const line = brief.lines.find((l) => l.key === 'contamination')
+    expect(line?.value).toContain('UXO')
+    expect(line?.severity).toBe('attention')
+  })
+})

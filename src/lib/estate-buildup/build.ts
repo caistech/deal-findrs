@@ -29,6 +29,8 @@ export function buildConstraintsYield(
 ): ConstraintsYieldBrief {
   const threshold = opts.materialDiscrepancy ?? DEFAULT_MATERIAL_DISCREPANCY
   const panel = opts.resolvedPanel ?? {}
+  const conditions = opts.approvalConditions ?? {}
+  const condRef = conditions.wapcRef ? ` (WAPC ${conditions.wapcRef})` : ''
   const lines: BuildupLine[] = []
   const gaps: BuildupGap[] = []
 
@@ -211,27 +213,48 @@ export function buildConstraintsYield(
     })
   }
 
-  // A panel contamination write-back is surfaced as a line (it also drives the valuer's site-risk).
-  if (panel.contamination) {
+  // A panel contamination write-back — or a contamination/UXO condition of approval — is surfaced as
+  // a line (it also drives the valuer's site-risk).
+  if (panel.contamination || conditions.contamination) {
     lines.push({
       key: 'contamination',
       label: 'Contamination',
-      value: panel.contamination,
+      value: panel.contamination ?? conditions.contamination ?? 'flagged',
       provenance: 'operator-resolved',
-      dataset: 'panel review (property write-back)',
+      dataset: panel.contamination ? 'panel review (property write-back)' : `conditions of approval${condRef}`,
       severity: 'attention',
     })
   }
 
+  // Constraint conditions of approval — geotech + water management are formal reports the approval
+  // mandates before subdivisional works; surface them as constraint gaps (they carry cost + risk).
+  if (conditions.geotech) {
+    gaps.push({
+      dimension: 'constraints',
+      label: 'Geotechnical report — required by condition',
+      provenance: 'formal-required',
+      detail: `A pre-works (and post-works) geotechnical report is a condition of approval${condRef} before subdivisional works.`,
+    })
+  }
+  if (conditions.waterManagement) {
+    gaps.push({
+      dimension: 'constraints',
+      label: 'Water Management Report — required by condition',
+      provenance: 'formal-required',
+      detail: `A Water Management Report (drainage/stormwater) is a condition of approval${condRef}, approved by the LG in consultation with DWER.`,
+    })
+  }
+
   // ── D/G. Services + cost — not derivable here (later stages) ─
-  // A panel servicing write-back resolves the servicing gap (else it stays open as needs-input).
-  if (panel.servicing) {
+  // A panel servicing write-back — or servicing conditions of approval (power/water/sewer to each
+  // lot, arrangements mandated with the authorities) — resolves the servicing gap.
+  if (panel.servicing || conditions.servicing) {
     lines.push({
       key: 'servicing',
       label: 'Servicing (sewer/water/power/stormwater)',
-      value: panel.servicing,
+      value: panel.servicing ?? `Conditioned per approval${condRef} — power/water/sewer to each lot; authority arrangements to be made`,
       provenance: 'operator-resolved',
-      dataset: 'panel review (property write-back)',
+      dataset: panel.servicing ? 'panel review (property write-back)' : `conditions of approval${condRef}`,
     })
   } else {
     gaps.push({

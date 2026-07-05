@@ -12,6 +12,7 @@ import { ConstraintsYieldBrief } from '@/components/property/ConstraintsYieldBri
 import { KickoffPanel } from '@/components/property/KickoffPanel'
 import { PlannerReferralPanel } from '@/components/property/PlannerReferralPanel'
 import { ApprovalIngestPanel } from '@/components/property/ApprovalIngestPanel'
+import { ConditionsRegisterPanel } from '@/components/property/ConditionsRegisterPanel'
 import { ReviewPacksPanel } from '@/components/property/ReviewPacksPanel'
 import { PanelReviewPanel } from '@/components/property/PanelReviewPanel'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
@@ -729,6 +730,8 @@ export default function OpportunityDetailPage() {
             {opportunity.property_profile && estateBrief?.requiresPlannerReferral && (
               <PlannerReferralPanel opportunityId={opportunity.id} onResolved={fetchReferral} />
             )}
+            {/* Conditions of approval — tracked Form-1C checklist; renders once an approval is ingested. */}
+            {opportunity.property_profile && <ConditionsRegisterPanel opportunityId={opportunity.id} />}
             {opportunity.property_profile && (
               <KickoffPanel
                 opportunityId={opportunity.id}

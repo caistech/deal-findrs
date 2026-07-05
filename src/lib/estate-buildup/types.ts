@@ -97,4 +97,18 @@ export interface BuildupOptions {
   resolvedPanel?: Partial<
     Record<'title' | 'contamination' | 'servicing' | 'native_title' | 'survey_geotech', string>
   >
+  /**
+   * Summary of an ingested subdivision approval's conditions (from the conditions register). This is
+   * how the WAPC/LG conditions drive the buildup: a `servicing` condition resolves the servicing gap
+   * as "conditioned per approval" (arrangements mandated with the authorities); `geotech` /
+   * `waterManagement` conditions raise a formal-required constraint; `contamination` (e.g. a UXO
+   * advice) is surfaced as a line and drives the valuer's site-risk.
+   */
+  approvalConditions?: {
+    wapcRef?: string | null
+    servicing?: boolean
+    geotech?: boolean
+    waterManagement?: boolean
+    contamination?: string | null
+  }
 }

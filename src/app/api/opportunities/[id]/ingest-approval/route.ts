@@ -70,17 +70,40 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const outstanding = outstandingGates(merged)
 
   // Persist the document record.
-  const { error: docErr } = await supabase.from('development_documents').insert({
-    company_id: company.companyId,
-    opportunity_id: opp.id,
-    kind,
-    filename,
-    extracted,
-    stage_gate: docGate,
-    conditions: extracted.conditions,
-    created_by: user.id,
-  })
+  const { data: doc, error: docErr } = await supabase
+    .from('development_documents')
+    .insert({
+      company_id: company.companyId,
+      opportunity_id: opp.id,
+      kind,
+      filename,
+      extracted,
+      stage_gate: docGate,
+      conditions: extracted.conditions,
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
   if (docErr) return NextResponse.json({ error: docErr.message }, { status: 500 })
+
+  // Register each condition of approval as a tracked planning item (the Form-1C clearance checklist
+  // + the driver for the buildup's servicing/constraint gaps). Replace any prior rows for this
+  // document so re-ingest is idempotent.
+  if (extracted.conditions.length) {
+    await supabase.from('development_conditions').delete().eq('document_id', doc.id)
+    const rows = extracted.conditions.map((c) => ({
+      company_id: company.companyId,
+      opportunity_id: opp.id,
+      document_id: doc.id,
+      number: c.number,
+      text: c.text,
+      authority: c.authority,
+      category: c.category,
+      created_by: user.id,
+    }))
+    const { error: condErr } = await supabase.from('development_conditions').insert(rows)
+    if (condErr) console.error('[ingest-approval] conditions insert failed:', condErr.message)
+  }
 
   // Roll the derived status up onto the opportunity + carry the approved yield as the fallback.
   const oppUpdate: Record<string, unknown> = {

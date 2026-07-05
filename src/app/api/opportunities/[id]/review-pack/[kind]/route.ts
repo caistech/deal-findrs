@@ -102,11 +102,41 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     typeof profileFull.address?.lng === 'number' ? profileFull.address.lng : undefined,
   )
 
+  // Conditions of approval (from an ingested WAPC/LG decision letter) drive the servicing +
+  // constraint gaps: a servicing condition resolves the servicing gap as "conditioned per approval";
+  // geotech / water-management conditions raise formal-required constraints; a UXO/contamination
+  // condition surfaces contamination (which also drives the valuer's site-risk).
+  const { data: conds } = await supabase
+    .from('development_conditions')
+    .select('category, text')
+    .eq('opportunity_id', opp.id)
+  const condList = conds ?? []
+  const hasCond = (re: RegExp) => condList.some((c) => re.test((c.text as string) ?? ''))
+  const { data: latestDoc } = await supabase
+    .from('development_documents')
+    .select('extracted')
+    .eq('opportunity_id', opp.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  const approvalConditions = condList.length
+    ? {
+        wapcRef: (latestDoc?.extracted as { wapcRef?: string | null } | null)?.wapcRef ?? null,
+        servicing: condList.some((c) => c.category === 'servicing'),
+        geotech: hasCond(/geotech/i),
+        waterManagement: hasCond(/water management/i),
+        contamination: hasCond(/\bUXO\b|contaminat|unexploded|ordnance/i)
+          ? 'Site has a history of military activity — residual UXO possible (per approval advice)'
+          : null,
+      }
+    : undefined
+
   const options: BuildupOptions = {
     ...(referral?.status === 'approved'
       ? { operatorResolved: { zoneCode: referral.resolved_zone_code, minLotSize: referral.resolved_min_lot_size, lots: referral.resolved_lots } }
       : {}),
     ...(Object.keys(resolvedPanel).length ? { resolvedPanel } : {}),
+    ...(approvalConditions ? { approvalConditions } : {}),
   }
 
   const profile = opp.property_profile as { metadata?: { lgaName?: string | null } }
