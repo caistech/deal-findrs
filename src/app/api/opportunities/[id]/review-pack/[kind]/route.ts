@@ -149,6 +149,20 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   let costPack: EstateCostPack | undefined
   if (lots > 0 && opp.state) {
     const landPrice = opp.land_purchase_price as number | null
+    // Cost-bearing conditions of approval → mandated QS lines (education levy, road upgrades, POS
+    // development, demolition), sharpened by the plan's parent area (per-ha land value) + POS area.
+    const ex = (latestDoc?.extracted ?? {}) as { wapcRef?: string | null; parentAreaHa?: number | null; posSqm?: number | null }
+    const costConditions = condList.length
+      ? {
+          wapcRef: ex.wapcRef ?? null,
+          education: hasCond(/education|school|op\s*2\.4|1\/1500/i),
+          roadUpgrades: hasCond(/upgrad\w+ .*road|road.*upgrad|full cost of upgrading|frontage/i),
+          posDevelopment: hasCond(/public open space|\bpos\b|landscap/i),
+          demolition: hasCond(/demolish|demolition/i),
+          posSqm: ex.posSqm ?? null,
+          landValuePerHa: landPrice && ex.parentAreaHa ? landPrice / ex.parentAreaHa : null,
+        }
+      : undefined
     costPack = buildEstateCostPack({
       lots,
       state: opp.state as string,
@@ -157,6 +171,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       terrain: profileFull.terrain
         ? { slopePercent: profileFull.terrain.slopePercent, buildability: profileFull.terrain.buildability }
         : undefined,
+      ...(costConditions ? { approvalConditions: costConditions } : {}),
     })
   }
 

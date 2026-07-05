@@ -90,6 +90,12 @@ function slopeAdjustment(slopePercent: number | null | undefined): {
 const PM_PCT_OF_CIVIL = 0.05
 /** Statutory infrastructure contributions / headworks per lot, Sydney baseline (× region factor). */
 const HEADWORKS_PER_LOT_SYDNEY = 20000
+// Condition-driven cost defaults (indicative — flagged source:'condition' for QS confirmation).
+const EDUCATION_DEFAULT_PER_LOT = 1500 // WAPC OP2.4 fallback when a per-ha valuation isn't supplied
+const ROAD_UPGRADE_LUMP_SYDNEY = 500000 // external road-frontage upgrades (whole-of-estate lump)
+const POS_DEV_RATE_PER_SQM = 60 // POS development to Liveable Neighbourhoods + 2-summer maintenance
+const POS_DEV_LUMP_SYDNEY = 300000 // POS development fallback when the POS area isn't known
+const DEMOLITION_LUMP_SYDNEY = 80000 // clearing existing improvements on the parent lots
 /** Contingency as a % of (civil + soft + statutory). */
 const CONTINGENCY_PCT = 0.075
 
@@ -229,7 +235,7 @@ export function buildEstateCostPack(input: EstateCostInput): EstateCostPack {
   })
 
   // ── Statutory / Contributions ──
-  const statutoryPerLot = rate('headworks', HEADWORKS_PER_LOT_SYDNEY)
+  let statutoryPerLot = rate('headworks', HEADWORKS_PER_LOT_SYDNEY)
   lines.push({
     key: 'headworks',
     label: 'Infrastructure contributions / headworks',
@@ -238,6 +244,72 @@ export function buildEstateCostPack(input: EstateCostInput): EstateCostPack {
     basis: `Benchmark $${HEADWORKS_PER_LOT_SYDNEY.toLocaleString('en-AU')}/lot × region factor ${regionFactor.toFixed(2)} — confirm with servicing authority`,
     source: 'benchmark',
   })
+
+  // ── Condition-driven costs (mandated by the subdivision approval, not benchmark defaults) ──
+  const cond = input.approvalConditions
+  const condRef = cond?.wapcRef ? ` (WAPC ${cond.wapcRef})` : ''
+  if (cond?.education) {
+    // WAPC OP2.4 education contribution — 1/1500th of the per-hectare land value, per lot.
+    const perLot =
+      'education_levy' in ov
+        ? ov['education_levy']
+        : cond.landValuePerHa != null
+          ? round(cond.landValuePerHa / 1500)
+          : round(EDUCATION_DEFAULT_PER_LOT * regionFactor)
+    statutoryPerLot += perLot
+    lines.push({
+      key: 'education_levy',
+      label: 'Education contribution (WAPC OP2.4)',
+      category: 'Statutory / Contributions',
+      perLot,
+      basis:
+        cond.landValuePerHa != null
+          ? `1/1500th of $${round(cond.landValuePerHa).toLocaleString('en-AU')}/ha land value, per lot${condRef}`
+          : `OP2.4 indicative $${EDUCATION_DEFAULT_PER_LOT.toLocaleString('en-AU')}/lot — confirm from a per-hectare valuation${condRef}`,
+      source: 'condition',
+    })
+  }
+  if (cond?.roadUpgrades) {
+    const perLot = 'road_upgrades' in ov ? ov['road_upgrades'] : round((ROAD_UPGRADE_LUMP_SYDNEY * regionFactor) / input.lots)
+    civilPerLot += perLot
+    lines.push({
+      key: 'road_upgrades',
+      label: 'External road-frontage upgrades',
+      category: 'Civil / Infrastructure',
+      perLot,
+      basis: `Condition — upgrade abutting road frontages to LG spec${condRef}; ~$${ROAD_UPGRADE_LUMP_SYDNEY.toLocaleString('en-AU')} lump ÷ ${input.lots} lots`,
+      source: 'condition',
+    })
+  }
+  if (cond?.posDevelopment) {
+    const posSqm = cond.posSqm ?? 0
+    const lump = posSqm > 0 ? posSqm * POS_DEV_RATE_PER_SQM : POS_DEV_LUMP_SYDNEY
+    const perLot = 'pos_development' in ov ? ov['pos_development'] : round((lump * regionFactor) / input.lots)
+    civilPerLot += perLot
+    lines.push({
+      key: 'pos_development',
+      label: 'POS development + 2-summer maintenance',
+      category: 'Civil / Infrastructure',
+      perLot,
+      basis:
+        posSqm > 0
+          ? `${posSqm.toLocaleString('en-AU')} m² × $${POS_DEV_RATE_PER_SQM}/m² (Liveable Neighbourhoods + maintenance)${condRef} ÷ ${input.lots} lots`
+          : `Condition — POS development to LG spec${condRef}; ~$${POS_DEV_LUMP_SYDNEY.toLocaleString('en-AU')} lump ÷ ${input.lots} lots`,
+      source: 'condition',
+    })
+  }
+  if (cond?.demolition) {
+    const perLot = 'demolition' in ov ? ov['demolition'] : round((DEMOLITION_LUMP_SYDNEY * regionFactor) / input.lots)
+    civilPerLot += perLot
+    lines.push({
+      key: 'demolition',
+      label: 'Demolition of existing improvements',
+      category: 'Civil / Infrastructure',
+      perLot,
+      basis: `Condition — demolish existing buildings on the parent lots${condRef}; ~$${DEMOLITION_LUMP_SYDNEY.toLocaleString('en-AU')} lump ÷ ${input.lots} lots`,
+      source: 'condition',
+    })
+  }
 
   // ── Contingency ──
   const contingencyBase = civilPerLot + softPerLot + statutoryPerLot

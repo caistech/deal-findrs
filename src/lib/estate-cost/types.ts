@@ -14,6 +14,7 @@ export type CostLineSource =
   | 'benchmark' // indicative rate table — QS to confirm
   | 'operator' // supplied by the operator (e.g. known land price)
   | 'devfinance-engine' // computed by the shared devfinance cost engine (H&L home line)
+  | 'condition' // MANDATED by a condition of the subdivision approval (not a benchmark default)
 
 export type CostCategory =
   | 'Land'
@@ -129,4 +130,20 @@ export interface EstateCostInput {
   /** Operator overrides of any benchmark line, keyed by line key → $/lot. An override wins over the
    *  slope adjustment (the operator's number is final). */
   overrides?: Record<string, number>
+  /**
+   * Cost-bearing conditions from an ingested subdivision approval — the MANDATED costs the approval
+   * carries (not benchmark defaults). Each present flag adds a `source: 'condition'` line: `education`
+   * → WAPC OP2.4 contribution (1/1500th of per-ha land value per lot); `roadUpgrades` → external
+   * road-frontage upgrades; `posDevelopment` → POS development + maintenance; `demolition` → clearing
+   * existing improvements. `landValuePerHa`/`posSqm` sharpen the estimates when known.
+   */
+  approvalConditions?: {
+    wapcRef?: string | null
+    education?: boolean
+    roadUpgrades?: boolean
+    posDevelopment?: boolean
+    demolition?: boolean
+    posSqm?: number | null
+    landValuePerHa?: number | null
+  }
 }

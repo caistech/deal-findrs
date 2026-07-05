@@ -123,3 +123,33 @@ describe('reconcileWorksCost (A3 drift guard)', () => {
     expect(r.deltaPct).toBeCloseTo(0.3, 6)
   })
 })
+
+describe('condition-driven costs (Phase 3 — mandated by the approval)', () => {
+  it('adds education / road-upgrade / POS / demolition lines flagged source:condition', () => {
+    const pack = buildEstateCostPack({
+      lots: 145, state: 'WA', city: 'Geraldton',
+      approvalConditions: { wapcRef: '202888', education: true, roadUpgrades: true, posDevelopment: true, demolition: true, posSqm: 8909, landValuePerHa: 3_000_000 },
+    })
+    const condLines = pack.lines.filter((l) => l.source === 'condition')
+    expect(condLines.map((l) => l.key).sort()).toEqual(['demolition', 'education_levy', 'pos_development', 'road_upgrades'])
+  })
+
+  it('education levy uses 1/1500th of the per-hectare land value per lot', () => {
+    const pack = buildEstateCostPack({ lots: 100, state: 'NSW', city: 'Sydney', approvalConditions: { education: true, landValuePerHa: 3_000_000 } })
+    const edu = pack.lines.find((l) => l.key === 'education_levy')
+    expect(edu?.perLot).toBe(2000) // 3,000,000 / 1500
+    expect(pack.statutoryPerLot).toBe(20000 + 2000) // headworks + levy roll into statutory
+  })
+
+  it('condition lines roll into the per-lot total (and the contingency base)', () => {
+    const base = buildEstateCostPack({ lots: 145, state: 'WA', city: 'Geraldton' })
+    const withCond = buildEstateCostPack({ lots: 145, state: 'WA', city: 'Geraldton', approvalConditions: { roadUpgrades: true, demolition: true } })
+    expect(withCond.civilPerLot).toBeGreaterThan(base.civilPerLot)
+    expect(withCond.landDevCostPerLot).toBeGreaterThan(base.landDevCostPerLot)
+  })
+
+  it('no approvalConditions → no condition lines (unchanged behaviour)', () => {
+    const pack = buildEstateCostPack({ lots: 30, state: 'WA', city: 'Perth' })
+    expect(pack.lines.some((l) => l.source === 'condition')).toBe(false)
+  })
+})
