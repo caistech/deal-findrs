@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Check, AlertCircle, Loader2, Zap, TrendingUp, AlertTriangle, Building2, Layers } from 'lucide-react'
 import { VoiceInput } from '@/components/voice/VoiceInput'
 import { DocumentUpload } from '@/components/voice/DocumentUpload'
+import { ApprovalIngestPanel } from '@/components/property/ApprovalIngestPanel'
 import AddressAutocomplete from '@/components/common/AddressAutocomplete'
 import { DealJourney } from '@/components/common/DealJourney'
 import { AuthLayout } from '@/components/common/AuthLayout'
@@ -31,6 +32,7 @@ export default function NewOpportunityPage() {
   const [currentStep, setCurrentStep] = useState<Step>('basics')
   const [loading, setLoading] = useState(false)
   const [documents, setDocuments] = useState<any[]>([])
+  const [approvalIngested, setApprovalIngested] = useState(false)
   const [siteIntel, setSiteIntel] = useState<SiteIntelResult | null>(null)
   const [derivingIntel, setDerivingIntel] = useState(false)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
@@ -1360,10 +1362,20 @@ export default function NewOpportunityPage() {
 
             {/* ===== STEP: DOCUMENTS ===== */}
             {currentStep === 'documents' && draftId && (
-              <DocumentUpload
-                opportunityId={draftId}
-                onEvidenceChange={setDocuments}
-              />
+              <div className="space-y-6">
+                {/* Establish the deal's current status from its approval up front (Phase 1–3 ingest). */}
+                <ApprovalIngestPanel opportunityId={draftId} onIngested={() => setApprovalIngested(true)} />
+                {approvalIngested && (
+                  <p className="text-sm text-emerald-700">
+                    Status, approved yield and conditions are set from the approval — they carry through to the
+                    assessment and the review packs.
+                  </p>
+                )}
+                <DocumentUpload
+                  opportunityId={draftId}
+                  onEvidenceChange={setDocuments}
+                />
+              </div>
             )}
             {currentStep === 'documents' && !draftId && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
