@@ -1,6 +1,7 @@
 import type { ConstraintsYieldBrief } from '@/lib/estate-buildup/types'
 import type { EstateCostPack } from '@/lib/estate-cost/types'
 import type { EstateValuationPack } from '@/lib/estate-valuation/types'
+import type { EstateSensitivity } from '@/lib/estate-sensitivity/types'
 
 /**
  * Professional review packs — "the buildup IS each professional's review pack".
@@ -29,6 +30,8 @@ export interface ReviewPackContext {
   costPack?: EstateCostPack
   /** GRV & absorption (Checklist 3) — present (with a GRV/lot) unlocks the valuer pack. */
   valuationPack?: EstateValuationPack
+  /** Six single-variable sensitivity tables (Checklist 1 §10) — computed in the valuer path. */
+  sensitivity?: EstateSensitivity
   /** ISO date the pack was prepared (passed in so builders stay pure/testable). */
   preparedOn: string
 }

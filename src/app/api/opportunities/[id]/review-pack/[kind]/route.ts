@@ -6,6 +6,8 @@ import type { BuildupOptions } from '@/lib/estate-buildup/types'
 import { buildEstateCostPack } from '@/lib/estate-cost/build'
 import type { EstateCostPack } from '@/lib/estate-cost/types'
 import { buildValuationPack, buildValuerPnl, buildValuerDcf } from '@/lib/estate-valuation/build'
+import { buildSensitivity } from '@/lib/estate-sensitivity/build'
+import type { EstateSensitivity } from '@/lib/estate-sensitivity/types'
 import { fetchAvmCrossCheck } from '@/lib/estate-valuation/avm'
 import type { EstateValuationPack } from '@/lib/estate-valuation/types'
 import { getReviewPackTemplate } from '@/lib/review-packs/registry'
@@ -133,6 +135,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   // server-side (key-optional, degrades). Present with a GRV unlocks the valuer pack.
   const grvPerLot = Number(opp.avg_sale_price) || 0
   let valuationPack: EstateValuationPack | undefined
+  let sensitivity: EstateSensitivity | undefined
   if (lots > 0 && grvPerLot > 0) {
     valuationPack = buildValuationPack({
       lots,
@@ -171,6 +174,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           landAcquisitionCost: landPrice ?? 0,
           absorptionMonths: valuationPack.absorption.totalMonths,
         })
+        // Sensitivity (B2) — six single-variable tables (Margin / MDC / IRR each).
+        sensitivity = buildSensitivity({
+          lots,
+          salePricePerLot: grvPerLot,
+          worksTotal: devCostExclLand,
+          landCost: landPrice ?? 0,
+          constructionMonths: 12,
+          sellMonths: valuationPack.absorption.totalMonths,
+          interestRate: 0.12,
+        })
       }
     }
   }
@@ -187,6 +200,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     brief,
     costPack,
     valuationPack,
+    sensitivity,
     preparedOn: new Date().toISOString().slice(0, 10),
   }
 

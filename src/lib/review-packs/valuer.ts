@@ -5,6 +5,7 @@ import type {
   ValuerDcf,
   ValuerResidualPnl,
 } from '@/lib/estate-valuation/types'
+import type { EstateSensitivity, SensitivityTable } from '@/lib/estate-sensitivity/types'
 import type { ReviewPackContext, ReviewPackTemplate } from './types'
 
 /**
@@ -127,6 +128,27 @@ function dcfBlock(dcf: ValuerDcf | null): string {
   ].join('\n')
 }
 
+function sensitivityBlock(s: EstateSensitivity | undefined): string {
+  if (!s) return ''
+  const axis = (v: number, unit: SensitivityTable['unit']) =>
+    unit === 'money' ? money(v) : unit === 'rate' ? pct(v) : `${v} mo`
+  const irrCell = (r: number | null) => (r == null ? 'n/a' : pct(r))
+  const tableMd = (t: SensitivityTable) => {
+    const rows = t.rows
+      .map((r) => {
+        const a = axis(r.variable, t.unit)
+        return `| ${r.isBase ? `**${a}**` : a} | ${money(r.saleValue)} | ${money(r.devCost)} | ${money(r.margin)} | ${pct(r.mdc)} | ${irrCell(r.irrAnnual)} |`
+      })
+      .join('\n')
+    return [`### ${t.label}`, `| ${t.label} | Sale value | Dev cost | Margin | MDC | IRR |`, '|---|---|---|---|---|---|', rows].join('\n')
+  }
+  return [
+    '## Sensitivity',
+    '_Each table flexes one variable (base case in bold). MDC = margin on development cost; IRR is the unlevered annualised project return._',
+    ...s.tables.map(tableMd),
+  ].join('\n\n')
+}
+
 function buildMarkdown(ctx: ReviewPackContext): string {
   const pack = ctx.valuationPack!
   const o = ctx.opportunity
@@ -150,6 +172,7 @@ function buildMarkdown(ctx: ReviewPackContext): string {
     dcfBlock(pack.dcf),
     avmBlock(pack.avm),
     absorptionBlock(pack.absorption),
+    sensitivityBlock(ctx.sensitivity),
     [
       '## Certification',
       '_Review, confirm or adjust, and certify — you should not need to rebuild the valuation._',
