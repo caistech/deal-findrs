@@ -800,6 +800,26 @@ export default function NewOpportunityPage() {
                 {formData.address && (
                   draftId ? (
                     <div className="mt-4 space-y-3">
+                      {/* Reliability signal from property-services: did address-derive resolve zoning
+                          cleanly, or does this location need the approval doc to settle it? A null
+                          zoning OR an LGA coverage of 'partial'/'none' means the derive is thin here. */}
+                      {property.profile
+                        && (!property.profile.zoning?.code || property.profile.metadata?.lgaCoverage !== 'full')
+                        && !approvalIngested && (
+                        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+                          <p className="text-sm font-semibold text-amber-900">
+                            Zoning couldn&apos;t be fully resolved from public data for this location
+                            {property.profile.metadata?.lgaCoverage && property.profile.metadata.lgaCoverage !== 'full'
+                              ? ` — LGA planning coverage is ${property.profile.metadata.lgaCoverage}`
+                              : ''}.
+                          </p>
+                          <p className="mt-1 text-sm text-amber-800">
+                            Zoning drives the whole yield and feasibility, so this is the biggest thing to pin down.
+                            Upload the subdivision approval (WAPC decision letter / plan) below to set it from the
+                            evidence — otherwise the buildup flags a planner referral and the yield stays provisional.
+                          </p>
+                        </div>
+                      )}
                       <ApprovalIngestPanel
                         opportunityId={draftId}
                         onIngested={(lots) => {
@@ -810,11 +830,18 @@ export default function NewOpportunityPage() {
                           }
                         }}
                       />
-                      <p className="text-sm text-gray-500">
-                        Optional — if you have the subdivision approval, upload it to set the deal&apos;s current
-                        status, approved yield and conditions. No approval yet? The buildup above derives what it
-                        can and flags a planner referral.
-                      </p>
+                      {!approvalIngested && property.profile?.zoning?.code && property.profile.metadata?.lgaCoverage === 'full' && (
+                        <p className="text-sm text-gray-500">
+                          Zoning resolved from public data. Optional — upload the subdivision approval to set the
+                          deal&apos;s current status, approved yield and conditions from the evidence.
+                        </p>
+                      )}
+                      {!approvalIngested && !property.profile && (
+                        <p className="text-sm text-gray-500">
+                          Optional — if you have the subdivision approval, upload it to set the deal&apos;s current
+                          status, approved yield and conditions from the evidence.
+                        </p>
+                      )}
                       {approvalIngested && (
                         <p className="text-sm text-emerald-700">
                           Status, approved yield and conditions are set — they carry through to the property,
