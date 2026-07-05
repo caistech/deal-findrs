@@ -1,3 +1,4 @@
+import { computeGst, DEFAULT_GST_SCHEME } from '@caistech/deal-model'
 import type {
   AbsorptionCurve,
   AvmGate,
@@ -5,6 +6,8 @@ import type {
   EstateValuationPack,
   SiteRiskAssessment,
   SiteRiskLevel,
+  ValuerResidualPnl,
+  ValuerResidualPnlInput,
 } from './types'
 
 /**
@@ -132,5 +135,76 @@ export function buildValuationPack(input: EstateValuationInput): EstateValuation
     avm: null,
     absorption: buildAbsorption(lots, input, siteRisk.absorptionFactor),
     siteRisk,
+    pnl: null, // attached in the route where the QS costs are known
+  }
+}
+
+/** GST component of a GST-inclusive amount (10% GST → 1/11). */
+const GST_DIVISOR = 11
+
+/**
+ * Residual-land P&L — the hypothetical-development valuation (Feastudy "Valuer's-Style" method).
+ * Derives what the site is WORTH: nets GST off realisation (via the shared deal-model `computeGst`,
+ * margin-scheme by default), deducts selling costs + the developer's profit & risk + the QS
+ * development costs (the cost/value tie-out), and the remainder is the residual land value. Pure.
+ *
+ * GST-consistent: every intermediate is ex-GST, so the residual doesn't double-count GST. Under the
+ * margin scheme, only the margin is taxed, so net realisation keeps more of the gross (the benefit
+ * flows through to a higher residual).
+ */
+export function buildValuerPnl(input: ValuerResidualPnlInput): ValuerResidualPnl {
+  const gstScheme = input.gstScheme ?? DEFAULT_GST_SCHEME
+  const sellingCostPct = input.sellingCostPct ?? 0.035
+  const profitAndRiskPct = input.profitAndRiskPct ?? 0.2
+  const grossRealisation = Math.max(0, input.grossRealisation)
+  const developmentCostExclLand = Math.max(0, input.developmentCostExclLand)
+  const actualLandCost = Math.max(0, input.landAcquisitionCost)
+  const sellingCosts = grossRealisation * sellingCostPct
+
+  // Shared GST engine: output tax on the sale + ITCs on selling + dev costs.
+  const gst = computeGst({
+    scheme: gstScheme,
+    grossRealisation,
+    landAcquisitionCost: actualLandCost,
+    creditableCosts: sellingCosts + developmentCostExclLand,
+  })
+
+  const netRealisationExGst = grossRealisation - gst.gstOnSales
+  const sellingCostsExGst = sellingCosts - sellingCosts / GST_DIVISOR
+  const grossProfitExGst = netRealisationExGst - sellingCostsExGst
+  const profitAndRisk = netRealisationExGst * profitAndRiskPct
+  const contributionToDevCosts = grossProfitExGst - profitAndRisk
+  const developmentCostExclLandExGst = developmentCostExclLand - developmentCostExclLand / GST_DIVISOR
+  const residualLandValue = contributionToDevCosts - developmentCostExclLandExGst
+  const landValueHeadroom = residualLandValue - actualLandCost
+
+  const lots = Math.max(1, Math.round(input.lots))
+  const totalDevCost = developmentCostExclLand + actualLandCost // land-development TDC incl land
+  const perLot = { totalDevCost: totalDevCost / lots, sales: grossRealisation / lots, land: residualLandValue / lots }
+  const perSqm =
+    input.siteAreaSqm && input.siteAreaSqm > 0
+      ? {
+          totalDevCost: totalDevCost / input.siteAreaSqm,
+          sales: grossRealisation / input.siteAreaSqm,
+          land: residualLandValue / input.siteAreaSqm,
+        }
+      : null
+
+  return {
+    gstScheme,
+    grossRealisation,
+    gstOnSales: gst.gstOnSales,
+    netRealisationExGst,
+    sellingCostsExGst,
+    grossProfitExGst,
+    profitAndRisk,
+    profitAndRiskPct,
+    contributionToDevCosts,
+    developmentCostExclLandExGst,
+    residualLandValue,
+    actualLandCost,
+    landValueHeadroom,
+    perLot,
+    perSqm,
   }
 }

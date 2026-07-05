@@ -1,4 +1,9 @@
-import type { AbsorptionCurve, AvmCrossCheck, EstateValuationPack } from '@/lib/estate-valuation/types'
+import type {
+  AbsorptionCurve,
+  AvmCrossCheck,
+  EstateValuationPack,
+  ValuerResidualPnl,
+} from '@/lib/estate-valuation/types'
 import type { ReviewPackContext, ReviewPackTemplate } from './types'
 
 /**
@@ -58,6 +63,54 @@ function absorptionBlock(a: AbsorptionCurve): string {
   ].join('\n')
 }
 
+function pnlBlock(pnl: ValuerResidualPnl | null): string {
+  if (!pnl) {
+    return [
+      '## Residual land valuation (hypothetical development)',
+      '_Unavailable — requires the QS cost pack + a land price to residualise. Certify the GRV above._',
+    ].join('\n')
+  }
+  const scheme = pnl.gstScheme === 'margin' ? 'margin scheme' : 'standard GST'
+  const row = (label: string, v: number, opts?: { neg?: boolean; strong?: boolean }) =>
+    `| ${opts?.strong ? `**${label}**` : label} | ${opts?.neg ? '−' : ''}${money(Math.abs(v))} |`
+  const rows = [
+    row('Gross realisation (GST-incl)', pnl.grossRealisation),
+    row(`less GST on sales (${scheme})`, pnl.gstOnSales, { neg: true }),
+    row('= Net realisation (ex-GST)', pnl.netRealisationExGst, { strong: true }),
+    row('less Selling costs (ex-GST)', pnl.sellingCostsExGst, { neg: true }),
+    row('= Gross profit (ex-GST)', pnl.grossProfitExGst, { strong: true }),
+    row(`less Profit & risk (${pct(pnl.profitAndRiskPct)})`, pnl.profitAndRisk, { neg: true }),
+    row('= Contribution to development costs', pnl.contributionToDevCosts, { strong: true }),
+    row('less Development costs excl land (ex-GST, from QS pack)', pnl.developmentCostExclLandExGst, { neg: true }),
+    row('= Residual land value', pnl.residualLandValue, { strong: true }),
+  ].join('\n')
+  const h = pnl.landValueHeadroom
+  const tieOut =
+    h >= 0
+      ? `**${money(h)} headroom** — residual land value exceeds the ${money(pnl.actualLandCost)} land cost.`
+      : `**${money(-h)} over** — the ${money(pnl.actualLandCost)} land cost EXCEEDS the residual land value; review price / assumptions.`
+  const footer = [
+    `- **Per lot:** TDC ${money(pnl.perLot.totalDevCost)} · sales ${money(pnl.perLot.sales)} · residual land ${money(pnl.perLot.land)}`,
+    pnl.perSqm
+      ? `- **Per m²:** TDC ${money(pnl.perSqm.totalDevCost)} · sales ${money(pnl.perSqm.sales)} · residual land ${money(pnl.perSqm.land)}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+  return [
+    '## Residual land valuation (hypothetical development)',
+    `_${scheme} · GST via the shared deal-model engine · development cost is the QS pack figure (cost/value tie-out)._`,
+    '',
+    '| Line | Amount |',
+    '|---|---|',
+    rows,
+    '',
+    `**Cost/value tie-out:** ${tieOut}`,
+    '',
+    footer,
+  ].join('\n')
+}
+
 function buildMarkdown(ctx: ReviewPackContext): string {
   const pack = ctx.valuationPack!
   const o = ctx.opportunity
@@ -77,6 +130,7 @@ function buildMarkdown(ctx: ReviewPackContext): string {
   return [
     header,
     grvBlock(pack),
+    pnlBlock(pack.pnl),
     avmBlock(pack.avm),
     absorptionBlock(pack.absorption),
     [

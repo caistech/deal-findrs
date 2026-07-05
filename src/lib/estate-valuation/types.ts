@@ -7,7 +7,10 @@
  *    confidence-gated natively by Domain's raw `priceConfidence` enum (degrade-don't-fake).
  *  - Absorption is a two-phase curve: an evidence-gated pre-sales burst → a benchmark monthly tail,
  *    emitting a monthly take-up vector (fed into the cash-flow when scope allows).
+ *  - The residual-land P&L (hypothetical-development method) nets GST via the shared deal-model
+ *    engine and deducts the QS costs + profit & risk to derive what the land is worth.
  */
+import type { GstScheme } from '@caistech/deal-model'
 
 /** How much to trust the AVM cross-check, from Domain's own confidence descriptor. */
 export type AvmGate = 'assert' | 'indicative'
@@ -67,6 +70,56 @@ export interface EstateValuationPack {
   absorption: AbsorptionCurve
   /** Site-constraint risk (overlays/contamination/flood) — informs the certified GRV + absorption. */
   siteRisk: SiteRiskAssessment
+  /** Residual-land P&L (hypothetical-development method) — attached in the route where the QS costs
+   *  are known. Null when the cost pack isn't available. */
+  pnl: ValuerResidualPnl | null
+}
+
+// ---- Residual-land P&L (Feastudy "Valuer's-Style" hypothetical-development method) ----
+
+/** Inputs to the residual land valuation — all money is GST-INCLUSIVE (whole-of-project). */
+export interface ValuerResidualPnlInput {
+  /** Total GST-inclusive gross realisation (all finished lots). */
+  grossRealisation: number
+  /** GST-inclusive development cost EXCLUDING land — the QS pack's civil + soft + statutory +
+   *  contingency (the cost/value tie-out point). Carries claimable GST. */
+  developmentCostExclLand: number
+  /** The operator's actual/intended GST-inclusive land price — used for the margin-scheme GST calc
+   *  AND as the tie-out benchmark against the residual land value. */
+  landAcquisitionCost: number
+  /** Selling/agent cost as a fraction of GRV (default 0.035). Carries claimable GST. */
+  sellingCostPct?: number
+  /** Developer's required profit & risk, as a fraction of net (ex-GST) realisation (default 0.20). */
+  profitAndRiskPct?: number
+  /** GST scheme (default "margin" — the subdivision norm). */
+  gstScheme?: GstScheme
+  lots: number
+  /** Site area (sqm) for the per-m² footer; omit to skip those lines. */
+  siteAreaSqm?: number | null
+}
+
+/** The residual P&L — the hypothetical-development valuation deriving what the land is worth. */
+export interface ValuerResidualPnl {
+  gstScheme: GstScheme
+  grossRealisation: number
+  gstOnSales: number
+  netRealisationExGst: number
+  sellingCostsExGst: number
+  grossProfitExGst: number
+  profitAndRisk: number
+  profitAndRiskPct: number
+  contributionToDevCosts: number
+  developmentCostExclLandExGst: number
+  /** The residual — what the site is worth given target profit & the QS costs. */
+  residualLandValue: number
+  /** The operator's actual land price (the tie-out benchmark). */
+  actualLandCost: number
+  /** residual − actual: positive = headroom (worth more than paid); negative = overpaying. */
+  landValueHeadroom: number
+  /** Per-lot metrics: total development cost, sales, land — the Feastudy footer. */
+  perLot: { totalDevCost: number; sales: number; land: number }
+  /** Per-m² metrics (null when site area unknown). */
+  perSqm: { totalDevCost: number; sales: number; land: number } | null
 }
 
 /** Inputs to the pure buildup — the AVM is attached separately (it's async I/O). */

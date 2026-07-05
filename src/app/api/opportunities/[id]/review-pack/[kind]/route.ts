@@ -5,7 +5,7 @@ import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import type { BuildupOptions } from '@/lib/estate-buildup/types'
 import { buildEstateCostPack } from '@/lib/estate-cost/build'
 import type { EstateCostPack } from '@/lib/estate-cost/types'
-import { buildValuationPack } from '@/lib/estate-valuation/build'
+import { buildValuationPack, buildValuerPnl } from '@/lib/estate-valuation/build'
 import { fetchAvmCrossCheck } from '@/lib/estate-valuation/avm'
 import type { EstateValuationPack } from '@/lib/estate-valuation/types'
 import { getReviewPackTemplate } from '@/lib/review-packs/registry'
@@ -152,6 +152,18 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         state: (opp.state as string) ?? null,
         referenceValue: landPrice ?? null,
       })
+      // Residual-land P&L (B6) — deducts the QS pack's development cost (the cost/value tie-out, A2)
+      // + profit & risk from the GST-netted realisation to derive what the site is worth.
+      if (costPack) {
+        const devCostExclLand = costPack.totalLandDevCost - costPack.landPerLot * costPack.lots
+        valuationPack.pnl = buildValuerPnl({
+          grossRealisation: valuationPack.totalGrv,
+          developmentCostExclLand: devCostExclLand,
+          landAcquisitionCost: landPrice ?? 0,
+          lots,
+          siteAreaSqm: profileFull.lot?.lotSize ?? null,
+        })
+      }
     }
   }
 

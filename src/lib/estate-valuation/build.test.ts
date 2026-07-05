@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildValuationPack, gateAvmConfidence, absorptionToSalesProfile } from './build'
+import { buildValuationPack, buildValuerPnl, gateAvmConfidence, absorptionToSalesProfile } from './build'
 
 describe('gateAvmConfidence', () => {
   it('asserts on confident / recentlySold, degrades otherwise', () => {
@@ -75,6 +75,58 @@ describe('buildValuationPack — site risk (overlays / contamination)', () => {
     const p = buildValuationPack({ lots: 20, grvPerLot: 400000, siteRisk: { overlays: ['Vegetation protection'] } })
     expect(p.siteRisk.level).toBe('medium')
     expect(p.siteRisk.absorptionFactor).toBe(0.9)
+  })
+})
+
+describe('buildValuerPnl — residual land valuation (B6)', () => {
+  // $12M GRV, $4.4M dev cost excl land, $3M land, 3.5% selling, 20% P&R, margin scheme.
+  const pnl = buildValuerPnl({
+    grossRealisation: 12_000_000,
+    developmentCostExclLand: 4_400_000,
+    landAcquisitionCost: 3_000_000,
+    lots: 30,
+    siteAreaSqm: 40_000,
+  })
+
+  it('nets GST on the margin only (margin scheme default)', () => {
+    expect(pnl.gstScheme).toBe('margin')
+    expect(pnl.gstOnSales).toBeCloseTo((12_000_000 - 3_000_000) / 11, 2) // 818,181.82
+    expect(pnl.netRealisationExGst).toBeCloseTo(12_000_000 - 9_000_000 / 11, 2)
+  })
+  it('derives the residual land value via the P&L waterfall', () => {
+    expect(pnl.grossProfitExGst).toBeCloseTo(10_800_000, 2)
+    expect(pnl.profitAndRisk).toBeCloseTo(pnl.netRealisationExGst * 0.2, 2)
+    expect(pnl.developmentCostExclLandExGst).toBeCloseTo(4_000_000, 2) // 4.4M ex-GST
+    expect(pnl.residualLandValue).toBeCloseTo(4_563_636.36, 1)
+  })
+  it('ties out residual vs actual land cost (headroom)', () => {
+    expect(pnl.landValueHeadroom).toBeCloseTo(pnl.residualLandValue - 3_000_000, 2)
+    expect(pnl.landValueHeadroom).toBeGreaterThan(0) // worth more than paid
+  })
+  it('flags overpaying when land cost exceeds the residual', () => {
+    const over = buildValuerPnl({
+      grossRealisation: 12_000_000,
+      developmentCostExclLand: 4_400_000,
+      landAcquisitionCost: 6_000_000,
+      lots: 30,
+    })
+    expect(over.landValueHeadroom).toBeLessThan(0)
+  })
+  it('emits per-lot and per-m² metrics', () => {
+    expect(pnl.perLot.sales).toBeCloseTo(12_000_000 / 30, 2)
+    expect(pnl.perSqm?.sales).toBeCloseTo(12_000_000 / 40_000, 2)
+  })
+  it('standard scheme taxes the full sale (lower net realisation than margin)', () => {
+    const std = buildValuerPnl({
+      grossRealisation: 12_000_000,
+      developmentCostExclLand: 4_400_000,
+      landAcquisitionCost: 3_000_000,
+      lots: 30,
+      gstScheme: 'standard',
+    })
+    expect(std.gstOnSales).toBeCloseTo(12_000_000 / 11, 2)
+    expect(std.netRealisationExGst).toBeLessThan(pnl.netRealisationExGst)
+    expect(std.residualLandValue).toBeLessThan(pnl.residualLandValue)
   })
 })
 
