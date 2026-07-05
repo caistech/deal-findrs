@@ -71,6 +71,13 @@ export interface EstateCostInput {
   homeCaptureRate?: number
   /** The modular home spec for the H&L construction line (only used when homeCaptureRate > 0). */
   homeSpec?: { floorAreaSqm: number; bedrooms: number; bathrooms: number; quality?: 'low' | 'medium' | 'high' }
-  /** Operator overrides of any benchmark line, keyed by line key → $/lot. */
+  /**
+   * Terrain from the site profile (property-services `terrain`). Slope scales the slope-sensitive
+   * civil lines (bulk earthworks, roadworks) and adds a retaining allowance on moderate/steep sites —
+   * so a steep block no longer costs the same as a flat one. Omitted → flat assumption (factor 1.0).
+   */
+  terrain?: { slopePercent?: number | null; buildability?: string | null }
+  /** Operator overrides of any benchmark line, keyed by line key → $/lot. An override wins over the
+   *  slope adjustment (the operator's number is final). */
   overrides?: Record<string, number>
 }

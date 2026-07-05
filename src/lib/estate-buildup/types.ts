@@ -88,4 +88,13 @@ export interface BuildupOptions {
     minLotSize?: number | null
     lots?: number | null
   }
+  /**
+   * Panel-review write-backs (property-services `contribute()`), keyed by field → summary. A completed
+   * field resolves the matching desktop gap instead of leaving it open: `title` clears the tenure
+   * (easements/covenants) gap; `servicing` clears the servicing gap; `contamination` is surfaced as a
+   * line (and drives the valuer's site-risk). Provenance on the resolved line is 'operator-resolved'.
+   */
+  resolvedPanel?: Partial<
+    Record<'title' | 'contamination' | 'servicing' | 'native_title' | 'survey_geotech', string>
+  >
 }

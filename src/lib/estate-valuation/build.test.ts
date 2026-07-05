@@ -50,6 +50,34 @@ describe('buildValuationPack — absorption two-phase curve', () => {
   })
 })
 
+describe('buildValuationPack — site risk (overlays / contamination)', () => {
+  it('is low with no constraints and leaves the benchmark absorption unchanged', () => {
+    const p = buildValuationPack({ lots: 24, grvPerLot: 400000, benchmarkRatePerMonth: 4 })
+    expect(p.siteRisk.level).toBe('low')
+    expect(p.siteRisk.absorptionFactor).toBe(1)
+    expect(p.absorption.benchmarkRatePerMonth).toBe(4)
+  })
+
+  it('escalates with contamination + flood and slows the benchmark absorption', () => {
+    const clean = buildValuationPack({ lots: 24, grvPerLot: 400000, benchmarkRatePerMonth: 10 })
+    const risky = buildValuationPack({
+      lots: 24, grvPerLot: 400000, benchmarkRatePerMonth: 10,
+      siteRisk: { contaminated: true, overlays: ['Flood planning'] },
+    })
+    // contamination(3) + flood(2) = 5 → critical
+    expect(risky.siteRisk.level).toBe('critical')
+    expect(risky.siteRisk.factors).toContain('contamination recorded')
+    expect(risky.siteRisk.absorptionFactor).toBeLessThan(1)
+    expect(risky.absorption.benchmarkRatePerMonth).toBeLessThan(clean.absorption.benchmarkRatePerMonth)
+  })
+
+  it('flags a single report-required overlay as medium risk (0.9x absorption)', () => {
+    const p = buildValuationPack({ lots: 20, grvPerLot: 400000, siteRisk: { overlays: ['Vegetation protection'] } })
+    expect(p.siteRisk.level).toBe('medium')
+    expect(p.siteRisk.absorptionFactor).toBe(0.9)
+  })
+})
+
 describe('absorptionToSalesProfile (3c-D)', () => {
   it('converts a take-up vector to revenue fractions summing to 1', () => {
     const profile = absorptionToSalesProfile([10, 4, 4, 2])

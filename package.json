@@ -18,7 +18,7 @@
     "@caistech/deal-model": "^0.3.0",
     "@caistech/elevenlabs-convai": "^0.4.9",
     "@caistech/platform-trust-middleware": "^0.4.0",
-    "@caistech/property-services-sdk": "^0.5.0",
+    "@caistech/property-services-sdk": "^0.7.0",
     "@caistech/report-generator": "^0.1.0",
     "@caistech/sayfix-embed": "^0.4.0",
     "@react-pdf/renderer": "^4.5.1",
