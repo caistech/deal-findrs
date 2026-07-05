@@ -1,5 +1,8 @@
-import { chat } from '@/lib/ai/client'
+import { chat, aiClient, AI_MODEL } from '@/lib/ai/client'
 import type { ApprovalCondition, ExtractedApproval } from './types'
+
+/** Vision-capable model for scanned/image documents; falls back to the default text model. */
+const VISION_MODEL = process.env.DOC_VISION_MODEL || AI_MODEL
 
 const SYSTEM = `You extract structured data from Australian subdivision planning documents (WAPC
 decision letters, deposited/subdivision plans, lot-summary tables). Return ONLY a JSON object — no
@@ -69,22 +72,8 @@ function normaliseConditions(v: unknown): ApprovalCondition[] {
     .filter((c): c is ApprovalCondition => c !== null)
 }
 
-/**
- * Extract the structured subdivision-approval fields from a document's text via the DataWizz LLM.
- * The caller passes the merged text of the decision letter (and optionally the plan summary). The
- * result is validated/coerced field-by-field so a malformed model response degrades to nulls rather
- * than throwing downstream.
- */
-export async function extractApprovalFromText(text: string): Promise<ExtractedApproval> {
-  const clipped = text.slice(0, 24_000) // decision letters + a plan summary fit well within this
-  const raw = await chat(
-    [
-      { role: 'system', content: SYSTEM },
-      { role: 'user', content: `${SCHEMA_HINT}\n\nDOCUMENT TEXT:\n${clipped}` },
-    ],
-    { temperature: 0, maxTokens: 4096, metadata: { task: 'subdivision_approval_extract' } },
-  )
-  const o = parseJson(raw) as Record<string, unknown>
+/** Validate/coerce the model's JSON field-by-field so a malformed response degrades to nulls. */
+function normaliseExtraction(o: Record<string, unknown>): ExtractedApproval {
   return {
     wapcRef: str(o.wapcRef),
     approvalDate: str(o.approvalDate),
@@ -102,4 +91,46 @@ export async function extractApprovalFromText(text: string): Promise<ExtractedAp
     posSqm: num(o.posSqm),
     conditions: normaliseConditions(o.conditions),
   }
+}
+
+/**
+ * Extract the structured subdivision-approval fields from a document's TEXT via the DataWizz LLM.
+ * Used for text PDFs (the WAPC decision letter). Malformed model output degrades to nulls.
+ */
+export async function extractApprovalFromText(text: string): Promise<ExtractedApproval> {
+  const clipped = text.slice(0, 24_000) // decision letters + a plan summary fit well within this
+  const raw = await chat(
+    [
+      { role: 'system', content: SYSTEM },
+      { role: 'user', content: `${SCHEMA_HINT}\n\nDOCUMENT TEXT:\n${clipped}` },
+    ],
+    { temperature: 0, maxTokens: 4096, metadata: { task: 'subdivision_approval_extract' } },
+  )
+  return normaliseExtraction(parseJson(raw) as Record<string, unknown>)
+}
+
+/**
+ * Extract the structured subdivision-approval fields from page IMAGES via a vision LLM — the
+ * scanned/image-PDF path (Phase 5). Reuses the same schema as the text path; mirrors
+ * `@caistech/cert-extractor`'s image+vision approach but with our subdivision schema (cert-extractor's
+ * output is certificate-specific). Requires a vision-capable `DOC_VISION_MODEL`.
+ */
+export async function extractApprovalFromImages(imageDataUrls: string[]): Promise<ExtractedApproval> {
+  if (imageDataUrls.length === 0) throw new Error('no page images to extract')
+  const content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [
+    { type: 'text', text: `${SCHEMA_HINT}\n\nThe document is provided as page images. Read every page.` },
+    ...imageDataUrls.slice(0, 12).map((url) => ({ type: 'image_url' as const, image_url: { url } })),
+  ]
+  const res = await aiClient.instance.chat.completions.create({
+    model: VISION_MODEL,
+    temperature: 0,
+    max_tokens: 4096,
+    messages: [
+      { role: 'system', content: SYSTEM },
+      { role: 'user', content },
+    ],
+  })
+  const raw = res.choices[0]?.message?.content
+  if (!raw) throw new Error('vision extractor returned no content')
+  return normaliseExtraction(parseJson(raw) as Record<string, unknown>)
 }

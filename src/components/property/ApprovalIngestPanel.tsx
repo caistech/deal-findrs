@@ -26,7 +26,14 @@ interface IngestResult {
  * resolve the planner referral, and the stage gates the document evidences roll up to a lifecycle
  * status. `onIngested` lets the parent re-render with the resolution applied.
  */
-export function ApprovalIngestPanel({ opportunityId, onIngested }: { opportunityId: string; onIngested: () => void }) {
+export function ApprovalIngestPanel({
+  opportunityId,
+  onIngested,
+}: {
+  opportunityId: string
+  /** Called after a successful ingest with the approved residential-lot count (null if none read). */
+  onIngested: (lots: number | null) => void
+}) {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<IngestResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -46,7 +53,7 @@ export function ApprovalIngestPanel({ opportunityId, onIngested }: { opportunity
         return
       }
       setResult(data as IngestResult)
-      onIngested()
+      onIngested((data as IngestResult).extracted.residentialLots ?? null)
     } catch {
       setError('Upload failed — check your connection and retry.')
     } finally {

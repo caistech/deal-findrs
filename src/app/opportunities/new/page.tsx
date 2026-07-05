@@ -16,11 +16,12 @@ import { ConstraintsYieldBrief } from '@/components/property/ConstraintsYieldBri
 import type { PropertyProfile } from '@/lib/property-services'
 import type { GeocodedAddress, SiteIntelResult } from '@/lib/mapbox'
 
-type Step = 'basics' | 'property' | 'financial' | 'documents' | 'review'
+type Step = 'basics' | 'approval' | 'property' | 'financial' | 'documents' | 'review'
 
 // Map form steps to ElevenLabs agent steps
 const VOICE_STEPS: Record<Step, 'basics' | 'property' | 'financial' | 'derisk' | null> = {
   basics: 'basics',
+  approval: null,  // No voice for the approval-ingest step
   property: 'property',
   financial: 'financial',
   documents: null, // No voice for documents step
@@ -128,6 +129,7 @@ export default function NewOpportunityPage() {
 
   const steps: { key: Step; label: string; icon: string }[] = [
     { key: 'basics', label: 'Basics', icon: '📍' },
+    { key: 'approval', label: 'Approval', icon: '📋' },
     { key: 'property', label: 'Property', icon: '🏗️' },
     { key: 'financial', label: 'Financial', icon: '💰' },
     { key: 'documents', label: 'Documents', icon: '📄' },
@@ -300,9 +302,9 @@ export default function NewOpportunityPage() {
     const nextIndex = currentStepIndex + 1
     if (nextIndex >= steps.length) return
     const nextKey = steps[nextIndex].key
-    // Entering the documents step requires a saved opportunity ID so that
-    // evidence uploads have something real to attach to.
-    if (nextKey === 'documents') {
+    // Entering the approval or documents step requires a saved opportunity ID so that the approval
+    // ingest + evidence uploads have something real to attach to.
+    if (nextKey === 'approval' || nextKey === 'documents') {
       const id = await ensureDraft()
       if (!id) return // surface error; don't advance
     }
@@ -824,6 +826,38 @@ export default function NewOpportunityPage() {
                     />
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* ===== STEP: APPROVAL (establish current status from the approval, up front) ===== */}
+            {currentStep === 'approval' && draftId && (
+              <div className="space-y-4">
+                <ApprovalIngestPanel
+                  opportunityId={draftId}
+                  onIngested={(lots) => {
+                    setApprovalIngested(true)
+                    if (lots) setDerivedLots(lots)
+                  }}
+                />
+                <p className="text-sm text-gray-500">
+                  Optional — if you have the subdivision approval, upload it to set the deal&apos;s current status,
+                  approved yield and conditions before you go on. No approval yet? Skip ahead and the buildup will
+                  derive what it can and flag a planner referral.
+                </p>
+                {approvalIngested && (
+                  <p className="text-sm text-emerald-700">
+                    Status, approved yield and conditions are set — they carry through to the property, financial,
+                    assessment and review-pack steps.
+                  </p>
+                )}
+              </div>
+            )}
+            {currentStep === 'approval' && !draftId && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">
+                <p className="font-medium text-amber-900">Saving deal as a draft…</p>
+                <p className="mt-1 text-sm text-amber-700">
+                  The approval upload needs a saved opportunity to attach to. {draftError ? `Error: ${draftError}.` : 'This usually takes a moment.'}
+                </p>
               </div>
             )}
 
@@ -1360,22 +1394,12 @@ export default function NewOpportunityPage() {
               </div>
             )}
 
-            {/* ===== STEP: DOCUMENTS ===== */}
+            {/* ===== STEP: DOCUMENTS (other supporting evidence; the approval is ingested earlier) ===== */}
             {currentStep === 'documents' && draftId && (
-              <div className="space-y-6">
-                {/* Establish the deal's current status from its approval up front (Phase 1–3 ingest). */}
-                <ApprovalIngestPanel opportunityId={draftId} onIngested={() => setApprovalIngested(true)} />
-                {approvalIngested && (
-                  <p className="text-sm text-emerald-700">
-                    Status, approved yield and conditions are set from the approval — they carry through to the
-                    assessment and the review packs.
-                  </p>
-                )}
-                <DocumentUpload
-                  opportunityId={draftId}
-                  onEvidenceChange={setDocuments}
-                />
-              </div>
+              <DocumentUpload
+                opportunityId={draftId}
+                onEvidenceChange={setDocuments}
+              />
             )}
             {currentStep === 'documents' && !draftId && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-6">

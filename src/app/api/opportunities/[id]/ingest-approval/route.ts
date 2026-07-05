@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { getCompanyId } from '@/lib/auth/get-company-id'
-import { pdfToText } from '@/lib/document-ingest/pdf'
-import { extractApprovalFromText } from '@/lib/document-ingest/extract'
+import { pdfToText, pdfToImages } from '@/lib/document-ingest/pdf'
+import { extractApprovalFromText, extractApprovalFromImages } from '@/lib/document-ingest/extract'
 import { stageGateFromApproval, mergeStageGates, deriveLifecycleStatus, outstandingGates, assignStage } from '@/lib/document-ingest/stage-gate'
 import { emptyStageGate } from '@caistech/deal-model'
 import type { StageGateTicks } from '@caistech/deal-model'
@@ -45,18 +45,36 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     .single()
   if (oppErr || !opp) return NextResponse.json({ error: 'opportunity_not_found' }, { status: 404 })
 
-  // Extract → structured approval.
-  let text: string
+  // Extract → structured approval. Text PDF (WAPC letter) → text path; scanned/image PDF (no text
+  // layer) → render pages + vision path (Phase 5).
+  const SCANNED_TEXT_THRESHOLD = 200 // chars — below this the PDF is effectively image-only
+  let text = ''
   try {
     text = await pdfToText(buffer)
   } catch {
-    return NextResponse.json({ error: 'pdf_parse_failed' }, { status: 422 })
+    /* unreadable text layer — fall through to the image path */
   }
-  if (!text.trim()) return NextResponse.json({ error: 'pdf_empty' }, { status: 422 })
 
   let extracted
   try {
-    extracted = await extractApprovalFromText(text)
+    if (text.trim().length >= SCANNED_TEXT_THRESHOLD) {
+      extracted = await extractApprovalFromText(text)
+    } else {
+      let images: string[]
+      try {
+        images = await pdfToImages(buffer)
+      } catch {
+        return NextResponse.json(
+          {
+            error: 'scanned_unsupported',
+            detail:
+              'This looks like a scanned/image PDF and the server could not render it for OCR. Upload a text-based PDF, or configure the OCR/vision path (DOC_VISION_MODEL).',
+          },
+          { status: 422 },
+        )
+      }
+      extracted = await extractApprovalFromImages(images)
+    }
   } catch (e) {
     return NextResponse.json({ error: 'extraction_failed', detail: (e as Error).message }, { status: 502 })
   }
