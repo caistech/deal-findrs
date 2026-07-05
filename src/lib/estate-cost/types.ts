@@ -60,6 +60,40 @@ export interface EstateCostPack {
   totalLandDevCost: number
 }
 
+/** One phase of the civil-subdivision drawdown programme (the QS S-curve). */
+export interface DrawdownPhase {
+  phase: string
+  /** This phase's share of the works (%). */
+  percent: number
+  /** Cumulative % complete at the end of this phase (the S-curve). */
+  cumulativePercent: number
+  /** This phase's spend. */
+  amount: number
+  /** Cumulative spend to the end of this phase. */
+  cumulativeAmount: number
+  /** Target month (end of phase) within the programme. */
+  targetMonth: number
+}
+
+/** The construction programme + drawdown S-curve for the civil (land-development) works. */
+export interface CivilProgramme {
+  /** Total programme length in months. */
+  months: number
+  /** The works total the drawdown applies to (civil + soft + statutory + contingency, ex-land). */
+  worksTotal: number
+  phases: DrawdownPhase[]
+}
+
+/** Professional-indemnity insurance requirement, scaled to the build size. */
+export interface PiInsurance {
+  /** The build cost the cover is scaled against. */
+  buildCost: number
+  /** Required PI cover. */
+  cover: number
+  /** The band label (e.g. "≤$5m build → $1m cover"). */
+  band: string
+}
+
 /** Inputs to the buildup — what can't be benchmarked (lots, state, known land price, H&L intent). */
 export interface EstateCostInput {
   lots: number

@@ -149,6 +149,35 @@ function sensitivityBlock(s: EstateSensitivity | undefined): string {
   ].join('\n\n')
 }
 
+/** B3 — the five valuation approaches, tied to what B6 (residual) + B1 (DCF) already compute. */
+function approachesBlock(pack: EstateValuationPack): string {
+  const retail = pack.totalGrv // aggregate retail realisation (sum of lot GRVs)
+  const residual = pack.pnl?.residualLandValue ?? null // "in one line" / bulk englobo value
+  const rows: string[] = [
+    `| 1. Direct comparison → GRV (primary) | ${money(pack.grvPerLot)}/lot × ${pack.lots} = **${money(retail)}** aggregate retail |`,
+    `| 2. Hypothetical development (residual, target margin) | ${pack.pnl ? `**${money(pack.pnl.residualLandValue)}** residual land value` : '— (needs QS costs)'} |`,
+    `| 3. DCF sell-down (residual, NPV basis) | ${pack.dcf ? `**${money(pack.dcf.rlvNpv)}** · IRR ${pack.dcf.irrAnnual == null ? 'n/a' : pct(pack.dcf.irrAnnual)}` : '— (needs QS costs)'} |`,
+  ]
+  if (residual != null) {
+    const discount = retail > 0 ? 1 - residual / retail : 0
+    rows.push(
+      `| 4. "In one line" (bulk) vs aggregate | bulk/englobo **${money(residual)}** vs aggregate retail ${money(retail)} — ${pct(discount)} below retail (development cost + margin) |`,
+    )
+    // Net realisation = GRV less GST on sales less selling costs (on-completion net proceeds).
+    if (pack.pnl) {
+      rows.push(`| 5. Net realisation (on-completion, net of GST + selling) | **${money(pack.pnl.grossProfitExGst)}** |`)
+    }
+  }
+  return [
+    '## Valuation approaches',
+    '_The site valued five ways; residual (2), DCF (3) and net realisation (5) reconcile against the direct-comparison GRV (1)._',
+    '',
+    '| Approach | Result |',
+    '|---|---|',
+    rows.join('\n'),
+  ].join('\n')
+}
+
 function buildMarkdown(ctx: ReviewPackContext): string {
   const pack = ctx.valuationPack!
   const o = ctx.opportunity
@@ -167,6 +196,7 @@ function buildMarkdown(ctx: ReviewPackContext): string {
 
   return [
     header,
+    approachesBlock(pack),
     grvBlock(pack),
     pnlBlock(pack.pnl),
     dcfBlock(pack.dcf),

@@ -1,4 +1,5 @@
 import type { EstateCostLine, EstateCostPack, CostCategory } from '@/lib/estate-cost/types'
+import { buildCivilProgramme, estateProgrammeMonths, piInsuranceCover } from '@/lib/estate-cost/build'
 import type { ReviewPackContext, ReviewPackTemplate } from './types'
 
 /**
@@ -39,6 +40,45 @@ function costSummary(pack: EstateCostPack): string {
   return rows.join('\n')
 }
 
+/** Construction programme + drawdown S-curve for the civil works. */
+function programmeBlock(pack: EstateCostPack): string {
+  const worksTotal = pack.totalLandDevCost - pack.landPerLot * pack.lots
+  const prog = buildCivilProgramme(worksTotal, estateProgrammeMonths(pack.lots))
+  const rows = prog.phases
+    .map(
+      (p) =>
+        `| ${p.phase} | ${p.percent}% | ${p.cumulativePercent}% | ${money(p.amount)} | ${money(p.cumulativeAmount)} | M${p.targetMonth} |`,
+    )
+    .join('\n')
+  // Compact S-curve — a cumulative-% bar per phase (20 cells).
+  const bar = (c: number) => '█'.repeat(Math.round((c / 100) * 20)).padEnd(20, '░')
+  const curve = prog.phases.map((p) => `M${String(p.targetMonth).padStart(2)} ${bar(p.cumulativePercent)} ${p.cumulativePercent}%`).join('\n')
+  return [
+    '## Programme & drawdown S-curve',
+    `_Indicative ${prog.months}-month civil programme; drawdown against the ${money(worksTotal)} works (ex-land). Confirm against the construction contract._`,
+    '',
+    '| Phase | Draw | Cum. | Amount | Cum. amount | Target |',
+    '|---|---|---|---|---|---|',
+    rows,
+    '',
+    '```',
+    curve,
+    '```',
+  ].join('\n')
+}
+
+/** Scaled PI-insurance schedule (AIQS CFR banding). */
+function piBlock(pack: EstateCostPack): string {
+  const worksTotal = pack.totalLandDevCost - pack.landPerLot * pack.lots
+  const pi = piInsuranceCover(worksTotal)
+  return [
+    '## Consultants & PI insurance',
+    `- **Build cost (works, ex-land):** ${money(pi.buildCost)}`,
+    `- **Required PI cover:** ${money(pi.cover)} _(${pi.band})_`,
+    '- [ ] Each consultant (civil, surveyor, geotech, planner) holds current PI at or above this level — confirm certificates of currency.',
+  ].join('\n')
+}
+
 function buildMarkdown(ctx: ReviewPackContext): string {
   const pack = ctx.costPack!
   const o = ctx.opportunity
@@ -63,6 +103,9 @@ function buildMarkdown(ctx: ReviewPackContext): string {
     parts.push(`### ${cat}`)
     parts.push(rows.map(lineRow).join('\n'))
   }
+
+  parts.push(programmeBlock(pack))
+  parts.push(piBlock(pack))
 
   parts.push('## Certification')
   parts.push(

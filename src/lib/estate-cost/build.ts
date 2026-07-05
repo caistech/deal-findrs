@@ -1,7 +1,14 @@
 // Import from the source module (not the devfinance barrel) so this stays client-safe — the barrel
 // re-exports server-only db helpers.
 import { getRegionalFactor, calculateConstructionCost } from '@/lib/devfinance/costs'
-import type { EstateCostInput, EstateCostLine, EstateCostPack } from './types'
+import type {
+  CivilProgramme,
+  DrawdownPhase,
+  EstateCostInput,
+  EstateCostLine,
+  EstateCostPack,
+  PiInsurance,
+} from './types'
 
 /**
  * Build the lot-level QS cost buildup. Pure/stateless. Reuses devfinance's `getRegionalFactor` for
@@ -57,6 +64,54 @@ const CONTINGENCY_PCT = 0.075
 
 function round(n: number): number {
   return Math.round(n)
+}
+
+/** Civil-subdivision drawdown phases (land development), as % of the works — the estate S-curve
+ *  shape (NOT the house-build Slab/Frame/… profile, which is for the H&L home line). */
+const CIVIL_DRAWDOWN_PHASES: { phase: string; percent: number }[] = [
+  { phase: 'Bulk earthworks & site regrade', percent: 20 },
+  { phase: 'Roadworks, kerbing, drainage & stormwater', percent: 30 },
+  { phase: 'Water, sewer, power & comms reticulation', percent: 30 },
+  { phase: 'Landscaping, POS & practical completion', percent: 12 },
+  { phase: 'Plan registration & titles', percent: 8 },
+]
+
+/** Indicative civil programme length (months) for an estate of N lots. */
+export function estateProgrammeMonths(lots: number): number {
+  return Math.max(6, Math.min(24, 6 + Math.round(Math.max(0, lots) / 3)))
+}
+
+/** Build the civil programme + drawdown S-curve for the land-development works. */
+export function buildCivilProgramme(worksTotal: number, programMonths: number): CivilProgramme {
+  const works = Math.max(0, worksTotal)
+  const months = Math.max(CIVIL_DRAWDOWN_PHASES.length, Math.round(programMonths))
+  const monthsPerPhase = months / CIVIL_DRAWDOWN_PHASES.length
+  let cumulativeAmount = 0
+  let cumulativePercent = 0
+  const phases: DrawdownPhase[] = CIVIL_DRAWDOWN_PHASES.map((p, i) => {
+    const amount = Math.round(works * (p.percent / 100))
+    cumulativeAmount += amount
+    cumulativePercent += p.percent
+    return {
+      phase: p.phase,
+      percent: p.percent,
+      cumulativePercent,
+      amount,
+      cumulativeAmount,
+      targetMonth: Math.round((i + 1) * monthsPerPhase),
+    }
+  })
+  return { months, worksTotal: works, phases }
+}
+
+/**
+ * Professional-indemnity cover scaled to the build size (AIQS CFR banding):
+ * ≤$5m build → $1m · $5m–$10m → $3m · >$10m → $5m.
+ */
+export function piInsuranceCover(buildCost: number): PiInsurance {
+  if (buildCost <= 5_000_000) return { buildCost, cover: 1_000_000, band: '≤$5m build → $1m cover' }
+  if (buildCost <= 10_000_000) return { buildCost, cover: 3_000_000, band: '$5m–$10m build → $3m cover' }
+  return { buildCost, cover: 5_000_000, band: '>$10m build → $5m cover' }
 }
 
 export function buildEstateCostPack(input: EstateCostInput): EstateCostPack {

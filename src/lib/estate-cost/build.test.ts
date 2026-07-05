@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildEstateCostPack } from './build'
+import { buildEstateCostPack, buildCivilProgramme, estateProgrammeMonths, piInsuranceCover } from './build'
 
 describe('buildEstateCostPack', () => {
   it('builds a land-subdivision buildup with per-lot subtotals feeding the deal-model', () => {
@@ -79,5 +79,34 @@ describe('buildEstateCostPack', () => {
       terrain: { slopePercent: 22 }, overrides: { earthworks: 5000 },
     })
     expect(pack.lines.find((l) => l.key === 'earthworks')!.perLot).toBe(5000)
+  })
+})
+
+describe('estateProgrammeMonths', () => {
+  it('clamps to 6..24 months and scales with lots', () => {
+    expect(estateProgrammeMonths(0)).toBe(6)
+    expect(estateProgrammeMonths(30)).toBe(16) // 6 + round(30/3)
+    expect(estateProgrammeMonths(500)).toBe(24)
+  })
+})
+
+describe('buildCivilProgramme (S-curve)', () => {
+  const prog = buildCivilProgramme(5_000_000, 15)
+  it('phases sum to 100% cumulative and ~the works total', () => {
+    expect(prog.phases[prog.phases.length - 1].cumulativePercent).toBe(100)
+    expect(prog.phases[prog.phases.length - 1].cumulativeAmount).toBeCloseTo(5_000_000, -3)
+  })
+  it('target months increase monotonically to the programme length', () => {
+    const months = prog.phases.map((p) => p.targetMonth)
+    for (let i = 1; i < months.length; i++) expect(months[i]).toBeGreaterThanOrEqual(months[i - 1])
+    expect(months[months.length - 1]).toBe(15)
+  })
+})
+
+describe('piInsuranceCover (AIQS banding)', () => {
+  it('scales cover to the build size', () => {
+    expect(piInsuranceCover(4_000_000).cover).toBe(1_000_000)
+    expect(piInsuranceCover(8_000_000).cover).toBe(3_000_000)
+    expect(piInsuranceCover(12_000_000).cover).toBe(5_000_000)
   })
 })
