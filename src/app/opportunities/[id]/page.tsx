@@ -11,6 +11,7 @@ import { AuthLayout } from '@/components/common/AuthLayout'
 import { ConstraintsYieldBrief } from '@/components/property/ConstraintsYieldBrief'
 import { KickoffPanel } from '@/components/property/KickoffPanel'
 import { PlannerReferralPanel } from '@/components/property/PlannerReferralPanel'
+import { ApprovalIngestPanel } from '@/components/property/ApprovalIngestPanel'
 import { ReviewPacksPanel } from '@/components/property/ReviewPacksPanel'
 import { PanelReviewPanel } from '@/components/property/PanelReviewPanel'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
@@ -720,6 +721,10 @@ export default function OpportunityDetailPage() {
             {/* Estate Constraints & Yield Brief — derived buildup from the persisted profile */}
             {opportunity.property_profile && (
               <ConstraintsYieldBrief profile={opportunity.property_profile} options={{ operatorResolved }} />
+            )}
+            {/* Document-driven status: upload the approval to resolve the referral from the evidence. */}
+            {opportunity.property_profile && (
+              <ApprovalIngestPanel opportunityId={opportunity.id} onIngested={() => window.location.reload()} />
             )}
             {opportunity.property_profile && estateBrief?.requiresPlannerReferral && (
               <PlannerReferralPanel opportunityId={opportunity.id} onResolved={fetchReferral} />
