@@ -2,6 +2,7 @@ import type {
   AbsorptionCurve,
   AvmCrossCheck,
   EstateValuationPack,
+  ValuerDcf,
   ValuerResidualPnl,
 } from '@/lib/estate-valuation/types'
 import type { ReviewPackContext, ReviewPackTemplate } from './types'
@@ -111,6 +112,21 @@ function pnlBlock(pnl: ValuerResidualPnl | null): string {
   ].join('\n')
 }
 
+function dcfBlock(dcf: ValuerDcf | null): string {
+  if (!dcf) {
+    return ['## DCF — IRR & NPV', '_Unavailable — requires the QS cost pack + a land price._'].join('\n')
+  }
+  const irr = dcf.irrAnnual == null ? 'n/a (no positive net flow)' : pct(dcf.irrAnnual)
+  return [
+    '## DCF — IRR, NPV & NPV-basis RLV',
+    `_Unlevered project cashflow: ${dcf.buildStages} build stages × ${dcf.stageDurationMonths} months, sales over the absorption sell-down, discounted at ${pct(dcf.discountRateAnnual)}. Indicative._`,
+    '',
+    `- **Project IRR (annualised):** ${irr}`,
+    `- **NPV @ ${pct(dcf.discountRateAnnual)}:** ${money(dcf.npvAtDiscount)}`,
+    `- **Residual land value (NPV basis):** ${money(dcf.rlvNpv)} _(land price at which NPV = 0)_`,
+  ].join('\n')
+}
+
 function buildMarkdown(ctx: ReviewPackContext): string {
   const pack = ctx.valuationPack!
   const o = ctx.opportunity
@@ -131,6 +147,7 @@ function buildMarkdown(ctx: ReviewPackContext): string {
     header,
     grvBlock(pack),
     pnlBlock(pack.pnl),
+    dcfBlock(pack.dcf),
     avmBlock(pack.avm),
     absorptionBlock(pack.absorption),
     [

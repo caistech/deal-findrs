@@ -73,6 +73,25 @@ export interface EstateValuationPack {
   /** Residual-land P&L (hypothetical-development method) — attached in the route where the QS costs
    *  are known. Null when the cost pack isn't available. */
   pnl: ValuerResidualPnl | null
+  /** DCF metrics (project IRR + NPV + NPV-basis RLV) — attached in the route. Null when unavailable. */
+  dcf: ValuerDcf | null
+}
+
+/** DCF sell-down metrics — project IRR, NPV, and the NPV-basis residual land value (complements the
+ *  target-margin RLV in {@link ValuerResidualPnl}). Indicative — staged over the absorption period. */
+export interface ValuerDcf {
+  /** Annualised unlevered project IRR (null when not computable — e.g. no positive net flow). */
+  irrAnnual: number | null
+  /** Project NPV at the discount rate (land at t0). */
+  npvAtDiscount: number
+  /** The annual discount rate used. */
+  discountRateAnnual: number
+  /** Residual land value on an NPV basis = the land price at which NPV = 0 at the discount rate. */
+  rlvNpv: number
+  /** Build stages assumed for the staged cashflow. */
+  buildStages: number
+  /** Stage duration (months) derived from the absorption sell-down. */
+  stageDurationMonths: number
 }
 
 // ---- Residual-land P&L (Feastudy "Valuer's-Style" hypothetical-development method) ----

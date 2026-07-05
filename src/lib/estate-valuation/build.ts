@@ -1,4 +1,4 @@
-import { computeGst, DEFAULT_GST_SCHEME } from '@caistech/deal-model'
+import { computeGst, DEFAULT_GST_SCHEME, runCashflow, cashflowMetrics } from '@caistech/deal-model'
 import type {
   AbsorptionCurve,
   AvmGate,
@@ -6,6 +6,7 @@ import type {
   EstateValuationPack,
   SiteRiskAssessment,
   SiteRiskLevel,
+  ValuerDcf,
   ValuerResidualPnl,
   ValuerResidualPnlInput,
 } from './types'
@@ -136,6 +137,55 @@ export function buildValuationPack(input: EstateValuationInput): EstateValuation
     absorption: buildAbsorption(lots, input, siteRisk.absorptionFactor),
     siteRisk,
     pnl: null, // attached in the route where the QS costs are known
+    dcf: null, // attached in the route (needs land + QS costs)
+  }
+}
+
+/**
+ * DCF metrics (B1) — project IRR + NPV + NPV-basis RLV, computed from a staged project cashflow
+ * (works out over N stages, sales in lagged one stage, land at t0) via the shared deal-model
+ * `runCashflow` + `cashflowMetrics`. Indicative: stages/duration are derived from lot count +
+ * the absorption sell-down. Complements the target-margin residual in {@link buildValuerPnl}.
+ */
+export function buildValuerDcf(input: {
+  grvPerLot: number
+  lots: number
+  developmentCostExclLand: number
+  landAcquisitionCost: number
+  absorptionMonths: number
+  sellingCostPct?: number
+  discountRateAnnual?: number
+}): ValuerDcf {
+  const lots = Math.max(1, Math.round(input.lots))
+  const buildStages = Math.max(2, Math.min(6, Math.ceil(lots / 10)))
+  const stageDurationMonths = Math.max(3, Math.round((input.absorptionMonths || 12) / (buildStages + 1)))
+  const discountRateAnnual = input.discountRateAnnual ?? 0.12
+
+  const cf = runCashflow({
+    totalContributions: 0, // unlevered project IRR — no contribution/funder timing
+    contributorPayoutPct: 0,
+    totalWorksToTitle: Math.max(0, input.developmentCostExclLand),
+    saleableLots: lots,
+    buildStages,
+    salePricePerLot: Math.max(0, input.grvPerLot),
+    sellingCostPct: input.sellingCostPct ?? 0.035,
+    stageDurationMonths,
+  })
+  const m = cashflowMetrics(cf, {
+    landOutlay: input.landAcquisitionCost,
+    stageDurationMonths,
+    discountRateAnnual,
+  })
+  // NPV-basis RLV: the land price at which NPV = 0 (land sits undiscounted at t0).
+  const rlvNpv = m.npvAtDiscount + Math.abs(input.landAcquisitionCost)
+
+  return {
+    irrAnnual: m.irrAnnual,
+    npvAtDiscount: m.npvAtDiscount,
+    discountRateAnnual,
+    rlvNpv,
+    buildStages,
+    stageDurationMonths,
   }
 }
 

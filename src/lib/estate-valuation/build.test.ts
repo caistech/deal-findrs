@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildValuationPack, buildValuerPnl, gateAvmConfidence, absorptionToSalesProfile } from './build'
+import { buildValuationPack, buildValuerPnl, buildValuerDcf, gateAvmConfidence, absorptionToSalesProfile } from './build'
 
 describe('gateAvmConfidence', () => {
   it('asserts on confident / recentlySold, degrades otherwise', () => {
@@ -127,6 +127,30 @@ describe('buildValuerPnl — residual land valuation (B6)', () => {
     expect(std.gstOnSales).toBeCloseTo(12_000_000 / 11, 2)
     expect(std.netRealisationExGst).toBeLessThan(pnl.netRealisationExGst)
     expect(std.residualLandValue).toBeLessThan(pnl.residualLandValue)
+  })
+})
+
+describe('buildValuerDcf — IRR/NPV/NPV-basis RLV (B1)', () => {
+  const dcf = buildValuerDcf({
+    grvPerLot: 400_000,
+    lots: 30,
+    developmentCostExclLand: 4_400_000,
+    landAcquisitionCost: 3_000_000,
+    absorptionMonths: 24,
+  })
+
+  it('produces a finite annualised IRR and NPV', () => {
+    expect(dcf.irrAnnual).not.toBeNull()
+    expect(Number.isFinite(dcf.irrAnnual as number)).toBe(true)
+    expect(Number.isFinite(dcf.npvAtDiscount)).toBe(true)
+  })
+  it('NPV-basis RLV = NPV + land (land price at which NPV = 0)', () => {
+    expect(dcf.rlvNpv).toBeCloseTo(dcf.npvAtDiscount + 3_000_000, 2)
+  })
+  it('derives staging from lot count + absorption', () => {
+    expect(dcf.buildStages).toBeGreaterThanOrEqual(2)
+    expect(dcf.buildStages).toBeLessThanOrEqual(6)
+    expect(dcf.stageDurationMonths).toBeGreaterThanOrEqual(3)
   })
 })
 

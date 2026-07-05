@@ -5,7 +5,7 @@ import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import type { BuildupOptions } from '@/lib/estate-buildup/types'
 import { buildEstateCostPack } from '@/lib/estate-cost/build'
 import type { EstateCostPack } from '@/lib/estate-cost/types'
-import { buildValuationPack, buildValuerPnl } from '@/lib/estate-valuation/build'
+import { buildValuationPack, buildValuerPnl, buildValuerDcf } from '@/lib/estate-valuation/build'
 import { fetchAvmCrossCheck } from '@/lib/estate-valuation/avm'
 import type { EstateValuationPack } from '@/lib/estate-valuation/types'
 import { getReviewPackTemplate } from '@/lib/review-packs/registry'
@@ -162,6 +162,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           landAcquisitionCost: landPrice ?? 0,
           lots,
           siteAreaSqm: profileFull.lot?.lotSize ?? null,
+        })
+        // DCF (B1) — project IRR + NPV + NPV-basis RLV over the absorption sell-down.
+        valuationPack.dcf = buildValuerDcf({
+          grvPerLot,
+          lots,
+          developmentCostExclLand: devCostExclLand,
+          landAcquisitionCost: landPrice ?? 0,
+          absorptionMonths: valuationPack.absorption.totalMonths,
         })
       }
     }
