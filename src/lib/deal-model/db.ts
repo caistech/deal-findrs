@@ -1,11 +1,22 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { DealModelResult } from '@caistech/deal-model'
+import type { DealModelResult, CashflowInputs, CashflowResult } from '@caistech/deal-model'
 import type { DealModelDealInput } from './types'
 
 /** Version of the shared engine that produced a snapshot (pinned per package release). */
-export const DEAL_MODEL_ENGINE_VERSION = '0.1.0'
+export const DEAL_MODEL_ENGINE_VERSION = '0.3.0'
 
 export type DealModelGrade = 'indicative' | 'bankable'
+
+/** The funder-cashflow view persisted alongside a deal snapshot (optional). */
+export interface SnapshotCashflow {
+  inputs: CashflowInputs
+  result: CashflowResult
+  /**
+   * TRUE if the staging (build stages / stage duration) was the indicative 5×9 placeholder
+   * at compute time — the tripwire so a placeholder funder view is never mistaken for firm.
+   */
+  stagingIsPlaceholder: boolean
+}
 
 export interface SaveSnapshotArgs {
   opportunityId: string
@@ -18,6 +29,8 @@ export interface SaveSnapshotArgs {
   ragStatus?: 'green' | 'amber' | 'red' | null
   /** Required when the input carries a stage or share override (audit-distinct). */
   overrideReason?: string | null
+  /** The funder-cashflow view, when the contribution pool has been entered. */
+  cashflow?: SnapshotCashflow | null
 }
 
 /**
@@ -74,6 +87,11 @@ export async function saveDealModelSnapshot(
       rag_status: args.ragStatus ?? null,
       has_manual_override: hasOverride,
       override_reason: args.overrideReason ?? null,
+      // Funder-cashflow view (nullable — only when the contribution pool was entered).
+      cashflow: args.cashflow?.result ?? null,
+      cashflow_inputs: args.cashflow?.inputs ?? null,
+      peak_funder_exposure: args.cashflow?.result.peakFunderExposure ?? null,
+      cashflow_staging_placeholder: args.cashflow?.stagingIsPlaceholder ?? null,
       created_by: args.createdBy,
     })
     .select('id, version')
