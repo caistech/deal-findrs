@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { getCompanyId } from '@/lib/auth/get-company-id'
-import { runDealModel } from '@/lib/deal-model'
-import { saveDealModelSnapshot, type DealModelGrade } from '@/lib/deal-model/db'
+import { runDealModel, runCashflow, toCashflowInputs } from '@/lib/deal-model'
+import { saveDealModelSnapshot, type DealModelGrade, type SnapshotCashflow } from '@/lib/deal-model/db'
 import type { DealModelDealInput } from '@/lib/deal-model/types'
 import { missingForBankable } from '@/lib/review-packs/certification'
 import type { ReviewPackKind } from '@/lib/review-packs/types'
+
+/** Operator-supplied funder-cashflow inputs (the deal result supplies lots/price/works). */
+interface CashflowRequest {
+  totalContributions: number
+  contributorPayoutPct: number
+  buildStages: number
+  stageDurationMonths: number
+  /** TRUE while staging is the indicative 5×9 placeholder (pre Porter/QS). */
+  stagingIsPlaceholder: boolean
+}
 
 /**
  * Compute the F2K deal model for an ingested deal and persist an immutable snapshot.
@@ -35,6 +45,7 @@ export async function POST(request: NextRequest) {
     grade?: DealModelGrade
     ragStatus?: 'green' | 'amber' | 'red' | null
     overrideReason?: string | null
+    cashflow?: CashflowRequest | null
   }
   try {
     body = await request.json()
@@ -67,6 +78,45 @@ export async function POST(request: NextRequest) {
   // Pure compute — the engine is the single source of truth for the verdict.
   const { verdict, result } = runDealModel(body.input)
 
+  // Funder cashflow — computed SERVER-SIDE from the deal result (never trusting a
+  // client-supplied number), only when the contribution pool has been entered. Works to
+  // title is derived from the deal's per-lot cost lines so the two models can't drift.
+  let cashflow: SnapshotCashflow | null = null
+  const cf = body.cashflow
+  if (cf && cf.totalContributions > 0 && body.input.lots > 0) {
+    const inputs = toCashflowInputs({
+      deal: result,
+      lots: body.input.lots,
+      salePricePerLot: body.input.marketPricePerLot,
+      totalContributions: cf.totalContributions,
+      contributorPayoutPct: cf.contributorPayoutPct,
+      buildStages: cf.buildStages,
+      stageDurationMonths: cf.stageDurationMonths,
+    })
+    cashflow = {
+      inputs,
+      result: runCashflow(inputs),
+      stagingIsPlaceholder: cf.stagingIsPlaceholder,
+    }
+
+    // Round-trip the staging onto the estate so the panel pre-fills next time and the
+    // placeholder tripwire is queryable portfolio-wide. Secondary to the snapshot: log and
+    // continue on failure — the immutable snapshot is the authoritative record.
+    const { error: stagingErr } = await supabase
+      .from('opportunities')
+      .update({
+        build_stages: cf.buildStages,
+        stage_duration_months: cf.stageDurationMonths,
+        total_contributions: cf.totalContributions,
+        contributor_payout_pct: cf.contributorPayoutPct,
+        cashflow_staging_placeholder: cf.stagingIsPlaceholder,
+      })
+      .eq('id', body.input.opportunityId)
+    if (stagingErr) {
+      console.error('[deal-model/compute] estate staging update failed (non-fatal):', stagingErr.message)
+    }
+  }
+
   const saved = await saveDealModelSnapshot(supabase, {
     opportunityId: body.input.opportunityId,
     companyId: company.companyId,
@@ -76,6 +126,7 @@ export async function POST(request: NextRequest) {
     result,
     ragStatus: body.ragStatus ?? null,
     overrideReason: body.overrideReason ?? null,
+    cashflow,
   })
 
   if ('error' in saved) {

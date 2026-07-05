@@ -3,16 +3,21 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Loader2, Calculator, Save, CheckCircle2, Send, BadgeCheck } from 'lucide-react'
+import { ArrowLeft, Loader2, Calculator, Save, CheckCircle2, Send, BadgeCheck, Banknote } from 'lucide-react'
 import { AuthLayout } from '@/components/common/AuthLayout'
 import {
   computeDeal,
   toDealModelInputs,
+  runCashflow,
+  toCashflowInputs,
+  deriveWorksToTitle,
+  INDICATIVE_CASHFLOW_STAGING,
   assignStage,
   emptyStageGate,
   type DealModelDealInput,
   type StageGateTicks,
   type DealModelResult,
+  type CashflowResult,
 } from '@/lib/deal-model'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import type { PropertyProfile } from '@/lib/property-services'
@@ -122,9 +127,24 @@ export default function DealModelPage() {
   const [promoteError, setPromoteError] = useState<string | null>(null)
   const [yieldTrace, setYieldTrace] = useState<YieldTrace | null>(null)
 
+  // Funder-cashflow inputs. Staging (build stages / stage months) is INDICATIVE — the
+  // workbook's own 5×9 placeholders — replaced field-for-field when Porter/QS staging lands.
+  const [cashflow, setCashflow] = useState({
+    totalContributions: 0,
+    contributorPayoutPct: INDICATIVE_CASHFLOW_STAGING.contributorPayoutPct as number,
+    buildStages: INDICATIVE_CASHFLOW_STAGING.buildStages as number,
+    stageDurationMonths: INDICATIVE_CASHFLOW_STAGING.stageDurationMonths as number,
+    // TRUE = build stages / duration are the indicative placeholders (pre Porter/QS).
+    stagingIsPlaceholder: true,
+  })
+
   const set = useCallback(<K extends keyof FormState>(key: K, val: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: val }))
     setSaved(null)
+  }, [])
+
+  const setCf = useCallback(<K extends keyof typeof cashflow>(key: K, val: (typeof cashflow)[K]) => {
+    setCashflow((prev) => ({ ...prev, [key]: val }))
   }, [])
 
   // Pre-fill what we can from the opportunity record. Lot count is bridged from the estate buildup's
@@ -176,6 +196,17 @@ export default function DealModelPage() {
           landPerLot: lots ? Math.round((o?.land_purchase_price || 0) / lots) : 0,
           infraPerLot: lots ? Math.round((o?.infrastructure_costs || 0) / lots) : 0,
         }))
+
+        // Pre-fill the funder-cashflow staging from the estate record. Falls back to the
+        // indicative placeholders (5×9) when the columns are null (pre Porter/QS).
+        setCashflow((prev) => ({
+          totalContributions: o?.total_contributions ?? prev.totalContributions,
+          contributorPayoutPct: o?.contributor_payout_pct ?? prev.contributorPayoutPct,
+          buildStages: o?.build_stages ?? prev.buildStages,
+          stageDurationMonths: o?.stage_duration_months ?? prev.stageDurationMonths,
+          // Default TRUE (placeholder) unless the estate has explicitly been marked firm.
+          stagingIsPlaceholder: o?.cashflow_staging_placeholder ?? true,
+        }))
       } catch {
         // pre-fill is best-effort; the operator can enter everything by hand
       } finally {
@@ -196,6 +227,33 @@ export default function DealModelPage() {
 
   const autoStage = useMemo(() => assignStage(form.stageGate), [form.stageGate])
 
+  // Indicative works-to-title, derived from the deal model's per-lot cost lines so the two
+  // models cannot drift on the works figure (fit assessment §5).
+  const derivedWorks = useMemo(
+    () => (preview && form.lots > 0 ? deriveWorksToTitle(preview, form.lots) : 0),
+    [preview, form.lots],
+  )
+
+  // Live funder cashflow — pure engine, computed locally like the deal verdict.
+  const cashflowResult: CashflowResult | null = useMemo(() => {
+    if (!preview || form.lots <= 0 || cashflow.totalContributions <= 0 || derivedWorks <= 0) return null
+    try {
+      return runCashflow(
+        toCashflowInputs({
+          deal: preview,
+          lots: form.lots,
+          salePricePerLot: form.marketPricePerLot,
+          totalContributions: cashflow.totalContributions,
+          contributorPayoutPct: cashflow.contributorPayoutPct,
+          buildStages: cashflow.buildStages,
+          stageDurationMonths: cashflow.stageDurationMonths,
+        }),
+      )
+    } catch {
+      return null
+    }
+  }, [preview, form.lots, form.marketPricePerLot, cashflow, derivedWorks])
+
   const handleCompute = useCallback(async (grade: 'indicative' | 'bankable' = 'indicative') => {
     setSaving(true)
     setError(null)
@@ -207,6 +265,9 @@ export default function DealModelPage() {
           input: { ...form, opportunityId },
           grade,
           overrideReason: overrideReason || null,
+          // Only send the funder cashflow once the contribution pool is entered; the server
+          // recomputes it (single source of truth) and persists it onto the snapshot.
+          cashflow: cashflow.totalContributions > 0 ? cashflow : null,
         }),
       })
       const body = await res.json()
@@ -224,7 +285,7 @@ export default function DealModelPage() {
     } finally {
       setSaving(false)
     }
-  }, [form, opportunityId, overrideReason])
+  }, [form, opportunityId, overrideReason, cashflow])
 
   const handlePromote = useCallback(async () => {
     setPromoting(true)
@@ -422,6 +483,69 @@ export default function DealModelPage() {
                   />
                 </label>
               </section>
+
+              {/* Funder cashflow inputs */}
+              <section className="bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
+                <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                  <Banknote className="w-5 h-5 text-gray-500" /> Funder cashflow
+                </h2>
+                <p className="text-sm text-gray-500 mb-4">
+                  The staged funding view — how much the funder underwrites, and when they get out.
+                  Works to title is derived from the cost lines above; staging is indicative until Porter/QS lands.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <NumberField
+                    label="Total contributions (founders + F2K, cash + kind)"
+                    value={cashflow.totalContributions}
+                    onChange={(n) => setCf('totalContributions', n)}
+                    step={50000}
+                    suffix="$"
+                  />
+                  <label className="block">
+                    <span className="block text-sm font-medium text-gray-700 mb-1">
+                      Contributor pay-out first tranche — {Math.round(cashflow.contributorPayoutPct * 100)}%
+                    </span>
+                    <input type="range" min={0} max={1} step={0.05} value={cashflow.contributorPayoutPct}
+                      onChange={(e) => setCf('contributorPayoutPct', parseFloat(e.target.value))}
+                      className="w-full accent-emerald-500" />
+                  </label>
+                </div>
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <NumberField label="Build stages" value={cashflow.buildStages} onChange={(n) => setCf('buildStages', Math.max(1, Math.round(n)))} />
+                  <NumberField label="Stage duration" value={cashflow.stageDurationMonths} onChange={(n) => setCf('stageDurationMonths', Math.max(1, Math.round(n)))} suffix="mo" />
+                  <label className="block">
+                    <span className="block text-sm font-medium text-gray-700 mb-1">Works to title (derived)</span>
+                    <div className="w-full px-4 py-2 text-base border border-gray-200 bg-gray-50 rounded-lg text-gray-700">
+                      {derivedWorks > 0 ? money(derivedWorks) : '—'}
+                    </div>
+                  </label>
+                </div>
+                <div className={`mt-3 text-xs rounded-lg p-2.5 border ${
+                  cashflow.stagingIsPlaceholder
+                    ? 'bg-amber-50 border-amber-200 text-amber-800'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                }`}>
+                  {cashflow.stagingIsPlaceholder ? (
+                    <p>
+                      <strong>Indicative staging.</strong> Build stages ({cashflow.buildStages}) and stage duration
+                      ({cashflow.stageDurationMonths} mo) are placeholders — replace them with the Porter / QS staging
+                      plan when it arrives, then tick “firm” below. Selling cost and interest rate use the deal-model
+                      defaults (agent 3.5%, flat 12%).
+                    </p>
+                  ) : (
+                    <p><strong>Staging firmed up</strong> from the Porter / QS plan.</p>
+                  )}
+                  <label className="mt-2 flex items-center gap-2 cursor-pointer font-medium">
+                    <input
+                      type="checkbox"
+                      checked={!cashflow.stagingIsPlaceholder}
+                      onChange={(e) => setCf('stagingIsPlaceholder', !e.target.checked)}
+                      className="w-4 h-4 accent-emerald-500"
+                    />
+                    Staging is firm (from Porter / QS) — not a placeholder
+                  </label>
+                </div>
+              </section>
             </div>
 
             {/* ── Live verdict ── */}
@@ -511,9 +635,87 @@ export default function DealModelPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Funder exposure ── */}
+          <section className="mt-6 bg-white rounded-xl border border-gray-200 p-5 sm:p-6">
+            <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2 flex-wrap">
+              <Banknote className="w-5 h-5 text-gray-500" /> Funder exposure
+              {cashflowResult && cashflow.stagingIsPlaceholder && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                  Indicative staging
+                </span>
+              )}
+            </h2>
+            <p className="text-sm text-gray-500 mb-4 max-w-3xl">
+              What the funder underwrites across the staged build. Drawdowns fund the works; each stage’s
+              settlements repay the funder first, and surplus clears the retained contributor debt then uplift.
+              The pay-out timing (75/25) does not double-count contributions — the deal-model base recovers them once.
+            </p>
+
+            {cashflowResult ? (
+              <>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                  <Stat label="Peak funder exposure" value={money(cashflowResult.peakFunderExposure)} accent="text-indigo-600" />
+                  <Stat label="Total funder interest" value={money(cashflowResult.totalFunderInterest)} />
+                  <Stat label="Self-funding crossover" value={cashflowResult.selfFundingCrossover} />
+                  <Stat label="Funder balance at final stage" value={money(cashflowResult.funderBalanceAtFinalStage)} />
+                  <Stat label="Retained contributor debt" value={money(cashflowResult.retainedContributorDebtToClear)} />
+                  <Stat label="Total surplus released" value={money(cashflowResult.totalSurplusReleased)} />
+                  <Stat label="Net uplift (after retained debt)" value={money(cashflowResult.netUpliftAfterRetainedDebt)} accent="text-emerald-600" />
+                  <Stat label="Pay-out at start (75%)" value={money(cashflowResult.derived.payoutAtStart)} />
+                </div>
+
+                <div className="overflow-x-auto border border-gray-100 rounded-lg">
+                  <table className="w-full text-sm min-w-[640px]">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wide">
+                        <th className="text-left font-semibold px-3 py-2">Stage</th>
+                        <th className="text-right font-semibold px-3 py-2">Opening</th>
+                        <th className="text-right font-semibold px-3 py-2">Draw + works</th>
+                        <th className="text-right font-semibold px-3 py-2">Interest</th>
+                        <th className="text-right font-semibold px-3 py-2">Settlements</th>
+                        <th className="text-right font-semibold px-3 py-2">Closing</th>
+                        <th className="text-right font-semibold px-3 py-2">Surplus</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cashflowResult.stages.map((s) => (
+                        <tr key={s.label} className="border-t border-gray-100">
+                          <td className="px-3 py-2 font-medium text-gray-900">{s.label}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{money(s.openingBalance)}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{money(s.payoutDrawdown + s.worksDrawdown)}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{money(s.interestAccrued)}</td>
+                          <td className="px-3 py-2 text-right text-gray-600">{money(s.netSalesRevenue)}</td>
+                          <td className="px-3 py-2 text-right font-medium text-gray-900">{money(s.closingBalance)}</td>
+                          <td className="px-3 py-2 text-right text-emerald-700">{s.surplus > 0 ? money(s.surplus) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-2 text-xs text-gray-400">
+                  Interest is stage-simple capitalised (accrues on the drawn balance for the full stage) — conservative
+                  for a funder underwrite. Peak exposure is the maximum gross drawn balance before a stage’s settlements.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">
+                Enter the total contribution pool above (and the estate cost lines) to see funder exposure.
+              </p>
+            )}
+          </section>
         </main>
       </div>
     </AuthLayout>
+  )
+}
+
+function Stat({ label, value, accent }: { label: string; value: string; accent?: string }) {
+  return (
+    <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
+      <div className="text-xs text-gray-500">{label}</div>
+      <div className={`text-lg font-bold mt-0.5 ${accent ?? 'text-gray-900'}`}>{value}</div>
+    </div>
   )
 }
 
