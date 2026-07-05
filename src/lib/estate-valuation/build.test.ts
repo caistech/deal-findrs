@@ -147,10 +147,23 @@ describe('buildValuerDcf — IRR/NPV/NPV-basis RLV (B1)', () => {
   it('NPV-basis RLV = NPV + land (land price at which NPV = 0)', () => {
     expect(dcf.rlvNpv).toBeCloseTo(dcf.npvAtDiscount + 3_000_000, 2)
   })
-  it('derives staging from lot count + absorption', () => {
-    expect(dcf.buildStages).toBeGreaterThanOrEqual(2)
-    expect(dcf.buildStages).toBeLessThanOrEqual(6)
-    expect(dcf.stageDurationMonths).toBeGreaterThanOrEqual(3)
+  it('reports the construction + sell timeline', () => {
+    expect(dcf.constructionMonths).toBe(12)
+    expect(dcf.sellMonths).toBe(24)
+  })
+  it('IRR agrees with the sensitivity base case (same cashflow basis)', async () => {
+    const { runFeasibility } = await import('@/lib/estate-sensitivity/build')
+    const base = runFeasibility({
+      lots: 30,
+      salePricePerLot: 400_000,
+      worksTotal: 4_400_000,
+      landCost: 3_000_000,
+      constructionMonths: 12,
+      sellMonths: 24,
+      interestRate: 0.12,
+    })
+    // Same monthly flows → identical unlevered IRR.
+    expect(dcf.irrAnnual).toBeCloseTo(base.irrAnnual as number, 6)
   })
 })
 

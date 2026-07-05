@@ -1,4 +1,5 @@
-import { computeGst, DEFAULT_GST_SCHEME, runCashflow, cashflowMetrics } from '@caistech/deal-model'
+import { computeGst, DEFAULT_GST_SCHEME, irr, npv, annualToPeriodRate, periodToAnnualRate } from '@caistech/deal-model'
+import { projectMonthlyFlows } from '@/lib/estate-sensitivity/build'
 import type {
   AbsorptionCurve,
   AvmGate,
@@ -142,10 +143,11 @@ export function buildValuationPack(input: EstateValuationInput): EstateValuation
 }
 
 /**
- * DCF metrics (B1) — project IRR + NPV + NPV-basis RLV, computed from a staged project cashflow
- * (works out over N stages, sales in lagged one stage, land at t0) via the shared deal-model
- * `runCashflow` + `cashflowMetrics`. Indicative: stages/duration are derived from lot count +
- * the absorption sell-down. Complements the target-margin residual in {@link buildValuerPnl}.
+ * DCF metrics (B1) — project IRR + NPV + NPV-basis RLV, computed from the SAME monthly project
+ * cashflow the sensitivity uses (`projectMonthlyFlows`: land at t0, works over the construction
+ * months, net sales over the sell/absorption months). Sharing the one cashflow means the DCF IRR
+ * and the sensitivity IRR cannot diverge. Complements the target-margin residual in
+ * {@link buildValuerPnl}.
  */
 export function buildValuerDcf(input: {
   grvPerLot: number
@@ -153,40 +155,33 @@ export function buildValuerDcf(input: {
   developmentCostExclLand: number
   landAcquisitionCost: number
   absorptionMonths: number
+  constructionMonths?: number
   sellingCostPct?: number
   discountRateAnnual?: number
 }): ValuerDcf {
-  const lots = Math.max(1, Math.round(input.lots))
-  const buildStages = Math.max(2, Math.min(6, Math.ceil(lots / 10)))
-  const stageDurationMonths = Math.max(3, Math.round((input.absorptionMonths || 12) / (buildStages + 1)))
+  const constructionMonths = Math.max(1, Math.round(input.constructionMonths ?? 12))
+  const sellMonths = Math.max(1, Math.round(input.absorptionMonths || 12))
   const discountRateAnnual = input.discountRateAnnual ?? 0.12
 
-  const cf = runCashflow({
-    totalContributions: 0, // unlevered project IRR — no contribution/funder timing
-    contributorPayoutPct: 0,
-    totalWorksToTitle: Math.max(0, input.developmentCostExclLand),
-    saleableLots: lots,
-    buildStages,
-    salePricePerLot: Math.max(0, input.grvPerLot),
-    sellingCostPct: input.sellingCostPct ?? 0.035,
-    stageDurationMonths,
+  const flows = projectMonthlyFlows({
+    lots: input.lots,
+    salePricePerLot: input.grvPerLot,
+    worksTotal: input.developmentCostExclLand,
+    landCost: input.landAcquisitionCost,
+    constructionMonths,
+    sellMonths,
+    interestRate: discountRateAnnual, // not used by the unlevered flows
+    sellingCostPct: input.sellingCostPct,
   })
-  const m = cashflowMetrics(cf, {
-    landOutlay: input.landAcquisitionCost,
-    stageDurationMonths,
-    discountRateAnnual,
-  })
-  // NPV-basis RLV: the land price at which NPV = 0 (land sits undiscounted at t0).
-  const rlvNpv = m.npvAtDiscount + Math.abs(input.landAcquisitionCost)
 
-  return {
-    irrAnnual: m.irrAnnual,
-    npvAtDiscount: m.npvAtDiscount,
-    discountRateAnnual,
-    rlvNpv,
-    buildStages,
-    stageDurationMonths,
-  }
+  const perMonth = irr(flows)
+  const irrAnnual = perMonth == null ? null : periodToAnnualRate(perMonth, 12)
+  const monthlyRate = annualToPeriodRate(discountRateAnnual, 12)
+  const npvAtDiscount = npv(monthlyRate, flows)
+  // NPV-basis RLV: the land price at which NPV = 0 (land sits undiscounted at t0).
+  const rlvNpv = npvAtDiscount + Math.abs(input.landAcquisitionCost)
+
+  return { irrAnnual, npvAtDiscount, discountRateAnnual, rlvNpv, constructionMonths, sellMonths }
 }
 
 /** GST component of a GST-inclusive amount (10% GST → 1/11). */

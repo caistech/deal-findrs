@@ -15,14 +15,18 @@ import type {
  * interest-on-outstanding-balance cost folded into TDC; the IRR itself is unlevered (project return).
  * Pure.
  */
-export function runFeasibility(b: FeasibilityBase): FeasibilityPoint {
+/**
+ * The monthly UNLEVERED project net cash-flow: −land at month 0, −works over the construction
+ * months, +net sales over the sell months (after construction). This is the SINGLE cash-flow both
+ * the sensitivity (here) and the valuer DCF consume, so their IRRs cannot diverge.
+ */
+export function projectMonthlyFlows(b: FeasibilityBase): number[] {
   const sellingCostPct = b.sellingCostPct ?? 0.035
   const saleValue = b.lots * b.salePricePerLot
   const sellingCosts = saleValue * sellingCostPct
   const construction = Math.max(1, Math.round(b.constructionMonths))
   const sell = Math.max(1, Math.round(b.sellMonths))
 
-  // Monthly project net flow: −land at month 0, −works over construction, +net sales over sell.
   const flows: number[] = [-Math.abs(b.landCost)]
   for (let m = 1; m <= construction + sell; m++) {
     let f = 0
@@ -30,6 +34,14 @@ export function runFeasibility(b: FeasibilityBase): FeasibilityPoint {
     if (m > construction) f += (saleValue - sellingCosts) / sell
     flows.push(f)
   }
+  return flows
+}
+
+export function runFeasibility(b: FeasibilityBase): FeasibilityPoint {
+  const sellingCostPct = b.sellingCostPct ?? 0.035
+  const saleValue = b.lots * b.salePricePerLot
+  const sellingCosts = saleValue * sellingCostPct
+  const flows = projectMonthlyFlows(b)
 
   // Finance: interest on the running outstanding balance, capitalised monthly (a cost line in TDC).
   let balance = 0

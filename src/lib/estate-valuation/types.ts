@@ -88,10 +88,10 @@ export interface ValuerDcf {
   discountRateAnnual: number
   /** Residual land value on an NPV basis = the land price at which NPV = 0 at the discount rate. */
   rlvNpv: number
-  /** Build stages assumed for the staged cashflow. */
-  buildStages: number
-  /** Stage duration (months) derived from the absorption sell-down. */
-  stageDurationMonths: number
+  /** Construction months assumed for the project cashflow. */
+  constructionMonths: number
+  /** Sell-down months (the absorption period). */
+  sellMonths: number
 }
 
 // ---- Residual-land P&L (Feastudy "Valuer's-Style" hypothetical-development method) ----

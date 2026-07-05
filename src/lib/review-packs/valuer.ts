@@ -120,7 +120,7 @@ function dcfBlock(dcf: ValuerDcf | null): string {
   const irr = dcf.irrAnnual == null ? 'n/a (no positive net flow)' : pct(dcf.irrAnnual)
   return [
     '## DCF — IRR, NPV & NPV-basis RLV',
-    `_Unlevered project cashflow: ${dcf.buildStages} build stages × ${dcf.stageDurationMonths} months, sales over the absorption sell-down, discounted at ${pct(dcf.discountRateAnnual)}. Indicative._`,
+    `_Unlevered project cashflow: ${dcf.constructionMonths}-month construction, ${dcf.sellMonths}-month sell-down, discounted at ${pct(dcf.discountRateAnnual)}. Indicative — same cashflow basis as the sensitivity._`,
     '',
     `- **Project IRR (annualised):** ${irr}`,
     `- **NPV @ ${pct(dcf.discountRateAnnual)}:** ${money(dcf.npvAtDiscount)}`,
