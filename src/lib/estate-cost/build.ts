@@ -8,7 +8,38 @@ import type {
   EstateCostLine,
   EstateCostPack,
   PiInsurance,
+  WorksReconciliation,
 } from './types'
+
+/**
+ * CANONICAL COST PATH (A3 / D1 — see docs/COST_ENGINE_CANONICAL.md): for an estate/subdivision deal,
+ * this module is the SINGLE source of land-development (works) cost and the one feed into the F2K
+ * deal-model (via `deriveWorksToTitle`). `devfinance/costs.ts` is NOT a parallel estate cost source —
+ * it provides the shared `getRegionalFactor` + `calculateConstructionCost` primitives this module
+ * consumes (the latter only for the optional H&L home line). Use `reconcileWorksCost` to surface a
+ * mismatch if a legacy devfinance figure is ever compared against the estate figure.
+ */
+
+/**
+ * A3 drift guard — cross-check the canonical estate works figure against an alternative and flag a
+ * material divergence (default tolerance 10%). Surfaces the mismatch; never silently reconciles.
+ */
+export function reconcileWorksCost(
+  estate: number,
+  alternative: number,
+  tolerancePct = 0.1,
+): WorksReconciliation {
+  const deltaAbs = alternative - estate
+  const deltaPct = estate > 0 ? deltaAbs / estate : alternative > 0 ? 1 : 0
+  return {
+    estate,
+    alternative,
+    deltaAbs,
+    deltaPct,
+    reconciled: Math.abs(deltaPct) <= tolerancePct,
+    tolerancePct,
+  }
+}
 
 /**
  * Build the lot-level QS cost buildup. Pure/stateless. Reuses devfinance's `getRegionalFactor` for

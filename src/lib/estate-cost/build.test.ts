@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildEstateCostPack, buildCivilProgramme, estateProgrammeMonths, piInsuranceCover } from './build'
+import { buildEstateCostPack, buildCivilProgramme, estateProgrammeMonths, piInsuranceCover, reconcileWorksCost } from './build'
 
 describe('buildEstateCostPack', () => {
   it('builds a land-subdivision buildup with per-lot subtotals feeding the deal-model', () => {
@@ -108,5 +108,18 @@ describe('piInsuranceCover (AIQS banding)', () => {
     expect(piInsuranceCover(4_000_000).cover).toBe(1_000_000)
     expect(piInsuranceCover(8_000_000).cover).toBe(3_000_000)
     expect(piInsuranceCover(12_000_000).cover).toBe(5_000_000)
+  })
+})
+
+describe('reconcileWorksCost (A3 drift guard)', () => {
+  it('reconciles within tolerance', () => {
+    const r = reconcileWorksCost(1_000_000, 1_050_000, 0.1)
+    expect(r.reconciled).toBe(true)
+    expect(r.deltaPct).toBeCloseTo(0.05, 6)
+  })
+  it('flags a material divergence', () => {
+    const r = reconcileWorksCost(1_000_000, 1_300_000, 0.1)
+    expect(r.reconciled).toBe(false)
+    expect(r.deltaPct).toBeCloseTo(0.3, 6)
   })
 })

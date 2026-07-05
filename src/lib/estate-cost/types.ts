@@ -84,6 +84,21 @@ export interface CivilProgramme {
   phases: DrawdownPhase[]
 }
 
+/** Cross-check between the canonical estate works figure and an alternative (e.g. devfinance) — the
+ *  A3 drift guard: surfaces a material mismatch rather than burying it. */
+export interface WorksReconciliation {
+  /** The canonical estate-cost works figure. */
+  estate: number
+  /** The alternative figure being cross-checked. */
+  alternative: number
+  deltaAbs: number
+  /** (alternative − estate) / estate. */
+  deltaPct: number
+  /** True when |deltaPct| is within tolerance. */
+  reconciled: boolean
+  tolerancePct: number
+}
+
 /** Professional-indemnity insurance requirement, scaled to the build size. */
 export interface PiInsurance {
   /** The build cost the cover is scaled against. */

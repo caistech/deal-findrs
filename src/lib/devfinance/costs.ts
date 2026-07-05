@@ -1,3 +1,12 @@
+/**
+ * COST-ENGINE ROLE (A3 / D1 — see docs/COST_ENGINE_CANONICAL.md): this module is the m²-based
+ * DWELLING construction engine. It plays two roles:
+ *   1. Shared primitive — `getRegionalFactor` + `calculateConstructionCost` are consumed by the
+ *      canonical estate cost engine (`src/lib/estate-cost/`) for its region factor + the H&L home line.
+ *   2. Legacy dwelling feasibility pipeline (the `/opportunities/[id]/devfinance` surface).
+ * For an ESTATE (subdivision) deal, `estate-cost` — not this module — is the canonical works-cost
+ * source. Do not add estate land-development cost logic here.
+ */
 import {
   TradeItem,
   TradeCategory,
