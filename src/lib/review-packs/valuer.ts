@@ -41,13 +41,48 @@ function avmBlock(avm: AvmCrossCheck | null): string {
   const div = avm.divergencePct != null
     ? `- **Site value vs AVM:** ${avm.divergencePct >= 0 ? '+' : ''}${pct(avm.divergencePct)} (land acquisition vs AVM mid)`
     : ''
+  // Aggregate stats + the actual sold comparables behind the estimate — the evidence the valuer
+  // interrogates. Previously fetched and dropped; now surfaced as a summary line + a comps table.
+  const stats = avm.stats
+    ? `- **Comparable sales:** ${avm.stats.count}` +
+      (avm.stats.median != null ? ` · median ${money(avm.stats.median)}` : '') +
+      (avm.stats.medianPricePerSqm != null ? ` · median ${money(avm.stats.medianPricePerSqm)}/sqm` : '')
+    : ''
+  const compsTable = comparablesTable(avm.comparables)
   return [
     '## Independent AVM cross-check',
     '_Domain AVM of the subject site (≈ current land value) — a corroborating signal, not the finished-lot GRV._',
     `- **AVM mid:** ${money(avm.mid)}${range}`,
     `- **Confidence:** ${avm.confidence ?? 'unknown'} → **${avm.gate === 'assert' ? 'asserted' : 'indicative — valuer to set'}**${avm.estimateDate ? ` · as at ${avm.estimateDate}` : ''}`,
     div,
+    stats,
+    compsTable,
   ].filter(Boolean).join('\n')
+}
+
+/** Render the sold comparables as a markdown table (empty string when there are none). */
+function comparablesTable(comps: AvmCrossCheck['comparables']): string {
+  if (!comps || comps.length === 0) return ''
+  const rows = comps.slice(0, 8).map((c) => {
+    const cells = [
+      c.address || '—',
+      c.salePrice != null ? money(c.salePrice) : '—',
+      c.saleDate || '—',
+      c.landAreaSqm != null ? `${c.landAreaSqm} sqm` : '—',
+      c.pricePerSqm != null ? money(c.pricePerSqm) : '—',
+      c.distanceKm != null ? `${c.distanceKm.toFixed(1)} km` : '—',
+    ]
+    return `| ${cells.join(' | ')} |`
+  })
+  const more = comps.length > 8 ? `\n_+${comps.length - 8} more comparables._` : ''
+  return [
+    '',
+    '**Sold comparables:**',
+    '',
+    '| Address | Sale price | Date | Land area | $/sqm | Distance |',
+    '| --- | --- | --- | --- | --- | --- |',
+    ...rows,
+  ].join('\n') + more
 }
 
 function absorptionBlock(a: AbsorptionCurve): string {

@@ -120,20 +120,107 @@ export function buildConstraintsYield(
     })
   }
 
+  // ── B2. Planning envelope (height / setbacks / uses / modular) ──
+  // The zoning control block property-services returns beyond the code+min-lot — the building
+  // envelope that bounds what can be built. Derived, reviewable, and load-bearing for feasibility
+  // (height ↔ product mix; setbacks ↔ net developable; permitted uses confirm residential
+  // subdivision is as-of-right vs discretionary; modular provisions matter for the F2K product).
+  if (profile.zoning) {
+    const z = profile.zoning
+    if (z.maximumHeight != null || z.maximumHeightStoreys != null) {
+      const parts: string[] = []
+      if (z.maximumHeight != null) parts.push(`${z.maximumHeight} m`)
+      if (z.maximumHeightStoreys != null) parts.push(`${z.maximumHeightStoreys} storeys`)
+      lines.push({
+        key: 'maxHeight',
+        label: 'Maximum building height',
+        value: parts.join(' / '),
+        provenance: 'derived',
+        dataset: 'zoning controls',
+      })
+    }
+    if (z.setbacks && (z.setbacks.front != null || z.setbacks.side != null || z.setbacks.rear != null)) {
+      const fmt = (n: number | null) => (n != null ? `${n} m` : '—')
+      lines.push({
+        key: 'setbacks',
+        label: 'Setbacks (front / side / rear)',
+        value: `${fmt(z.setbacks.front)} / ${fmt(z.setbacks.side)} / ${fmt(z.setbacks.rear)}`,
+        provenance: 'derived',
+        dataset: 'zoning controls',
+        working: z.setbacks.notes ?? undefined,
+      })
+    }
+    if (z.permittedUses && z.permittedUses.length) {
+      lines.push({
+        key: 'permittedUses',
+        label: 'Permitted uses',
+        value: z.permittedUses.join(', '),
+        provenance: 'derived',
+        dataset: 'zoning controls',
+      })
+    }
+    if (z.modularProvisions) {
+      lines.push({
+        key: 'modularProvisions',
+        label: 'Modular / prefab provisions',
+        value: z.modularProvisions,
+        provenance: 'derived',
+        dataset: 'zoning controls',
+      })
+    }
+    if (z.description) {
+      lines.push({
+        key: 'zoneDescription',
+        label: 'Zone description',
+        value: z.description,
+        provenance: 'derived',
+        dataset: 'zoning controls',
+      })
+    }
+  }
+
   // ── C. Topography & earthworks ──────────────────────────────
   if (profile.terrain) {
     const slope = profile.terrain.slopePercent
     const steep = slope != null && slope > 15
+    const t = profile.terrain
+    // Fall + elevation are the earthworks drivers alongside slope — total site fall sizes the
+    // cut/fill volume; carry them on the slope line's working and as their own lines.
+    const earthworksBits: string[] = []
+    if (t.buildability) earthworksBits.push(`Buildability: ${t.buildability}`)
+    if (t.fallMeters != null) earthworksBits.push(`Total fall ${t.fallMeters} m`)
+    if (t.elevationM != null) earthworksBits.push(`Elevation ${t.elevationM} m`)
     lines.push({
       key: 'slope',
       label: 'Slope',
       value: slope,
       unit: '%',
       provenance: 'derived',
-      dataset: 'terrain (LiDAR/DEM)',
+      dataset: t.source ? `terrain (${t.source})` : 'terrain (LiDAR/DEM)',
       severity: steep ? 'attention' : 'info',
-      working: profile.terrain.buildability ? `Buildability: ${profile.terrain.buildability}` : undefined,
+      working: earthworksBits.length ? earthworksBits.join(' · ') : undefined,
     })
+    if (t.fallMeters != null) {
+      lines.push({
+        key: 'siteFall',
+        label: 'Total site fall',
+        value: t.fallMeters,
+        unit: 'm',
+        provenance: 'derived',
+        dataset: t.source ? `terrain (${t.source})` : 'terrain (LiDAR/DEM)',
+        severity: t.fallMeters > 10 ? 'attention' : 'info',
+      })
+    }
+    if (t.elevationM != null) {
+      lines.push({
+        key: 'elevation',
+        label: 'Elevation (AHD)',
+        value: t.elevationM,
+        unit: 'm',
+        provenance: 'derived',
+        dataset: t.source ? `terrain (${t.source})` : 'terrain (LiDAR/DEM)',
+      })
+    }
     if (steep) {
       gaps.push({
         dimension: 'constraints',

@@ -129,6 +129,18 @@ export function ConstraintsYieldBrief({
           This site needs a planner referral before the yield can be finalised.
         </div>
       )}
+
+      {/* Data provenance — the metadata property-services returns about the derive itself (sources,
+          when it was derived, cache state, LGA planning coverage). Lets the operator judge freshness. */}
+      {profile.metadata && (
+        <p className="mt-4 text-[0.65rem] text-gray-400 border-t border-gray-100 pt-2">
+          {profile.metadata.sourceApis?.length ? `Sources: ${profile.metadata.sourceApis.join(', ')}. ` : ''}
+          {profile.metadata.lgaName ? `${profile.metadata.lgaName} — ` : ''}
+          LGA planning coverage: {profile.metadata.lgaCoverage ?? 'unknown'}.
+          {profile.metadata.derivedAt ? ` Derived ${new Date(profile.metadata.derivedAt).toLocaleDateString('en-AU')}` : ''}
+          {profile.metadata.cached ? ' (cached).' : profile.metadata.derivedAt ? ' (fresh).' : ''}
+        </p>
+      )}
     </div>
   )
 }

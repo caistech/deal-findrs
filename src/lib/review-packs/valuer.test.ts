@@ -46,13 +46,13 @@ describe('valuerPack', () => {
 
   it('asserts the AVM when confident and degrades when unavailable', () => {
     const withAvm = valuerPack.buildMarkdown(
-      ctx({ avm: { mid: 3000000, lower: 2800000, upper: 3200000, confidence: 'confident', estimateDate: '2026-06', gate: 'assert', divergencePct: 0.1 } }),
+      ctx({ avm: { mid: 3000000, lower: 2800000, upper: 3200000, confidence: 'confident', estimateDate: '2026-06', gate: 'assert', divergencePct: 0.1, comparables: [], stats: null } }),
     )
     expect(withAvm).toContain('AVM mid')
     expect(withAvm).toContain('asserted')
 
     const noAvm = valuerPack.buildMarkdown(
-      ctx({ avm: { mid: null, lower: null, upper: null, confidence: null, estimateDate: null, gate: 'indicative', divergencePct: null, unavailableReason: 'property-services not configured' } }),
+      ctx({ avm: { mid: null, lower: null, upper: null, confidence: null, estimateDate: null, gate: 'indicative', divergencePct: null, comparables: [], stats: null, unavailableReason: 'property-services not configured' } }),
     )
     expect(noAvm).toContain('Unavailable')
     expect(noAvm).toContain('property-services not configured')

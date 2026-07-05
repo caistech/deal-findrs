@@ -22,7 +22,7 @@ export async function fetchAvmCrossCheck(params: {
   const apiKey = process.env.PROPERTY_SERVICES_API_KEY ?? process.env.NEXT_PUBLIC_PROPERTY_SERVICES_API_KEY ?? ''
   const degraded = (reason: string): AvmCrossCheck => ({
     mid: null, lower: null, upper: null, confidence: null, estimateDate: null,
-    gate: 'indicative', divergencePct: null, unavailableReason: reason,
+    gate: 'indicative', divergencePct: null, comparables: [], stats: null, unavailableReason: reason,
   })
 
   if (!supabaseUrl || !apiKey) return degraded('property-services not configured')
@@ -46,6 +46,19 @@ export async function fetchAvmCrossCheck(params: {
         ? (params.referenceValue - est.mid) / est.mid
         : null
 
+    // Carry the sold comparables + aggregate stats property-services returned — the evidence behind
+    // the estimate, previously discarded. `stats` come straight from the SDK when present; else null.
+    const comparables = res.data?.comparables ?? []
+    const stats = res.data?.stats
+      ? {
+          median: res.data.stats.median,
+          medianPricePerSqm: res.data.stats.medianPricePerSqm,
+          count: res.data.stats.count,
+        }
+      : comparables.length
+        ? { median: null, medianPricePerSqm: null, count: comparables.length }
+        : null
+
     return {
       mid: est.mid,
       lower: est.lower,
@@ -54,6 +67,8 @@ export async function fetchAvmCrossCheck(params: {
       estimateDate: est.estimateDate,
       gate: gateAvmConfidence(est.confidence),
       divergencePct,
+      comparables,
+      stats,
     }
   } catch (err) {
     return degraded(err instanceof Error ? err.message : 'avm fetch failed')

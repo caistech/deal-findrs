@@ -62,10 +62,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   if (!res.success || !res.data) {
     return NextResponse.json({ error: res.error || 'Could not load the site dossier' }, { status: 502 })
   }
+  // The dossier already ran the assess + price legs to build the review — surface them instead of
+  // discarding them. `assessment` is the AI suitability verdict; `price` is the Domain price position
+  // (estimate + comparables); `meta` carries provenance + fill counts. All previously dropped.
   return NextResponse.json({
     address,
     items: res.data.plannerReview,
     contributions: res.data.contributions,
+    assessment: res.data.assessment,
+    price: res.data.price,
+    meta: res.data.meta,
   })
 }
 

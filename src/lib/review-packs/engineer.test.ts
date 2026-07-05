@@ -81,7 +81,7 @@ describe('registry', () => {
     expect(getReviewPackTemplate('valuer')!.available(c).reason).toMatch(/GRV per lot/i)
   })
 
-  it('lists all three packs in hand-off order', () => {
-    expect(listReviewPacks().map((p) => p.kind)).toEqual(['engineer', 'qs', 'valuer'])
+  it('lists all packs in hand-off order', () => {
+    expect(listReviewPacks().map((p) => p.kind)).toEqual(['engineer', 'qs', 'valuer', 'qs-progress'])
   })
 })

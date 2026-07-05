@@ -11,9 +11,17 @@
  *    engine and deducts the QS costs + profit & risk to derive what the land is worth.
  */
 import type { GstScheme } from '@caistech/deal-model'
+import type { ComparableSale } from '@caistech/property-services-sdk'
 
 /** How much to trust the AVM cross-check, from Domain's own confidence descriptor. */
 export type AvmGate = 'assert' | 'indicative'
+
+/** Aggregate stats over the sold comparables (from property-services `comparables()`). */
+export interface AvmComparableStats {
+  median: number | null
+  medianPricePerSqm: number | null
+  count: number
+}
 
 /** Independent Domain AVM of the subject SITE (≈ current land value), confidence-gated. */
 export interface AvmCrossCheck {
@@ -26,6 +34,14 @@ export interface AvmCrossCheck {
   gate: AvmGate
   /** Divergence of a reference value (site/land acquisition) vs the AVM mid, as a signed fraction. Null if no mid/reference. */
   divergencePct: number | null
+  /**
+   * The sold comparables property-services returned alongside the estimate — the actual evidence
+   * behind the number (address, sale price/date, land/floor area, $/sqm, distance). Empty when the
+   * tier returns none. Previously fetched and dropped; now carried so the valuer pack shows the comps.
+   */
+  comparables: ComparableSale[]
+  /** Aggregate stats over {@link comparables} (median sale, median $/sqm, count). Null when no comps. */
+  stats: AvmComparableStats | null
   /** Set when the AVM couldn't be fetched (no key, notAvailable, error) — the pack degrades, never fakes. */
   unavailableReason?: string
 }

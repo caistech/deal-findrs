@@ -1,9 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { ClipboardCheck, Loader2, CheckCircle2, CircleDashed, AlertTriangle } from 'lucide-react'
-import type { PlannerReviewItem } from '@/lib/property-services'
+import { ClipboardCheck, Loader2, CheckCircle2, CircleDashed, AlertTriangle, Sparkles, TrendingUp } from 'lucide-react'
+import type { PlannerReviewItem, SuitabilityAssessment, PriceComparison } from '@/lib/property-services'
 import { FIELD_KEYS, PANEL_REVIEW_FIELDS, type PanelReviewFieldKey } from '@/lib/panel-review/fields'
+
+function money(n: number): string {
+  return n.toLocaleString('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 0 })
+}
 
 /**
  * Panel Review — the site factors no data feed can resolve (title, contamination,
@@ -19,6 +23,8 @@ export function PanelReviewPanel({
   address: string | null
 }) {
   const [items, setItems] = useState<PlannerReviewItem[] | null>(null)
+  const [assessment, setAssessment] = useState<SuitabilityAssessment | null>(null)
+  const [price, setPrice] = useState<PriceComparison | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -40,6 +46,8 @@ export function PanelReviewPanel({
         return
       }
       setItems((d.items as PlannerReviewItem[]) ?? [])
+      setAssessment((d.assessment as SuitabilityAssessment | null) ?? null)
+      setPrice((d.price as PriceComparison | null) ?? null)
     } catch {
       setError('Could not load panel review.')
       setItems([])
@@ -102,6 +110,48 @@ export function PanelReviewPanel({
         <div className="mb-3 flex items-center gap-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2">
           <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {/* AI suitability verdict + price position — the dossier's assess + price legs, surfaced. */}
+      {!loading && assessment && (
+        <div className={`mb-4 rounded-lg border p-3 ${assessment.suitable ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className={`w-4 h-4 ${assessment.suitable ? 'text-emerald-600' : 'text-amber-600'}`} />
+            <span className="text-sm font-semibold text-gray-900">
+              AI suitability: {assessment.suitable ? 'Suitable' : 'Not clear-cut'}
+            </span>
+            <span className="text-[0.65rem] font-medium px-1.5 py-0.5 rounded bg-white/70 text-gray-600 border border-gray-200">
+              {assessment.confidence} confidence
+            </span>
+          </div>
+          <p className="text-sm text-gray-700">{assessment.verdict}</p>
+          {assessment.risks?.length > 0 && (
+            <p className="mt-1 text-xs text-gray-600"><span className="font-medium">Risks:</span> {assessment.risks.slice(0, 3).join(' · ')}</p>
+          )}
+          {assessment.nextSteps?.length > 0 && (
+            <p className="mt-1 text-xs text-gray-600"><span className="font-medium">Next steps:</span> {assessment.nextSteps.slice(0, 3).join(' · ')}</p>
+          )}
+        </div>
+      )}
+      {!loading && price?.estimate?.mid != null && (
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="w-4 h-4 text-blue-600" />
+            <span className="text-sm font-semibold text-gray-900">Price position (Domain)</span>
+          </div>
+          <p className="text-sm text-gray-700">
+            Estimate {money(price.estimate.mid)}
+            {price.estimate.lower != null && price.estimate.upper != null ? ` (${money(price.estimate.lower)}–${money(price.estimate.upper)})` : ''}
+            {price.estimate.confidence ? ` · ${price.estimate.confidence}` : ''}
+          </p>
+          {price.stats && (
+            <p className="mt-1 text-xs text-gray-600">
+              {price.stats.count} comparable{price.stats.count === 1 ? '' : 's'}
+              {price.stats.median != null ? ` · median ${money(price.stats.median)}` : ''}
+              {price.stats.medianPricePerSqm != null ? ` · median ${money(price.stats.medianPricePerSqm)}/sqm` : ''}
+            </p>
+          )}
         </div>
       )}
 
