@@ -120,13 +120,23 @@ export function buildConstraintsYield(
     })
   }
 
-  // ── B2. Planning envelope (height / setbacks / uses / modular) ──
-  // The zoning control block property-services returns beyond the code+min-lot — the building
-  // envelope that bounds what can be built. Derived, reviewable, and load-bearing for feasibility
-  // (height ↔ product mix; setbacks ↔ net developable; permitted uses confirm residential
-  // subdivision is as-of-right vs discretionary; modular provisions matter for the F2K product).
+  // ── B2. Built-form controls (permitted uses + envelope) ─────
+  // Zoning carries the built-form envelope — what may be built, how tall, where on the lot, plus
+  // any modular provisions + the zone description. Derived context lines that inform the
+  // professional's design/feasibility review (height ↔ product mix; setbacks ↔ net developable;
+  // permitted uses ↔ as-of-right vs discretionary; modular provisions ↔ the F2K product). They do
+  // NOT alter the derived Torrens yield below (additive only).
   if (profile.zoning) {
     const z = profile.zoning
+    if (z.permittedUses.length) {
+      lines.push({
+        key: 'permittedUses',
+        label: 'Permitted uses',
+        value: z.permittedUses.join(', '),
+        provenance: 'derived',
+        dataset: 'zoning controls',
+      })
+    }
     if (z.maximumHeight != null || z.maximumHeightStoreys != null) {
       const parts: string[] = []
       if (z.maximumHeight != null) parts.push(`${z.maximumHeight} m`)
@@ -139,24 +149,25 @@ export function buildConstraintsYield(
         dataset: 'zoning controls',
       })
     }
-    if (z.setbacks && (z.setbacks.front != null || z.setbacks.side != null || z.setbacks.rear != null)) {
-      const fmt = (n: number | null) => (n != null ? `${n} m` : '—')
+    if (
+      z.setbacks &&
+      (z.setbacks.front != null || z.setbacks.side != null || z.setbacks.rear != null || z.setbacks.notes)
+    ) {
+      const sb = z.setbacks
+      const dims = [
+        sb.front != null ? `front ${sb.front} m` : null,
+        sb.side != null ? `side ${sb.side} m` : null,
+        sb.rear != null ? `rear ${sb.rear} m` : null,
+      ]
+        .filter(Boolean)
+        .join(' / ')
       lines.push({
         key: 'setbacks',
-        label: 'Setbacks (front / side / rear)',
-        value: `${fmt(z.setbacks.front)} / ${fmt(z.setbacks.side)} / ${fmt(z.setbacks.rear)}`,
+        label: 'Setbacks',
+        value: dims || 'per scheme',
         provenance: 'derived',
         dataset: 'zoning controls',
-        working: z.setbacks.notes ?? undefined,
-      })
-    }
-    if (z.permittedUses && z.permittedUses.length) {
-      lines.push({
-        key: 'permittedUses',
-        label: 'Permitted uses',
-        value: z.permittedUses.join(', '),
-        provenance: 'derived',
-        dataset: 'zoning controls',
+        working: sb.notes ?? undefined,
       })
     }
     if (z.modularProvisions) {
@@ -297,6 +308,48 @@ export function buildConstraintsYield(
       label: 'Estate yield',
       provenance: 'planner-referral',
       detail: 'Yield cannot be derived without a resolved zone + minimum lot size — resolve via the planner referral.',
+    })
+  }
+
+  // ── F2. Subdivision alternatives & analysis notes ───────────
+  // The subdivision analysis also assesses a STRATA path and emits recommendations/warnings. Surface
+  // strata as an alternative-yield note, its recommendations as context notes, and its warnings as
+  // needs-input gaps — all ADDITIVE to the authoritative Torrens yield above (which is unchanged).
+  const strata = profile.subdivision?.strata
+  if (strata && (strata.feasible || strata.notes)) {
+    lines.push({
+      key: 'strataYield',
+      label: 'Strata subdivision (alternative)',
+      value: strata.feasible ? 'feasible' : 'not feasible',
+      provenance: 'derived',
+      dataset: 'subdivision analysis',
+      working:
+        [
+          strata.notes || null,
+          strata.minLotSize != null ? `min lot size ${strata.minLotSize} sqm` : null,
+        ]
+          .filter(Boolean)
+          .join(' — ') || undefined,
+      severity: 'info',
+    })
+  }
+  const subdivisionRecs = profile.subdivision?.recommendations ?? []
+  for (let i = 0; i < subdivisionRecs.length; i++) {
+    lines.push({
+      key: `subdivisionRec:${i}`,
+      label: 'Subdivision recommendation',
+      value: subdivisionRecs[i],
+      provenance: 'note',
+      dataset: 'subdivision analysis',
+      severity: 'info',
+    })
+  }
+  for (const warning of profile.subdivision?.warnings ?? []) {
+    gaps.push({
+      dimension: 'density_yield',
+      label: 'Subdivision analysis warning',
+      provenance: 'needs-input',
+      detail: warning,
     })
   }
 
