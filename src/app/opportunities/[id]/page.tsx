@@ -42,6 +42,7 @@ interface Opportunity {
   contingency_amount: number
   total_project_cost: number
   avg_sale_price: number
+  developed_lot_price?: number | null
   derisk_pre_sales_percent?: number | null
   total_revenue: number
   gross_margin_dollars: number
@@ -102,6 +103,7 @@ function EditOpportunityModal({
     landPurchasePrice: opportunity.land_purchase_price || 0,
     totalProjectCost: opportunity.total_project_cost || 0,
     totalRevenue: opportunity.total_revenue || 0,
+    developedLotPrice: opportunity.developed_lot_price || 0,
     avgSalePrice: opportunity.avg_sale_price || 0,
     timeframeMonths: opportunity.timeframe_months || 0,
   })
@@ -300,7 +302,19 @@ function EditOpportunityModal({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Avg Sale Price per Unit ($)
+                  Developed lot price ($) <span className="text-gray-400 font-normal">— serviced lot, drives the verdict</span>
+                </label>
+                <input
+                  type="number"
+                  value={formData.developedLotPrice}
+                  onChange={(e) => setFormData(prev => ({ ...prev, developedLotPrice: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  House-and-land price ($) <span className="text-gray-400 font-normal">— per dwelling, the upside</span>
                 </label>
                 <input
                   type="number"
@@ -612,6 +626,28 @@ export default function OpportunityDetailPage() {
     ? buildConstraintsYield(opportunity.property_profile, buildupOptions)
     : null
 
+  // Two exit strategies (Task B): land-only (sell serviced lots — the verdict basis) vs house-and-land
+  // (build homes — the upside). Computed from the raw inputs so both show regardless of which basis the
+  // last assess stored. Only shown when both a lot price AND a house-and-land price are present.
+  const exitEconomics = (() => {
+    const lots = opportunity.num_lots || 0
+    const lotPrice = opportunity.developed_lot_price || 0
+    const hlPrice = opportunity.avg_sale_price || 0
+    if (!lots || lotPrice <= 0 || hlPrice <= 0) return null
+    const cont = (opportunity.contingency_percent || 5) / 100
+    const landBase = (opportunity.land_purchase_price || 0) + (opportunity.infrastructure_costs || 0)
+    const landCost = landBase * (1 + cont)
+    const hlBase = landBase + (opportunity.construction_per_unit || 0) * lots
+    const hlCost = hlBase * (1 + cont)
+    const landRev = lotPrice * lots
+    const hlRev = hlPrice * lots
+    const gm = (rev: number, cost: number) => (rev > 0 ? ((rev - cost) / rev) * 100 : 0)
+    return {
+      land: { rev: landRev, margin: landRev - landCost, gm: gm(landRev, landCost) },
+      hl: { rev: hlRev, margin: hlRev - hlCost, gm: gm(hlRev, hlCost) },
+    }
+  })()
+
   return (
     <AuthLayout>
     <div className="bg-gradient-to-br from-slate-50 to-blue-50">
@@ -846,7 +882,7 @@ export default function OpportunityDetailPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-6">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <DollarSign className="w-5 h-5 text-gray-500" />
-                Financial Summary
+                Financial Summary{exitEconomics ? ' — Land-only (verdict basis)' : ''}
               </h3>
               <div className="space-y-4">
                 <div className="p-4 bg-gray-50 rounded-lg">
@@ -876,6 +912,29 @@ export default function OpportunityDetailPage() {
                     <p className="text-xs text-amber-600 mt-1">Below 25% threshold</p>
                   )}
                 </div>
+
+                {exitEconomics && (
+                  <div className="pt-2 border-t border-gray-100">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Exit economics</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 rounded-lg bg-gray-50">
+                        <p className="text-xs text-gray-500">Land-only <span className="text-gray-400">(verdict)</span></p>
+                        <p className={`text-lg font-bold ${exitEconomics.land.gm >= 25 ? 'text-emerald-600' : exitEconomics.land.gm >= 18 ? 'text-amber-600' : 'text-red-600'}`}>
+                          {exitEconomics.land.gm.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-gray-500">${(exitEconomics.land.rev / 1e6).toFixed(1)}M rev · ${(exitEconomics.land.margin / 1e6).toFixed(1)}M profit</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-indigo-50/50">
+                        <p className="text-xs text-gray-500">House-and-land <span className="text-gray-400">(upside)</span></p>
+                        <p className={`text-lg font-bold ${exitEconomics.hl.gm >= 25 ? 'text-emerald-600' : exitEconomics.hl.gm >= 18 ? 'text-amber-600' : 'text-red-600'}`}>
+                          {exitEconomics.hl.gm.toFixed(1)}%
+                        </p>
+                        <p className="text-xs text-gray-500">${(exitEconomics.hl.rev / 1e6).toFixed(1)}M rev · ${(exitEconomics.hl.margin / 1e6).toFixed(1)}M profit</p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-400">Land-only sells serviced lots (no construction). House-and-land adds F2K modular homes.</p>
+                  </div>
+                )}
               </div>
             </div>
 

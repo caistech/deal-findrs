@@ -93,6 +93,7 @@ export async function PUT(
       contingencyAmount: 'contingency_amount',
       totalProjectCost: 'total_project_cost',
       avgSalePrice: 'avg_sale_price',
+      developedLotPrice: 'developed_lot_price',
       totalRevenue: 'total_revenue',
 
       // Timeframe
