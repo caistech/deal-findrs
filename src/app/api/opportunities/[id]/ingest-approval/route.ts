@@ -105,6 +105,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     lifecycle_status: lifecycle.status,
   }
   if (extracted.residentialLots != null) oppUpdate.num_lots = extracted.residentialLots
+  // A registered plan carries reserves/easements — denormalise them so every buildup consumer can
+  // partially-resolve the tenure gap. Only set when this document actually has tenure data (a plan),
+  // so ingesting a letter (no reserves/easements) never clears a previously-ingested plan's tenure.
+  const easements = extracted.easements ?? []
+  const reserves = extracted.reserves ?? []
+  if (easements.length || reserves.length) {
+    oppUpdate.plan_tenure = { easements, reserves }
+  }
   const { error: updErr } = await supabase.from('opportunities').update(oppUpdate).eq('id', opp.id)
   if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
 

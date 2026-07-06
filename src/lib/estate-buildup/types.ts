@@ -111,4 +111,15 @@ export interface BuildupOptions {
     waterManagement?: boolean
     contamination?: string | null
   }
+  /**
+   * Tenure read off an ingested registered subdivision plan — the reserves (POS / road reserve /
+   * drainage) and easements shown ON the plan. These PARTIALLY resolve the tenure gap: the plan
+   * evidences the reserves + plan-marked easements, but restrictive covenants + unregistered
+   * encumbrances still require a title search, so the gap narrows rather than fully clears (unless a
+   * `resolvedPanel.title` write-back also lands).
+   */
+  planTenure?: {
+    easements: { purpose: string; detail: string | null }[]
+    reserves: { purpose: string; detail: string | null }[]
+  }
 }

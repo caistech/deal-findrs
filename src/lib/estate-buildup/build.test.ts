@@ -122,6 +122,32 @@ describe('estate constraints & yield buildup', () => {
     expect(brief.lines.some((l) => l.key === 'title')).toBe(false)
   })
 
+  it('partially resolves tenure from an ingested plan (reserves/easements → derived line + narrower gap)', () => {
+    const brief = buildConstraintsYield(resolvedProfile(), {
+      planTenure: {
+        reserves: [{ purpose: 'Public Open Space', detail: '8909 m²' }, { purpose: 'Road Reserve', detail: '10 lots' }],
+        easements: [{ purpose: 'Drainage easement', detail: null }],
+      },
+    })
+    // A derived tenure line from the registered plan
+    const planLine = brief.lines.find((l) => l.key === 'planTenure')
+    expect(planLine?.provenance).toBe('derived')
+    expect(planLine?.value).toMatch(/Public Open Space/)
+    // The residual gap narrows to covenants/unregistered — not the full easements/road-reserves gap
+    const tenureGap = brief.gaps.find((g) => g.dimension === 'tenure')
+    expect(tenureGap?.label).toMatch(/covenants/i)
+    expect(tenureGap?.label).not.toMatch(/road reserves/i)
+  })
+
+  it('prefers a panel title write-back over the plan tenure', () => {
+    const brief = buildConstraintsYield(resolvedProfile(), {
+      resolvedPanel: { title: 'Title clear (LANDATA 2026-07)' },
+      planTenure: { reserves: [{ purpose: 'POS', detail: null }], easements: [] },
+    })
+    expect(brief.lines.some((l) => l.key === 'title')).toBe(true)
+    expect(brief.lines.some((l) => l.key === 'planTenure')).toBe(false)
+  })
+
   it('clears the tenure + servicing gaps when panel write-backs resolve them', () => {
     const brief = buildConstraintsYield(resolvedProfile(), {
       resolvedPanel: {

@@ -58,6 +58,8 @@ export function ApprovalIngestPanel({
     zoneCode: string | null
     /** Estate site area in m² — parent-parcel area preferred, else net developable. */
     siteAreaSqm: number | null
+    /** Reserves + easements read off an ingested plan (partially resolves the tenure gap). */
+    planTenure: { easements: { purpose: string; detail: string | null }[]; reserves: { purpose: string; detail: string | null }[] } | null
   }) => void
 }) {
   const [busy, setBusy] = useState(false)
@@ -84,6 +86,8 @@ export function ApprovalIngestPanel({
       const d = data as IngestResult
       setResult(d)
       const areaHa = d.extracted.parentAreaHa ?? d.extracted.netDevelopableHa
+      const easeList = d.extracted.easements ?? []
+      const reserveList = d.extracted.reserves ?? []
       onIngested({
         lots: d.extracted.residentialLots ?? null,
         minLotSize: d.extracted.minLotSizeSqm ?? null,
@@ -93,6 +97,7 @@ export function ApprovalIngestPanel({
             ? 'Approved subdivision'
             : null,
         siteAreaSqm: areaHa != null ? Math.round(areaHa * 10_000) : null,
+        planTenure: easeList.length || reserveList.length ? { easements: easeList, reserves: reserveList } : null,
       })
     } catch {
       setError('Upload failed — check your connection and retry.')

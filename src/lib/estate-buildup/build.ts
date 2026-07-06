@@ -44,7 +44,14 @@ export function buildConstraintsYield(
     provenance: profile.lot ? 'derived' : 'needs-input',
     dataset: 'property-services lot data',
   })
-  // A panel title write-back resolves the tenure gap (else it stays open as needs-input).
+  // Tenure resolution ladder:
+  //  1. A panel `title` write-back fully resolves it (operator-confirmed title search).
+  //  2. Else an ingested registered plan's reserves/easements PARTIALLY resolve it — the plan
+  //     evidences the reserves + plan-marked easements, but restrictive covenants + unregistered
+  //     encumbrances still need a title search, so the residual gap narrows rather than clears.
+  //  3. Else the full gap stays open (needs-input).
+  const planTenure = opts.planTenure
+  const hasPlanTenure = !!planTenure && (planTenure.easements.length > 0 || planTenure.reserves.length > 0)
   if (panel.title) {
     lines.push({
       key: 'title',
@@ -52,6 +59,25 @@ export function buildConstraintsYield(
       value: panel.title,
       provenance: 'operator-resolved',
       dataset: 'panel review (property write-back)',
+    })
+  } else if (hasPlanTenure) {
+    const fmt = (f: { purpose: string; detail: string | null }) => (f.detail ? `${f.purpose} (${f.detail})` : f.purpose)
+    const items = [...planTenure!.reserves.map(fmt), ...planTenure!.easements.map(fmt)]
+    lines.push({
+      key: 'planTenure',
+      label: 'Reserves & easements',
+      value: items.join('; '),
+      provenance: 'derived',
+      dataset: 'registered subdivision plan',
+    })
+    // Residual: covenants + unregistered encumbrances still need the title.
+    gaps.push({
+      dimension: 'tenure',
+      label: 'Restrictive covenants / unregistered encumbrances',
+      provenance: 'needs-input',
+      detail:
+        'Reserves + plan-marked easements are resolved from the registered plan; confirm restrictive ' +
+        'covenants + any unregistered encumbrances via a title search.',
     })
   } else {
     gaps.push({

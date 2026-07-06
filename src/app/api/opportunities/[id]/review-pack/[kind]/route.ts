@@ -79,7 +79,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   const { data: opp, error: oppErr } = await supabase
     .from('opportunities')
-    .select('id, name, address, city, state, num_lots, land_purchase_price, avg_sale_price, derisk_pre_sales_percent, property_profile, avm_snapshot')
+    .select('id, name, address, city, state, num_lots, land_purchase_price, avg_sale_price, derisk_pre_sales_percent, property_profile, avm_snapshot, plan_tenure')
     .eq('id', params.id)
     .single()
   if (oppErr || !opp) return NextResponse.json({ error: 'opportunity_not_found' }, { status: 404 })
@@ -137,6 +137,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       : {}),
     ...(Object.keys(resolvedPanel).length ? { resolvedPanel } : {}),
     ...(approvalConditions ? { approvalConditions } : {}),
+    ...(opp.plan_tenure ? { planTenure: opp.plan_tenure as BuildupOptions['planTenure'] } : {}),
   }
 
   const profile = opp.property_profile as { metadata?: { lgaName?: string | null } }

@@ -73,6 +73,7 @@ interface Opportunity {
   risk_heritage_overlay: boolean
   // Full property-services derive result (persisted) — powers the Constraints & Yield Brief
   property_profile?: PropertyProfile | null
+  plan_tenure?: { easements: { purpose: string; detail: string | null }[]; reserves: { purpose: string; detail: string | null }[] } | null
 }
 
 // Edit Modal Component
@@ -605,8 +606,10 @@ export default function OpportunityDetailPage() {
   const operatorResolved = referral?.status === 'approved'
     ? { zoneCode: referral.resolved_zone_code, minLotSize: referral.resolved_min_lot_size, lots: referral.resolved_lots }
     : undefined
+  const planTenure = opportunity.plan_tenure ?? undefined
+  const buildupOptions = { operatorResolved, planTenure }
   const estateBrief = opportunity.property_profile
-    ? buildConstraintsYield(opportunity.property_profile, { operatorResolved })
+    ? buildConstraintsYield(opportunity.property_profile, buildupOptions)
     : null
 
   return (
@@ -728,7 +731,7 @@ export default function OpportunityDetailPage() {
           <div className="col-span-2 space-y-6">
             {/* Estate Constraints & Yield Brief — derived buildup from the persisted profile */}
             {opportunity.property_profile && (
-              <ConstraintsYieldBrief profile={opportunity.property_profile} options={{ operatorResolved }} />
+              <ConstraintsYieldBrief profile={opportunity.property_profile} options={buildupOptions} />
             )}
             {/* Document-driven status: upload the approval to resolve the referral from the evidence. */}
             {opportunity.property_profile && (
@@ -744,7 +747,7 @@ export default function OpportunityDetailPage() {
                 opportunityId={opportunity.id}
                 profile={opportunity.property_profile}
                 state={opportunity.state}
-                options={{ operatorResolved }}
+                options={buildupOptions}
               />
             )}
             {opportunity.property_profile && estateBrief && (

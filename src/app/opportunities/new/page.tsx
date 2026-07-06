@@ -37,6 +37,8 @@ export default function NewOpportunityPage() {
   // The approval's resolved yield inputs (from the ingest) — fed into the Constraints & Yield buildup
   // as operatorResolved so the brief reflects the approved yield instead of "planner referral required".
   const [approvalResolved, setApprovalResolved] = useState<{ zoneCode: string | null; minLotSize: number | null; lots: number | null } | null>(null)
+  // Reserves + easements from an ingested plan — fed into the buildup as planTenure (partial tenure resolve).
+  const [approvalPlanTenure, setApprovalPlanTenure] = useState<{ easements: { purpose: string; detail: string | null }[]; reserves: { purpose: string; detail: string | null }[] } | null>(null)
   const [siteIntel, setSiteIntel] = useState<SiteIntelResult | null>(null)
   const [derivingIntel, setDerivingIntel] = useState(false)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
@@ -570,6 +572,7 @@ export default function NewOpportunityPage() {
                         onIngested={(r) => {
                           setApprovalIngested(true)
                           setApprovalResolved({ zoneCode: r.zoneCode, minLotSize: r.minLotSize, lots: r.lots })
+                          if (r.planTenure) setApprovalPlanTenure(r.planTenure)
                           if (r.lots) setDerivedLots(r.lots)
                           // An ingested subdivision approval carries through to the Property step:
                           // yield, planning stage (subdivision approved), resolved zone, site area, and
@@ -874,6 +877,8 @@ export default function NewOpportunityPage() {
                         // The ingested approval resolves the zone + yield the desktop derive couldn't —
                         // so the brief shows the approved 145 lots, not "planner referral required".
                         operatorResolved: approvalResolved ?? undefined,
+                        // The ingested plan's reserves/easements partially resolve the tenure gap.
+                        planTenure: approvalPlanTenure ?? undefined,
                       }}
                     />
                   </div>

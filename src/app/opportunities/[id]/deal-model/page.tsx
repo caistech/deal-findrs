@@ -173,7 +173,8 @@ export default function DealModelPage() {
           } catch {
             // referral is optional context; fall back to the plain derived yield
           }
-          const brief = buildConstraintsYield(o.property_profile as PropertyProfile, { operatorResolved })
+          const planTenure = (o as { plan_tenure?: { easements: { purpose: string; detail: string | null }[]; reserves: { purpose: string; detail: string | null }[] } | null }).plan_tenure ?? undefined
+          const brief = buildConstraintsYield(o.property_profile as PropertyProfile, { operatorResolved, planTenure })
           const y = brief.yield
           derivedYield = {
             source: brief.requiresPlannerReferral
