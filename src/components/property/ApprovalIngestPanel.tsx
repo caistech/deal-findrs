@@ -31,8 +31,11 @@ export function ApprovalIngestPanel({
   onIngested,
 }: {
   opportunityId: string
-  /** Called after a successful ingest with the approved residential-lot count (null if none read). */
-  onIngested: (lots: number | null) => void
+  /**
+   * Called after a successful ingest with the approval's resolved yield inputs, so the parent can
+   * feed them into the Constraints & Yield buildup as `operatorResolved` (clears the planner referral).
+   */
+  onIngested: (resolution: { lots: number | null; minLotSize: number | null; zoneCode: string | null }) => void
 }) {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<IngestResult | null>(null)
@@ -52,8 +55,17 @@ export function ApprovalIngestPanel({
         setError(data.error === 'extraction_failed' ? 'Could not read the approval — try a clearer PDF.' : (data.error || 'Ingest failed'))
         return
       }
-      setResult(data as IngestResult)
-      onIngested((data as IngestResult).extracted.residentialLots ?? null)
+      const d = data as IngestResult
+      setResult(d)
+      onIngested({
+        lots: d.extracted.residentialLots ?? null,
+        minLotSize: d.extracted.minLotSizeSqm ?? null,
+        zoneCode: d.extracted.wapcRef
+          ? `Approved plan (WAPC ${d.extracted.wapcRef})`
+          : d.referralCleared
+            ? 'Approved subdivision'
+            : null,
+      })
     } catch {
       setError('Upload failed — check your connection and retry.')
     } finally {

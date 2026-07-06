@@ -34,6 +34,9 @@ export default function NewOpportunityPage() {
   const [loading, setLoading] = useState(false)
   const [documents, setDocuments] = useState<any[]>([])
   const [approvalIngested, setApprovalIngested] = useState(false)
+  // The approval's resolved yield inputs (from the ingest) — fed into the Constraints & Yield buildup
+  // as operatorResolved so the brief reflects the approved yield instead of "planner referral required".
+  const [approvalResolved, setApprovalResolved] = useState<{ zoneCode: string | null; minLotSize: number | null; lots: number | null } | null>(null)
   const [siteIntel, setSiteIntel] = useState<SiteIntelResult | null>(null)
   const [derivingIntel, setDerivingIntel] = useState(false)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
@@ -564,11 +567,12 @@ export default function NewOpportunityPage() {
                     {draftId ? (
                       <ApprovalIngestPanel
                         opportunityId={draftId}
-                        onIngested={(lots) => {
+                        onIngested={(r) => {
                           setApprovalIngested(true)
-                          if (lots) {
-                            setDerivedLots(lots)
-                            setFormData(prev => ({ ...prev, numLots: String(lots), numDwellings: String(lots) }))
+                          setApprovalResolved(r)
+                          if (r.lots) {
+                            setDerivedLots(r.lots)
+                            setFormData(prev => ({ ...prev, numLots: String(r.lots), numDwellings: String(r.lots) }))
                           }
                         }}
                       />
@@ -851,6 +855,9 @@ export default function NewOpportunityPage() {
                       options={{
                         feasibilityStudyLots: hasFeasibilityStudy ? (Number(feasibilityStudyLots) || null) : null,
                         developerClaimedLots: Number(developerStatedLots) || null,
+                        // The ingested approval resolves the zone + yield the desktop derive couldn't —
+                        // so the brief shows the approved 145 lots, not "planner referral required".
+                        operatorResolved: approvalResolved ?? undefined,
                       }}
                     />
                   </div>
