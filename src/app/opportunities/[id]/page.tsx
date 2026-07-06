@@ -16,6 +16,7 @@ import { ConditionsRegisterPanel } from '@/components/property/ConditionsRegiste
 import { ReviewPacksPanel } from '@/components/property/ReviewPacksPanel'
 import { PanelReviewPanel } from '@/components/property/PanelReviewPanel'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
+import { landStageLabel, landApprovalBadgeLabel } from '@/lib/planning/land-stage'
 import type { PropertyProfile } from '@/lib/property-services'
 
 // Type for opportunity matching database schema
@@ -435,7 +436,7 @@ export default function OpportunityDetailPage() {
   const passedCriteria = opportunity ? [
     { label: 'Proof of Ownership Verified', points: 0, passed: opportunity.derisk_clear_title },
     { label: 'No Legal Disputes', points: 0, passed: !opportunity.risk_previous_disputes },
-    { label: 'DA Approved', points: 15, passed: opportunity.derisk_da_approved },
+    { label: landApprovalBadgeLabel(opportunity.state), points: 15, passed: opportunity.derisk_da_approved },
     { label: 'Vendor Finance Available', points: 10, passed: opportunity.derisk_vendor_finance },
     { label: 'Fixed-Price Construction', points: 10, passed: opportunity.derisk_fixed_price_construction },
     { label: 'Experienced PM Available', points: 5, passed: opportunity.derisk_experienced_pm },
@@ -682,7 +683,9 @@ export default function OpportunityDetailPage() {
                   <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium uppercase">
                     {ragStatus} Light
                   </span>
-                  <span className="text-white/80">Score: {opportunity.score?.toFixed(0) || 0}/100</span>
+                  {opportunity.gross_margin_percent != null && (
+                    <span className="text-white/80">Gross margin: {opportunity.gross_margin_percent.toFixed(1)}%</span>
+                  )}
                 </div>
                 <h1 className="text-3xl font-bold mb-1">{opportunity.name}</h1>
                 <p className="text-white/80">
@@ -710,7 +713,7 @@ export default function OpportunityDetailPage() {
                 attentionItems,
                 pathToGreen,
               }}
-              customInitialPrompt={`This opportunity scored ${ragStatus.toUpperCase()} with ${opportunity.score?.toFixed(0) || 0} points. The gross margin is ${opportunity.gross_margin_percent?.toFixed(1) || 0}%, which is ${(opportunity.gross_margin_percent || 0) >= 25 ? 'meeting' : 'below'} your 25% green threshold. Would you like me to explain the score breakdown or discuss the path to green?`}
+              customInitialPrompt={`This opportunity assessed as ${ragStatus.toUpperCase()}. The gross margin is ${opportunity.gross_margin_percent?.toFixed(1) || 0}%, which is ${(opportunity.gross_margin_percent || 0) >= 25 ? 'meeting' : 'below'} your 25% green threshold. Would you like me to explain the assessment or discuss the path to green?`}
               onClose={() => setShowVoice(false)}
             />
           </div>
@@ -874,7 +877,7 @@ export default function OpportunityDetailPage() {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
                   <span className="text-gray-500">Land Stage</span>
-                  <span className="font-medium text-gray-900">{opportunity.land_stage || '-'}</span>
+                  <span className="font-medium text-gray-900">{opportunity.land_stage ? landStageLabel(opportunity.state, opportunity.land_stage) : '-'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Lots</span>

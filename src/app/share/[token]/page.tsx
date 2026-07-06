@@ -107,7 +107,6 @@ export default async function SharePage({
   const partnerName = data.partner_name ?? 'A DealFindrs partner'
   const dealName = data.opportunity_name ?? 'Property Assessment'
   const dealAddress = data.opportunity_address ?? ''
-  const score = data.score != null ? Math.round(data.score) : null
   const gmPct = data.gross_margin_pct != null ? Number(data.gross_margin_pct).toFixed(1) : null
 
   const gradientMap = {
@@ -161,15 +160,6 @@ export default async function SharePage({
 
         {/* Key metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
-          {score != null && (
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-              <p className="text-sm text-gray-400 mb-1">Assessment Score</p>
-              <p className="text-4xl font-bold text-white">
-                {score}
-                <span className="text-xl text-gray-400 font-normal">/100</span>
-              </p>
-            </div>
-          )}
           {gmPct != null && (
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
               <p className="text-sm text-gray-400 mb-1">Gross Margin</p>

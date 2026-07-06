@@ -96,7 +96,7 @@ export default function DashboardPage() {
                     <div className="max-h-80 overflow-y-auto">
                       <div className="px-4 py-3 hover:bg-gray-50 border-b border-gray-100">
                         <p className="text-sm text-gray-900">Branscomb Rd assessment complete</p>
-                        <p className="text-xs text-gray-500 mt-1">Result: AMBER (Score: 78)</p>
+                        <p className="text-xs text-gray-500 mt-1">Result: AMBER</p>
                         <p className="text-xs text-gray-400 mt-1">2 hours ago</p>
                       </div>
                       <div className="px-4 py-3 hover:bg-gray-50">
@@ -199,10 +199,6 @@ export default function DashboardPage() {
                 <div className="hidden sm:block text-right">
                   <p className="font-bold text-gray-900">{deal.gm}</p>
                   <p className="text-xs text-gray-500">GM</p>
-                </div>
-                <div className="hidden md:block text-right w-16">
-                  <p className="font-semibold text-gray-900">{deal.score}</p>
-                  <p className="text-xs text-gray-500">Score</p>
                 </div>
                 <ChevronRight className="w-5 h-5 flex-shrink-0 text-gray-400" />
               </Link>

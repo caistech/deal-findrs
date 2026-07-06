@@ -15,6 +15,7 @@ import { usePropertyOnboarding, PropertyAssessment } from '@/lib/property-servic
 import { ConstraintsYieldBrief } from '@/components/property/ConstraintsYieldBrief'
 import type { PropertyProfile } from '@/lib/property-services'
 import type { GeocodedAddress, SiteIntelResult } from '@/lib/mapbox'
+import { landStageOptions, landStageLabel, landApprovalBadgeLabel } from '@/lib/planning/land-stage'
 
 type Step = 'basics' | 'property' | 'financial' | 'documents' | 'review'
 
@@ -941,11 +942,9 @@ export default function NewOpportunityPage() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
                     >
                       <option value="">Select stage</option>
-                      <option value="da_approved">DA Approved ✓</option>
-                      <option value="da_lodged">DA Lodged (Pending)</option>
-                      <option value="needs_rezoning">Needs Rezoning</option>
-                      <option value="raw_land">Raw Land</option>
-                      <option value="construction_ready">Construction Ready</option>
+                      {landStageOptions(formData.state).map((o) => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -1477,7 +1476,7 @@ export default function NewOpportunityPage() {
                     <h4 className="font-semibold text-gray-900 mb-2">🏗️ Property</h4>
                     <p className="text-gray-700">{formData.numLots || 0} lots</p>
                     <p className="text-gray-600">{formData.propertySize} {formData.propertySizeUnit}</p>
-                    <p className="text-gray-600 capitalize">{formData.landStage?.replace('_', ' ') || 'Unknown stage'}</p>
+                    <p className="text-gray-600">{landStageLabel(formData.state, formData.landStage)}</p>
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4">
                     <h4 className="font-semibold text-gray-900 mb-2">📄 Documents</h4>
@@ -1524,7 +1523,7 @@ export default function NewOpportunityPage() {
                   <h4 className="font-semibold text-gray-900 mb-3">🛡️ De-Risk Factors Applied</h4>
                   <div className="flex flex-wrap gap-2">
                     {(formData.deriskDaApproved || formData.landStage === 'da_approved') && (
-                      <span className="px-3 py-1 bg-emerald-200 text-emerald-800 rounded-full text-sm">DA Approved +15</span>
+                      <span className="px-3 py-1 bg-emerald-200 text-emerald-800 rounded-full text-sm">{landApprovalBadgeLabel(formData.state)} +15</span>
                     )}
                     {formData.deriskVendorFinance && (
                       <span className="px-3 py-1 bg-emerald-200 text-emerald-800 rounded-full text-sm">Vendor Finance +10</span>
