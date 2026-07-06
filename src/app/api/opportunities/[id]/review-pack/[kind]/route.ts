@@ -4,6 +4,7 @@ import { getCompanyId } from '@/lib/auth/get-company-id'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
 import type { BuildupOptions } from '@/lib/estate-buildup/types'
 import { buildEstateCostPack } from '@/lib/estate-cost/build'
+import { deriveCostConditions } from '@/lib/estate-cost/conditions'
 import type { EstateCostPack } from '@/lib/estate-cost/types'
 import { buildValuationPack, buildValuerPnl, buildValuerDcf } from '@/lib/estate-valuation/build'
 import { buildSensitivity } from '@/lib/estate-sensitivity/build'
@@ -153,17 +154,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     // Cost-bearing conditions of approval → mandated QS lines (education levy, road upgrades, POS
     // development, demolition), sharpened by the plan's parent area (per-ha land value) + POS area.
     const ex = (latestDoc?.extracted ?? {}) as { wapcRef?: string | null; parentAreaHa?: number | null; posSqm?: number | null }
-    const costConditions = condList.length
-      ? {
-          wapcRef: ex.wapcRef ?? null,
-          education: hasCond(/education|school|op\s*2\.4|1\/1500/i),
-          roadUpgrades: hasCond(/upgrad\w+ .*road|road.*upgrad|full cost of upgrading|frontage/i),
-          posDevelopment: hasCond(/public open space|\bpos\b|landscap/i),
-          demolition: hasCond(/demolish|demolition/i),
-          posSqm: ex.posSqm ?? null,
-          landValuePerHa: landPrice && ex.parentAreaHa ? landPrice / ex.parentAreaHa : null,
-        }
-      : undefined
+    const costConditions = deriveCostConditions({
+      conditions: condList as { text: string | null }[],
+      wapcRef: ex.wapcRef ?? null,
+      posSqm: ex.posSqm ?? null,
+      landValuePerHa: landPrice && ex.parentAreaHa ? landPrice / ex.parentAreaHa : null,
+    })
     costPack = buildEstateCostPack({
       lots,
       state: opp.state as string,

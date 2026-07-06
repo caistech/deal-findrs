@@ -20,6 +20,8 @@ import {
   type CashflowResult,
 } from '@/lib/deal-model'
 import { buildConstraintsYield } from '@/lib/estate-buildup/build'
+import { buildEstateCostPack } from '@/lib/estate-cost/build'
+import { deriveCostConditions } from '@/lib/estate-cost/conditions'
 import type { PropertyProfile } from '@/lib/property-services'
 
 /** Where the pre-filled lot count came from — the derived estate buildup is authoritative over num_lots. */
@@ -196,7 +198,38 @@ export default function DealModelPage() {
           marketPricePerLot: o?.avg_sale_price || 0,
           landPerLot: lots ? Math.round((o?.land_purchase_price || 0) / lots) : 0,
           infraPerLot: lots ? Math.round((o?.infrastructure_costs || 0) / lots) : 0,
+          // Pre-tick the stage gates the ingested approval already evidenced (subdivision approved,
+          // conditions-clearance underway, …) — the operator shouldn't re-tick what we've ingested.
+          // These set the entry-stage split, so leaving them blank understates the stage.
+          stageGate: (o?.stage_gate as StageGateTicks | null) ?? prev.stageGate,
         }))
+
+        // Pull the statutory (education levy + headworks) + soft cost per lot from the SAME estate-cost
+        // engine the QS pack uses, driven by the conditions register — so these fields aren't left at 0
+        // when the approval mandates them (e.g. WAPC OP2.4 education contribution, condition #20).
+        try {
+          if (lots > 0 && o?.state) {
+            const condRes = await fetch(`/api/opportunities/${opportunityId}/conditions`)
+            if (condRes.ok) {
+              const { conditions } = await condRes.json()
+              const sizeHa = o?.property_size_unit === 'ha' ? Number(o.property_size) : Number(o?.property_size || 0) / 10_000
+              const landValuePerHa = o?.land_purchase_price && sizeHa ? Number(o.land_purchase_price) / sizeHa : null
+              const costConditions = deriveCostConditions({
+                conditions: (conditions ?? []).map((c: { text: string | null }) => ({ text: c.text })),
+                landValuePerHa,
+              })
+              const pack = buildEstateCostPack({
+                lots,
+                state: o.state as string,
+                landPerLot: Math.round((o?.land_purchase_price || 0) / lots),
+                ...(costConditions ? { approvalConditions: costConditions } : {}),
+              })
+              setForm((prev) => ({ ...prev, educationPerLot: pack.statutoryPerLot, softCostsPerLot: pack.softPerLot }))
+            }
+          }
+        } catch {
+          // cost pre-fill is best-effort — the operator can enter these by hand
+        }
 
         // Pre-fill the funder-cashflow staging from the estate record. Falls back to the
         // indicative placeholders (5×9) when the columns are null (pre Porter/QS).
