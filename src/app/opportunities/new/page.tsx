@@ -530,6 +530,66 @@ export default function NewOpportunityPage() {
                   </div>
                 </div>
 
+                {/* Documents — FIRST-CLASS on page 1. Upload the WAPC subdivision approval (or plan /
+                    title) to establish the deal's current status + resolve zoning/yield from evidence
+                    before the Property step. ALWAYS visible so it's the obvious next move; the upload
+                    attaches to a draft that is created the moment an address is selected. */}
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4 sm:p-5">
+                  <h3 className="font-semibold text-gray-900">Establish current status from documents</h3>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Have a subdivision approval (WAPC decision letter / plan), title or plan? Upload it here to set
+                    the deal&apos;s current status, approved yield and conditions — zoning is the biggest thing to
+                    pin down, and the approval resolves it from the evidence rather than a guess.
+                  </p>
+
+                  {/* Reliability signal: when the derive returns no zoning OR thin LGA coverage, the
+                      approval is NEEDED, not just optional. */}
+                  {property.profile
+                    && (!property.profile.zoning?.code || property.profile.metadata?.lgaCoverage !== 'full')
+                    && !approvalIngested && (
+                    <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                      <p className="text-sm font-semibold text-amber-900">
+                        Zoning couldn&apos;t be fully resolved from public data for this location
+                        {property.profile.metadata?.lgaCoverage && property.profile.metadata.lgaCoverage !== 'full'
+                          ? ` — LGA planning coverage is ${property.profile.metadata.lgaCoverage}`
+                          : ''}. Uploading the approval settles it.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-3">
+                    {draftId ? (
+                      <ApprovalIngestPanel
+                        opportunityId={draftId}
+                        onIngested={(lots) => {
+                          setApprovalIngested(true)
+                          if (lots) {
+                            setDerivedLots(lots)
+                            setFormData(prev => ({ ...prev, numLots: String(lots), numDwellings: String(lots) }))
+                          }
+                        }}
+                      />
+                    ) : formData.address ? (
+                      <p className="text-sm text-amber-700">
+                        Saving the deal as a draft so your upload can attach…{' '}
+                        {draftError ? `Error: ${draftError}.` : 'one moment.'}
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-500">
+                        Enter the site address above first — then upload your approval here. No approval yet? You can
+                        skip this; the buildup derives what it can and flags a planner referral.
+                      </p>
+                    )}
+                  </div>
+
+                  {approvalIngested && (
+                    <p className="mt-3 text-sm text-emerald-700">
+                      Status, approved yield and conditions are set — they carry through to the property, financial,
+                      assessment and review-pack steps.
+                    </p>
+                  )}
+                </div>
+
                 {/* Site Intelligence — auto-derived from address */}
                 {(derivingIntel || siteIntel) && (
                   <div className={`rounded-xl border p-4 ${derivingIntel ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200'}`}>
@@ -791,73 +851,6 @@ export default function NewOpportunityPage() {
                       }}
                     />
                   </div>
-                )}
-
-                {/* Establish current status from documents — the authoritative zoning/yield resolver.
-                    Address-derive resolves what it can; the WAPC approval resolves the rest (the
-                    biggest part of the process). Lives here on page 1 so zoning is settled before the
-                    Property step, which becomes confirm-not-enter. */}
-                {formData.address && (
-                  draftId ? (
-                    <div className="mt-4 space-y-3">
-                      {/* Reliability signal from property-services: did address-derive resolve zoning
-                          cleanly, or does this location need the approval doc to settle it? A null
-                          zoning OR an LGA coverage of 'partial'/'none' means the derive is thin here. */}
-                      {property.profile
-                        && (!property.profile.zoning?.code || property.profile.metadata?.lgaCoverage !== 'full')
-                        && !approvalIngested && (
-                        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-                          <p className="text-sm font-semibold text-amber-900">
-                            Zoning couldn&apos;t be fully resolved from public data for this location
-                            {property.profile.metadata?.lgaCoverage && property.profile.metadata.lgaCoverage !== 'full'
-                              ? ` — LGA planning coverage is ${property.profile.metadata.lgaCoverage}`
-                              : ''}.
-                          </p>
-                          <p className="mt-1 text-sm text-amber-800">
-                            Zoning drives the whole yield and feasibility, so this is the biggest thing to pin down.
-                            Upload the subdivision approval (WAPC decision letter / plan) below to set it from the
-                            evidence — otherwise the buildup flags a planner referral and the yield stays provisional.
-                          </p>
-                        </div>
-                      )}
-                      <ApprovalIngestPanel
-                        opportunityId={draftId}
-                        onIngested={(lots) => {
-                          setApprovalIngested(true)
-                          if (lots) {
-                            setDerivedLots(lots)
-                            setFormData(prev => ({ ...prev, numLots: String(lots), numDwellings: String(lots) }))
-                          }
-                        }}
-                      />
-                      {!approvalIngested && property.profile?.zoning?.code && property.profile.metadata?.lgaCoverage === 'full' && (
-                        <p className="text-sm text-gray-500">
-                          Zoning resolved from public data. Optional — upload the subdivision approval to set the
-                          deal&apos;s current status, approved yield and conditions from the evidence.
-                        </p>
-                      )}
-                      {!approvalIngested && !property.profile && (
-                        <p className="text-sm text-gray-500">
-                          Optional — if you have the subdivision approval, upload it to set the deal&apos;s current
-                          status, approved yield and conditions from the evidence.
-                        </p>
-                      )}
-                      {approvalIngested && (
-                        <p className="text-sm text-emerald-700">
-                          Status, approved yield and conditions are set — they carry through to the property,
-                          financial, assessment and review-pack steps.
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
-                      <p className="text-sm font-medium text-amber-900">Saving the deal as a draft…</p>
-                      <p className="mt-1 text-sm text-amber-700">
-                        The approval upload needs a saved opportunity to attach to.{' '}
-                        {draftError ? `Error: ${draftError}.` : 'This takes a moment after you select an address.'}
-                      </p>
-                    </div>
-                  )
                 )}
 
                 <hr className="my-6" />
