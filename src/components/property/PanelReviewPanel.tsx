@@ -41,7 +41,15 @@ export function PanelReviewPanel({
       const r = await fetch(`/api/opportunities/${opportunityId}/panel-review`)
       const d = await r.json().catch(() => ({}))
       if (!r.ok) {
-        setError(d.error === 'no_address' ? 'Add a site address to load the panel review.' : (d.error || 'Could not load panel review.'))
+        // Map internal error codes to human copy — never surface a raw key like
+        // `opportunity_not_found` to the operator.
+        const friendly: Record<string, string> = {
+          no_address: 'Add a site address to load the panel review.',
+          opportunity_not_found: 'This deal isn’t available for panel review yet — save it first.',
+          no_profile: 'Finish account setup to load the panel review.',
+          no_company: 'Your account isn’t linked to a company yet, so the panel review can’t load.',
+        }
+        setError(friendly[d.error as string] ?? 'Could not load the panel review right now.')
         setItems([])
         return
       }

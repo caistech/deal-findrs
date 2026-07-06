@@ -413,15 +413,16 @@ export default function NewOpportunityPage() {
     <div className="bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
       <nav className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/opportunities" className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+          <Link href="/opportunities" className="flex items-center gap-2 text-gray-600 hover:text-gray-900 flex-shrink-0">
             <ArrowLeft className="w-4 h-4" /> Back
           </Link>
-          
-          {/* Step indicators */}
-          <div className="flex items-center gap-2">
+
+          {/* Step indicators — scroll within their own strip on narrow screens rather than
+              forcing the page wider than the viewport (responsive rule: no horizontal page scroll). */}
+          <div className="flex items-center gap-2 overflow-x-auto min-w-0">
             {steps.map((step, i) => (
-              <div key={step.key} className="flex items-center">
+              <div key={step.key} className="flex items-center flex-shrink-0">
                 <button
                   onClick={() => i <= currentStepIndex && setCurrentStep(step.key)}
                   disabled={i > currentStepIndex}
@@ -542,17 +543,18 @@ export default function NewOpportunityPage() {
                     pin down, and the approval resolves it from the evidence rather than a guess.
                   </p>
 
-                  {/* Reliability signal: when the derive returns no zoning OR thin LGA coverage, the
-                      approval is NEEDED, not just optional. */}
+                  {/* Reliability signal: when the derive returns no zoning code at all, OR the zone is
+                      known but the LGA's planning controls are only partially covered, the approval is
+                      NEEDED, not just optional. Distinguish the two so the message never contradicts a
+                      zone the brief is showing as "derived". */}
                   {property.profile
                     && (!property.profile.zoning?.code || property.profile.metadata?.lgaCoverage !== 'full')
                     && !approvalIngested && (
                     <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
                       <p className="text-sm font-semibold text-amber-900">
-                        Zoning couldn&apos;t be fully resolved from public data for this location
-                        {property.profile.metadata?.lgaCoverage && property.profile.metadata.lgaCoverage !== 'full'
-                          ? ` — LGA planning coverage is ${property.profile.metadata.lgaCoverage}`
-                          : ''}. Uploading the approval settles it.
+                        {!property.profile.zoning?.code
+                          ? 'Zoning couldn’t be resolved from public data for this location. Uploading the approval settles it.'
+                          : `The zone is known, but planning coverage for this LGA is ${property.profile.metadata?.lgaCoverage ?? 'incomplete'} — the controls and yield may be partial. Uploading the approval confirms them.`}
                       </p>
                     </div>
                   )}
