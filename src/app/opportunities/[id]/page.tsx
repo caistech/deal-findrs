@@ -49,7 +49,7 @@ interface Opportunity {
   timeframe_months: number
   target_start_date: string
   target_completion_date: string
-  rag_status: 'green' | 'amber' | 'red'
+  rag_status: 'green' | 'amber' | 'red' | null
   status: string
   score: number
   gm_score: number
@@ -597,7 +597,10 @@ export default function OpportunityDetailPage() {
     )
   }
 
-  const ragStatus = opportunity.rag_status || 'amber'
+  const ragStatus = opportunity.rag_status
+  // A deal with no rag_status hasn't been through the engine — show "Not assessed", not a
+  // defaulted amber that reads as a real verdict.
+  const assessed = ragStatus === 'green' || ragStatus === 'amber' || ragStatus === 'red'
 
   const operatorResolved = referral?.status === 'approved'
     ? { zoneCode: referral.resolved_zone_code, minLotSize: referral.resolved_min_lot_size, lots: referral.resolved_lots }
@@ -664,11 +667,12 @@ export default function OpportunityDetailPage() {
         <DealJourney
           currentStage="assessment"
           opportunityId={opportunity.id}
-          ragStatus={ragStatus as 'green' | 'amber' | 'red'}
+          ragStatus={(ragStatus ?? 'amber') as 'green' | 'amber' | 'red'}
         />
 
         {/* Assessment Result Header */}
         <div className={`mt-6 rounded-2xl p-8 mb-8 ${
+          !assessed ? 'bg-gradient-to-r from-slate-400 to-slate-500' :
           ragStatus === 'green' ? 'bg-gradient-to-r from-emerald-500 to-green-600' :
           ragStatus === 'amber' ? 'bg-gradient-to-r from-amber-500 to-orange-500' :
           'bg-gradient-to-r from-red-500 to-rose-600'
@@ -676,12 +680,12 @@ export default function OpportunityDetailPage() {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-6">
               <div className="w-24 h-24 bg-white/20 rounded-2xl flex items-center justify-center text-5xl">
-                {ragStatus === 'green' ? '🟢' : ragStatus === 'amber' ? '🟡' : '🔴'}
+                {!assessed ? '⚪' : ragStatus === 'green' ? '🟢' : ragStatus === 'amber' ? '🟡' : '🔴'}
               </div>
               <div className="text-white">
                 <div className="flex items-center gap-3 mb-2">
                   <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium uppercase">
-                    {ragStatus} Light
+                    {assessed ? `${ragStatus} Light` : 'Not assessed'}
                   </span>
                   {opportunity.gross_margin_percent != null && (
                     <span className="text-white/80">Gross margin: {opportunity.gross_margin_percent.toFixed(1)}%</span>
@@ -713,7 +717,7 @@ export default function OpportunityDetailPage() {
                 attentionItems,
                 pathToGreen,
               }}
-              customInitialPrompt={`This opportunity assessed as ${ragStatus.toUpperCase()}. The gross margin is ${opportunity.gross_margin_percent?.toFixed(1) || 0}%, which is ${(opportunity.gross_margin_percent || 0) >= 25 ? 'meeting' : 'below'} your 25% green threshold. Would you like me to explain the assessment or discuss the path to green?`}
+              customInitialPrompt={`This opportunity ${assessed ? `assessed as ${ragStatus.toUpperCase()}` : 'has not been assessed yet'}. The gross margin is ${opportunity.gross_margin_percent?.toFixed(1) || 0}%, which is ${(opportunity.gross_margin_percent || 0) >= 25 ? 'meeting' : 'below'} your 25% green threshold. Would you like me to explain the assessment or discuss the path to green?`}
               onClose={() => setShowVoice(false)}
             />
           </div>
