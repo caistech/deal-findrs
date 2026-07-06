@@ -2,16 +2,23 @@
 
 import { useState, useRef } from 'react'
 import { FileUp, Loader2, Check, AlertTriangle, FileText } from 'lucide-react'
+import type { DocumentKind } from '@/lib/document-ingest/types'
 
 interface IngestResult {
+  kind: DocumentKind
   extracted: {
     wapcRef: string | null
     lga: string | null
     residentialLots: number | null
     minLotSizeSqm: number | null
     avgLotSizeSqm: number | null
+    maxLotSizeSqm: number | null
     netDevelopableHa: number | null
     parentAreaHa: number | null
+    posSqm: number | null
+    easements?: { purpose: string; detail: string | null }[]
+    reserves?: { purpose: string; detail: string | null }[]
+    lotSizeBands?: { band: string; count: number }[]
     conditions: { category: string }[]
   }
   dealModelStage: string
@@ -21,11 +28,20 @@ interface IngestResult {
   referralCleared: boolean
 }
 
+/** The document types the operator can ingest during onboarding. */
+const DOC_KINDS: { value: DocumentKind; label: string; blurb: string }[] = [
+  { value: 'wapc_subdivision_approval', label: 'WAPC decision letter', blurb: 'the approval + the conditions of approval' },
+  { value: 'subdivision_plan', label: 'Subdivision plan', blurb: 'the deposited plan / plan-of-subdivision drawing — lot geometry, reserves, easements' },
+  { value: 'title', label: 'Title', blurb: 'certificate of title — tenure + encumbrances' },
+  { value: 'other', label: 'Other document', blurb: 'any other planning evidence' },
+]
+
 /**
- * Onboarding capability: upload a development document (Phase 1 — a WAPC subdivision-approval letter
- * / plan) to establish the deal's evidence-derived current status. The approved yield + min-lot
- * resolve the planner referral, and the stage gates the document evidences roll up to a lifecycle
- * status. `onIngested` lets the parent re-render with the resolution applied.
+ * Onboarding capability: upload a development document to establish the deal's evidence-derived
+ * current status. Pick the document type — a WAPC decision letter (approval + conditions), the
+ * deposited subdivision plan (lot geometry + reserves + easements), a title, or other. The extracted
+ * yield + min-lot resolve the planner referral; the stage gates each document evidences roll up to a
+ * lifecycle status. `onIngested` lets the parent re-render with the resolution applied.
  */
 export function ApprovalIngestPanel({
   opportunityId,
@@ -45,9 +61,12 @@ export function ApprovalIngestPanel({
   }) => void
 }) {
   const [busy, setBusy] = useState(false)
+  const [kind, setKind] = useState<DocumentKind>('wapc_subdivision_approval')
   const [result, setResult] = useState<IngestResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const selected = DOC_KINDS.find((k) => k.value === kind) ?? DOC_KINDS[0]
 
   async function upload(file: File) {
     setBusy(true)
@@ -55,11 +74,11 @@ export function ApprovalIngestPanel({
     try {
       const body = new FormData()
       body.append('file', file)
-      body.append('kind', 'wapc_subdivision_approval')
+      body.append('kind', kind)
       const res = await fetch(`/api/opportunities/${opportunityId}/ingest-approval`, { method: 'POST', body })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error === 'extraction_failed' ? 'Could not read the approval — try a clearer PDF.' : (data.error || 'Ingest failed'))
+        setError(data.error === 'extraction_failed' ? 'Could not read the document — try a clearer PDF.' : (data.error || 'Ingest failed'))
         return
       }
       const d = data as IngestResult
@@ -82,6 +101,11 @@ export function ApprovalIngestPanel({
     }
   }
 
+  const ex = result?.extracted
+  const reserves = ex?.reserves ?? []
+  const easements = ex?.easements ?? []
+  const bands = ex?.lotSizeBands ?? []
+
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-5">
       <div className="flex items-start gap-3">
@@ -91,32 +115,50 @@ export function ApprovalIngestPanel({
         <div className="min-w-0 flex-1">
           <h3 className="text-base font-semibold text-gray-900">Establish current status from documents</h3>
           <p className="mt-1 text-sm text-gray-600">
-            Upload the subdivision approval (WAPC decision letter / plan). We extract the approved yield and
-            conditions, resolve the planner referral, and derive where this deal actually sits in the development
-            lifecycle — from the evidence, not a typed-in number.
+            Upload whatever you have — the WAPC decision letter, the deposited subdivision plan, or a title.
+            We extract the evidence (approved yield, conditions, lot geometry, reserves &amp; easements), resolve
+            the planner referral, and derive where this deal actually sits in the lifecycle — not a typed-in number.
+            Upload more than one; each document adds to the picture.
           </p>
 
-          <div className="mt-3">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0]
-                if (f) upload(f)
-              }}
-            />
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => fileRef.current?.click()}
-              className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
-              {busy ? 'Reading document…' : 'Upload planning approval'}
-            </button>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+            <label className="flex-1">
+              <span className="block text-xs font-medium text-gray-600">Document type</span>
+              <select
+                value={kind}
+                onChange={(e) => setKind(e.target.value as DocumentKind)}
+                disabled={busy}
+                className="mt-1 w-full min-h-[44px] rounded-md border border-gray-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                {DOC_KINDS.map((k) => (
+                  <option key={k.value} value={k.value}>{k.label}</option>
+                ))}
+              </select>
+            </label>
+            <div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) upload(f)
+                  e.target.value = ''
+                }}
+              />
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileUp className="h-4 w-4" />}
+                {busy ? 'Reading document…' : `Upload ${selected.label.toLowerCase()}`}
+              </button>
+            </div>
           </div>
+          {selected.blurb && <p className="mt-1 text-xs text-gray-500">{selected.label}: {selected.blurb}.</p>}
 
           {error && (
             <div className="mt-3 flex items-start gap-2 rounded-md bg-red-50 p-3 text-sm text-red-700">
@@ -125,23 +167,46 @@ export function ApprovalIngestPanel({
             </div>
           )}
 
-          {result && (
+          {result && ex && (
             <div className="mt-4 space-y-3 rounded-md border border-emerald-200 bg-emerald-50/60 p-4">
               <div className="flex items-center gap-2 text-sm font-medium text-emerald-800">
                 <Check className="h-4 w-4" />
-                {result.referralCleared ? 'Approval ingested — planner referral resolved' : 'Approval ingested'}
+                {result.referralCleared ? `${selected.label} ingested — planner referral resolved` : `${selected.label} ingested`}
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-gray-700 sm:grid-cols-3">
                 <Stat label="Current status" value={result.lifecycleLabel} />
                 <Stat label="Deal-model stage" value={result.dealModelStage} />
-                <Stat label="Approved lots" value={result.extracted.residentialLots?.toString() ?? '—'} />
-                <Stat label="Min lot size" value={result.extracted.minLotSizeSqm ? `${result.extracted.minLotSizeSqm} m²` : '—'} />
-                <Stat label="Avg lot size" value={result.extracted.avgLotSizeSqm ? `${result.extracted.avgLotSizeSqm} m²` : '—'} />
-                <Stat label="Conditions" value={result.extracted.conditions.length.toString()} />
-                {result.extracted.wapcRef && <Stat label="WAPC ref" value={result.extracted.wapcRef} />}
-                {result.extracted.lga && <Stat label="LGA" value={result.extracted.lga} />}
-                {result.extracted.netDevelopableHa != null && <Stat label="Net area" value={`${result.extracted.netDevelopableHa} ha`} />}
+                <Stat label="Residential lots" value={ex.residentialLots?.toString() ?? '—'} />
+                <Stat label="Min lot size" value={ex.minLotSizeSqm ? `${ex.minLotSizeSqm} m²` : '—'} />
+                <Stat label="Avg lot size" value={ex.avgLotSizeSqm ? `${ex.avgLotSizeSqm} m²` : '—'} />
+                {ex.maxLotSizeSqm != null && <Stat label="Max lot size" value={`${ex.maxLotSizeSqm} m²`} />}
+                <Stat label="Conditions" value={ex.conditions.length.toString()} />
+                {ex.posSqm != null && <Stat label="Public open space" value={`${ex.posSqm} m²`} />}
+                {reserves.length > 0 && <Stat label="Reserves" value={reserves.length.toString()} />}
+                {easements.length > 0 && <Stat label="Easements" value={easements.length.toString()} />}
+                {ex.wapcRef && <Stat label="WAPC ref" value={ex.wapcRef} />}
+                {ex.lga && <Stat label="LGA" value={ex.lga} />}
+                {ex.netDevelopableHa != null && <Stat label="Net area" value={`${ex.netDevelopableHa} ha`} />}
               </div>
+
+              {reserves.length > 0 && (
+                <div className="border-t border-emerald-200 pt-2 text-xs text-gray-600">
+                  <span className="font-medium text-gray-700">Reserves:</span>{' '}
+                  {reserves.map((r) => (r.detail ? `${r.purpose} (${r.detail})` : r.purpose)).join(' · ')}
+                </div>
+              )}
+              {easements.length > 0 && (
+                <div className="text-xs text-gray-600">
+                  <span className="font-medium text-gray-700">Easements:</span>{' '}
+                  {easements.map((e) => (e.detail ? `${e.purpose} (${e.detail})` : e.purpose)).join(' · ')}
+                </div>
+              )}
+              {bands.length > 0 && (
+                <div className="text-xs text-gray-600">
+                  <span className="font-medium text-gray-700">Lot mix:</span>{' '}
+                  {bands.map((b) => `${b.band}: ${b.count}`).join(' · ')}
+                </div>
+              )}
               {result.outstanding.length > 0 && (
                 <div className="border-t border-emerald-200 pt-2 text-xs text-gray-600">
                   <span className="font-medium text-gray-700">Still to de-risk:</span> {result.outstanding.join(' · ')}

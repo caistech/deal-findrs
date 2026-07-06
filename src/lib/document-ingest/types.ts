@@ -26,6 +26,20 @@ export interface ApprovalCondition {
     | 'admin' // plan modification, demolition, general
 }
 
+/** An encumbrance/feature read off a registered subdivision plan (easement or reserve). */
+export interface PlanFeature {
+  /** e.g. "Public Open Space", "Road Reserve", "Drainage easement", "Right of carriageway". */
+  purpose: string
+  detail: string | null
+}
+
+/** A lot-size band from the plan's lot schedule — the valuer's GRV mix. */
+export interface LotSizeBand {
+  /** e.g. "600-699" (m²). */
+  band: string
+  count: number
+}
+
 /** Structured fields pulled from a subdivision approval / plan. */
 export interface ExtractedApproval {
   wapcRef: string | null
@@ -45,6 +59,12 @@ export interface ExtractedApproval {
   netDevelopableHa: number | null
   parentAreaHa: number | null
   posSqm: number | null
+  /** Easements shown/noted on the registered plan (tenure). */
+  easements?: PlanFeature[]
+  /** Reserves/vestings — POS, road reserve, drainage/access (tenure + servicing). */
+  reserves?: PlanFeature[]
+  /** Lot-size distribution from the plan's lot schedule (the valuer's GRV mix). */
+  lotSizeBands?: LotSizeBand[]
   conditions: ApprovalCondition[]
 }
 

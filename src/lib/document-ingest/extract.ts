@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
-import type { ApprovalCondition, ExtractedApproval } from './types'
+import type { ApprovalCondition, ExtractedApproval, LotSizeBand, PlanFeature } from './types'
 
 /**
  * Subdivision-approval extraction via Claude direct (@anthropic-ai/sdk) — the portfolio-standard
@@ -26,10 +26,14 @@ function client(): Anthropic {
   return _client
 }
 
-const SYSTEM = `You extract structured data from Australian subdivision planning documents (WAPC
-decision letters, deposited/subdivision plans, lot-summary tables). Read numbers from the document —
-never guess them. Use null for anything not present. Convert areas to the requested units. Categorise
-each condition of approval. Return the result ONLY via the record_subdivision_approval tool.`
+const SYSTEM = `You extract structured data from Australian subdivision planning documents — WAPC
+decision letters (conditions of approval), AND deposited/subdivision PLAN drawings (lot schedules,
+area tables, easement/reserve annotations). Read numbers and annotations from the document — never
+guess them. Use null / empty arrays for anything not present. Convert areas to the requested units.
+For residentialLots, report the RESIDENTIAL/saleable (fee-payable) lot count — exclude road-reserve
+and POS lots from that number. Read easements + reserves (POS, road reserve, drainage/access) and the
+lot-size distribution off a plan when present. Categorise each condition of approval. Return the
+result ONLY via the record_subdivision_approval tool.`
 
 /** Forces the structured shape — the model must call this tool with exactly these fields. */
 const EXTRACT_TOOL: Anthropic.Tool = {
@@ -52,6 +56,33 @@ const EXTRACT_TOOL: Anthropic.Tool = {
       netDevelopableHa: { type: ['number', 'null'], description: 'total lot area in hectares' },
       parentAreaHa: { type: ['number', 'null'], description: 'parent landholding area in hectares' },
       posSqm: { type: ['number', 'null'], description: 'public open space in m2' },
+      easements: {
+        type: 'array',
+        description: 'easements shown/noted on the registered plan (drainage, sewer, right-of-carriageway, etc.)',
+        items: {
+          type: 'object',
+          properties: { purpose: { type: 'string' }, detail: { type: ['string', 'null'] } },
+          required: ['purpose'],
+        },
+      },
+      reserves: {
+        type: 'array',
+        description: 'reserves/vestings on the plan — POS, road reserve, drainage/access reserves',
+        items: {
+          type: 'object',
+          properties: { purpose: { type: 'string' }, detail: { type: ['string', 'null'] } },
+          required: ['purpose'],
+        },
+      },
+      lotSizeBands: {
+        type: 'array',
+        description: 'lot-size distribution from the plan lot schedule (the GRV mix), e.g. band "600-699" count 54',
+        items: {
+          type: 'object',
+          properties: { band: { type: 'string' }, count: { type: 'number' } },
+          required: ['band', 'count'],
+        },
+      },
       conditions: {
         type: 'array',
         description: 'each numbered condition of approval',
@@ -107,6 +138,31 @@ function normaliseConditions(v: unknown): ApprovalCondition[] {
     .filter((c): c is ApprovalCondition => c !== null)
 }
 
+function normaliseFeatures(v: unknown): PlanFeature[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .map((f): PlanFeature | null => {
+      if (!f || typeof f !== 'object') return null
+      const o = f as Record<string, unknown>
+      const purpose = str(o.purpose)
+      return purpose ? { purpose, detail: str(o.detail) } : null
+    })
+    .filter((f): f is PlanFeature => f !== null)
+}
+
+function normaliseBands(v: unknown): LotSizeBand[] {
+  if (!Array.isArray(v)) return []
+  return v
+    .map((b): LotSizeBand | null => {
+      if (!b || typeof b !== 'object') return null
+      const o = b as Record<string, unknown>
+      const band = str(o.band)
+      const count = num(o.count)
+      return band && count != null ? { band, count } : null
+    })
+    .filter((b): b is LotSizeBand => b !== null)
+}
+
 /** Validate/coerce the tool input field-by-field so a malformed response degrades to nulls. */
 function normaliseExtraction(o: Record<string, unknown>): ExtractedApproval {
   return {
@@ -124,6 +180,9 @@ function normaliseExtraction(o: Record<string, unknown>): ExtractedApproval {
     netDevelopableHa: num(o.netDevelopableHa),
     parentAreaHa: num(o.parentAreaHa),
     posSqm: num(o.posSqm),
+    easements: normaliseFeatures(o.easements),
+    reserves: normaliseFeatures(o.reserves),
+    lotSizeBands: normaliseBands(o.lotSizeBands),
     conditions: normaliseConditions(o.conditions),
   }
 }
