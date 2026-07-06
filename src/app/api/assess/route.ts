@@ -81,10 +81,20 @@ export async function POST(request: NextRequest) {
     contingencyComplex:  Number(criteriaRow.contingency_complex)  || DEFAULT_THRESHOLDS.contingencyComplex,
   } : DEFAULT_THRESHOLDS
 
-  // Assemble RawInputs
+  // Assemble RawInputs.
+  //
+  // VERDICT BASIS = LAND-ONLY when a developed-lot price is set: an estate's base play is subdivide +
+  // sell serviced lots (revenue = lot price × lots; cost excludes house construction). House-and-land
+  // is the upside (F2K modular homes on a capture %), computed for display, not gated here. When no lot
+  // price is set (older deals), fall back to the house-and-land basis so nothing breaks.
   const claimedLandValue = Number(opp.land_purchase_price) || 0
   const numDwellings = Number(opp.num_dwellings) || Number(opp.num_lots) || 0
-  const claimedGRVTotal = (Number(opp.avg_sale_price) || 0) * numDwellings
+  const numLots = Number(opp.num_lots) || Number(opp.num_dwellings) || 0
+  const developedLotPrice = Number(opp.developed_lot_price) || 0
+  const landOnlyBasis = developedLotPrice > 0
+  const claimedGRVTotal = landOnlyBasis
+    ? developedLotPrice * numLots
+    : (Number(opp.avg_sale_price) || 0) * numDwellings
   const claimedPreSalesPercent = Number(opp.derisk_pre_sales_percent) || 0
   const promoterContingencyPct = (Number(opp.contingency_percent) || 0) / 100  // table stores as percent, engine uses decimal
 
@@ -104,7 +114,8 @@ export async function POST(request: NextRequest) {
     claimedEquityCash,
     claimedGRVTotal,
     numDwellings,
-    constructionPerUnit: Number(opp.construction_per_unit) || 0,
+    // Land-only excludes house construction (you sell serviced lots, not houses).
+    constructionPerUnit: landOnlyBasis ? 0 : (Number(opp.construction_per_unit) || 0),
     infrastructureCosts: Number(opp.infrastructure_costs) || 0,
     promoterContingencyPct,
     proposedLoanAmount,
@@ -175,10 +186,26 @@ export async function POST(request: NextRequest) {
     // Non-fatal — assessment is saved
   }
 
+  // House-and-land upside (display only — NOT gated by the engine): the extra margin from F2K building
+  // modular homes on the land-only base. Net home uplift/lot = house-and-land price − lot price − build.
+  const houseLandPrice = Number(opp.avg_sale_price) || 0
+  const buildPerUnit = Number(opp.construction_per_unit) || 0
+  const houseLandUpside = landOnlyBasis && houseLandPrice > 0
+    ? {
+        houseLandPricePerDwelling: houseLandPrice,
+        constructionPerUnit: buildPerUnit,
+        netHomeUpliftPerLot: houseLandPrice - developedLotPrice - buildPerUnit,
+        totalNetHomeUplift: (houseLandPrice - developedLotPrice - buildPerUnit) * numLots,
+        combinedRevenueIfAllHomes: houseLandPrice * numDwellings,
+      }
+    : null
+
   return NextResponse.json({
     success: true,
     assessmentId: (assessmentRow as { id: string } | null)?.id,
     rag: engineResult.rag,
+    basis: landOnlyBasis ? 'land-only' : 'house-and-land',
+    houseLandUpside,
     rationale: engineResult.rationale,
     engineVersion: engineResult.engineVersion,
     threeTest: engineResult.threeTest,

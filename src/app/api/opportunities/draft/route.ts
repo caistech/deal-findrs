@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
     contingency_amount: contingencyAmount || null,
     total_project_cost: totalProjectCost || null,
     avg_sale_price: avgSalePrice || null,
+    developed_lot_price: Number(formData.developedLotPrice) || null,
     total_revenue: totalRevenue || null,
 
     timeframe_months: Number(formData.timeframeMonths) || null,

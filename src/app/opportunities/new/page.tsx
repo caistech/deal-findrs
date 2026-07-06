@@ -112,6 +112,7 @@ export default function NewOpportunityPage() {
     landPurchasePrice: '',
     infrastructureCosts: '',
     constructionPerUnit: '',
+    developedLotPrice: '',
     avgSalePrice: '',
     contingencyPercent: '5',
     timeframeMonths: '',
@@ -398,18 +399,35 @@ export default function NewOpportunityPage() {
     const landCost = parseFloat(formData.landPurchasePrice) || 0
     const infraCost = parseFloat(formData.infrastructureCosts) || 0
     const buildPerUnit = parseFloat(formData.constructionPerUnit) || 0
-    const salePrice = parseFloat(formData.avgSalePrice) || 0
+    const houseLandPrice = parseFloat(formData.avgSalePrice) || 0
+    const lotPrice = parseFloat(formData.developedLotPrice) || 0
     const contingency = parseFloat(formData.contingencyPercent) || 5
 
-    const totalConstruction = buildPerUnit * lots
-    const baseCost = landCost + infraCost + totalConstruction
-    const contingencyAmount = baseCost * (contingency / 100)
-    const totalCost = baseCost + contingencyAmount
-    const totalRevenue = salePrice * lots
-    const grossMargin = totalRevenue - totalCost
-    const gmPercent = totalRevenue > 0 ? (grossMargin / totalRevenue) * 100 : 0
+    // LAND-ONLY (the base play + the verdict basis): sell serviced lots, no house construction.
+    const landOnlyBase = landCost + infraCost
+    const landOnlyCost = landOnlyBase + landOnlyBase * (contingency / 100)
+    const landOnlyRevenue = (lotPrice || houseLandPrice) * lots // fall back to sale price if no lot price yet
+    const landOnlyMargin = landOnlyRevenue - landOnlyCost
+    const landOnlyGmPct = landOnlyRevenue > 0 ? (landOnlyMargin / landOnlyRevenue) * 100 : 0
 
-    return { lots, totalCost, totalRevenue, grossMargin, gmPercent }
+    // HOUSE-AND-LAND (upside): also build homes.
+    const hlBase = landCost + infraCost + buildPerUnit * lots
+    const hlCost = hlBase + hlBase * (contingency / 100)
+    const hlRevenue = houseLandPrice * lots
+    const hlMargin = hlRevenue - hlCost
+    const hlGmPct = hlRevenue > 0 ? (hlMargin / hlRevenue) * 100 : 0
+
+    return {
+      lots,
+      // Headline = land-only (the verdict basis).
+      totalCost: landOnlyCost,
+      totalRevenue: landOnlyRevenue,
+      grossMargin: landOnlyMargin,
+      gmPercent: landOnlyGmPct,
+      landOnly: { cost: landOnlyCost, revenue: landOnlyRevenue, margin: landOnlyMargin, gmPct: landOnlyGmPct },
+      houseLand: { cost: hlCost, revenue: hlRevenue, margin: hlMargin, gmPct: hlGmPct },
+      hasLotPrice: lotPrice > 0,
+    }
   }
 
   const financials = calculateFinancials()
@@ -1249,12 +1267,32 @@ export default function NewOpportunityPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Average Sale Price *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Developed lot price *
+                      <span className="text-gray-400 font-normal ml-2">(serviced lot — the land-only exit)</span>
+                    </label>
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                      <input 
+                      <input
                         type="number"
-                        placeholder="600,000"
+                        placeholder="185,000"
+                        value={formData.developedLotPrice}
+                        onChange={(e) => updateField('developedLotPrice', e.target.value)}
+                        className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">The verdict runs on the land-only economics. House-and-land is shown as the F2K homes upside.</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      House-and-land price
+                      <span className="text-gray-400 font-normal ml-2">(per dwelling — the upside exit)</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                      <input
+                        type="number"
+                        placeholder="450,000"
                         value={formData.avgSalePrice}
                         onChange={(e) => updateField('avgSalePrice', e.target.value)}
                         className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
@@ -1419,7 +1457,9 @@ export default function NewOpportunityPage() {
                     financials.gmPercent >= 18 ? 'bg-amber-50 border-amber-200' :
                     'bg-red-50 border-red-200'
                   }`}>
-                    <h4 className="font-semibold text-gray-900 mb-4">Live Financial Preview</h4>
+                    <h4 className="font-semibold text-gray-900 mb-4">
+                      Live Financial Preview{financials.hasLotPrice ? ' — Land-only (the verdict basis)' : ''}
+                    </h4>
                     <div className="grid grid-cols-4 gap-4 text-center">
                       <div>
                         <p className="text-2xl font-bold text-gray-900">
@@ -1458,6 +1498,22 @@ export default function NewOpportunityPage() {
                           : '🔴 Currently RED - needs significant improvement'
                       }
                     </p>
+                    {financials.hasLotPrice && financials.houseLand.revenue > 0 && (
+                      <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-4 text-center text-sm">
+                        <div>
+                          <p className="font-semibold text-gray-900">Land-only (verdict): {financials.landOnly.gmPct.toFixed(1)}% GM</p>
+                          <p className="text-xs text-gray-500">
+                            ${(financials.landOnly.revenue / 1e6).toFixed(1)}M rev · ${(financials.landOnly.margin / 1e6).toFixed(2)}M profit
+                          </p>
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-700">House-and-land (upside): {financials.houseLand.gmPct.toFixed(1)}% GM</p>
+                          <p className="text-xs text-gray-500">
+                            ${(financials.houseLand.revenue / 1e6).toFixed(1)}M rev · ${(financials.houseLand.margin / 1e6).toFixed(2)}M profit
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

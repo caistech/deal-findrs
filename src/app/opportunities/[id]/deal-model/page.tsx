@@ -195,7 +195,9 @@ export default function DealModelPage() {
         setForm((prev) => ({
           ...prev,
           lots,
-          marketPricePerLot: o?.avg_sale_price || 0,
+          // The F2K marketPricePerLot is a LOT price — use the developed-lot price, not the
+          // house-and-land avg_sale_price (the homes uplift is added separately via modular margin).
+          marketPricePerLot: o?.developed_lot_price || o?.avg_sale_price || 0,
           landPerLot: lots ? Math.round((o?.land_purchase_price || 0) / lots) : 0,
           infraPerLot: lots ? Math.round((o?.infrastructure_costs || 0) / lots) : 0,
           // Pre-tick the stage gates the ingested approval already evidenced (subdivision approved,

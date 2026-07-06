@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       contingency_amount: contingencyAmount || null,
       total_project_cost: totalProjectCost || null,
       avg_sale_price: avgSalePrice || null,
+      developed_lot_price: parseFloat(formData.developedLotPrice) || null,
       total_revenue: totalRevenue || null,
       gross_margin_dollars: grossMarginDollars || null,
       gross_margin_percent: Math.round(grossMarginPercent * 10) / 10,
