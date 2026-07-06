@@ -569,17 +569,18 @@ export default function NewOpportunityPage() {
                         opportunityId={draftId}
                         onIngested={(r) => {
                           setApprovalIngested(true)
-                          setApprovalResolved(r)
+                          setApprovalResolved({ zoneCode: r.zoneCode, minLotSize: r.minLotSize, lots: r.lots })
                           if (r.lots) setDerivedLots(r.lots)
                           // An ingested subdivision approval carries through to the Property step:
-                          // yield, planning stage (subdivision approved), the resolved zone, and the
-                          // DA/subdivision-approved de-risk factor.
+                          // yield, planning stage (subdivision approved), resolved zone, site area, and
+                          // the DA/subdivision-approved de-risk factor.
                           setFormData(prev => ({
                             ...prev,
                             ...(r.lots ? { numLots: String(r.lots), numDwellings: String(r.lots) } : {}),
                             landStage: 'da_approved',
                             deriskDaApproved: true,
                             ...(r.zoneCode ? { currentZoning: r.zoneCode } : {}),
+                            ...(r.siteAreaSqm ? { propertySize: String(r.siteAreaSqm), propertySizeUnit: 'sqm' } : {}),
                           }))
                         }}
                       />
@@ -841,8 +842,10 @@ export default function NewOpportunityPage() {
                   </div>
                 )}
 
-                {/* Use case assessment */}
-                {property.profile && (
+                {/* Use case assessment — a PRE-approval exploratory read of the raw profile. Once an
+                    approval is ingested it's superseded (the approved yield + conditions are the
+                    authoritative status), so suppress the stale "cannot be assessed" panel. */}
+                {property.profile && !approvalIngested && (
                   <div className="mt-4">
                     <PropertyAssessment
                       profile={property.profile}
@@ -851,6 +854,12 @@ export default function NewOpportunityPage() {
                       assessment={property.assessment}
                       product="dealfindrs"
                     />
+                  </div>
+                )}
+                {property.profile && approvalIngested && (
+                  <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600">
+                    The AI subdivision-potential read is superseded by the ingested WAPC approval — the
+                    approved yield, zone and conditions above are the authoritative current status.
                   </div>
                 )}
 

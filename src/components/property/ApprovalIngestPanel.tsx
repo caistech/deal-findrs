@@ -11,6 +11,7 @@ interface IngestResult {
     minLotSizeSqm: number | null
     avgLotSizeSqm: number | null
     netDevelopableHa: number | null
+    parentAreaHa: number | null
     conditions: { category: string }[]
   }
   dealModelStage: string
@@ -35,7 +36,13 @@ export function ApprovalIngestPanel({
    * Called after a successful ingest with the approval's resolved yield inputs, so the parent can
    * feed them into the Constraints & Yield buildup as `operatorResolved` (clears the planner referral).
    */
-  onIngested: (resolution: { lots: number | null; minLotSize: number | null; zoneCode: string | null }) => void
+  onIngested: (resolution: {
+    lots: number | null
+    minLotSize: number | null
+    zoneCode: string | null
+    /** Estate site area in m² — parent-parcel area preferred, else net developable. */
+    siteAreaSqm: number | null
+  }) => void
 }) {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<IngestResult | null>(null)
@@ -57,6 +64,7 @@ export function ApprovalIngestPanel({
       }
       const d = data as IngestResult
       setResult(d)
+      const areaHa = d.extracted.parentAreaHa ?? d.extracted.netDevelopableHa
       onIngested({
         lots: d.extracted.residentialLots ?? null,
         minLotSize: d.extracted.minLotSizeSqm ?? null,
@@ -65,6 +73,7 @@ export function ApprovalIngestPanel({
           : d.referralCleared
             ? 'Approved subdivision'
             : null,
+        siteAreaSqm: areaHa != null ? Math.round(areaHa * 10_000) : null,
       })
     } catch {
       setError('Upload failed — check your connection and retry.')
