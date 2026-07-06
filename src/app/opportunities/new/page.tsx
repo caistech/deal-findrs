@@ -570,10 +570,17 @@ export default function NewOpportunityPage() {
                         onIngested={(r) => {
                           setApprovalIngested(true)
                           setApprovalResolved(r)
-                          if (r.lots) {
-                            setDerivedLots(r.lots)
-                            setFormData(prev => ({ ...prev, numLots: String(r.lots), numDwellings: String(r.lots) }))
-                          }
+                          if (r.lots) setDerivedLots(r.lots)
+                          // An ingested subdivision approval carries through to the Property step:
+                          // yield, planning stage (subdivision approved), the resolved zone, and the
+                          // DA/subdivision-approved de-risk factor.
+                          setFormData(prev => ({
+                            ...prev,
+                            ...(r.lots ? { numLots: String(r.lots), numDwellings: String(r.lots) } : {}),
+                            landStage: 'da_approved',
+                            deriskDaApproved: true,
+                            ...(r.zoneCode ? { currentZoning: r.zoneCode } : {}),
+                          }))
                         }}
                       />
                     ) : formData.address ? (
