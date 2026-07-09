@@ -873,9 +873,30 @@ export default function NewOpportunityPage() {
                     authoritative status), so suppress the stale "cannot be assessed" panel. */}
                 {property.profile && !approvalIngested && (
                   <div className="mt-4">
+                    {/* Development type — the intended play, captured from requirements. Drives what
+                        the suitability read tests against (e.g. a single-dwelling subdivision is not
+                        judged as a multi-unit development). Persisted to opportunities.development_type
+                        and passed to /assess as the use case. */}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Development Type</label>
+                    <select
+                      value={formData.developmentType}
+                      onChange={(e) => updateField('developmentType', e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="">Select the intended development…</option>
+                      <option value="Subdivide and sell lots">Subdivide and sell lots</option>
+                      <option value="Subdivide into single-dwelling lots">Subdivide into single-dwelling lots</option>
+                      <option value="Build and hold investment units">Build and hold investment units</option>
+                      <option value="Development feasibility analysis">Development feasibility analysis</option>
+                      <option value="Land banking assessment">Land banking assessment</option>
+                    </select>
+                    <p className="mt-1 mb-3 text-xs text-gray-500">
+                      Sets what the assessment below tests against — pick the intended play so the zone
+                      is judged against the right use.
+                    </p>
                     <PropertyAssessment
                       profile={property.profile}
-                      onAssess={property.assess}
+                      onAssess={(useCase) => property.assess(formData.developmentType || useCase)}
                       assessing={property.stage === "assessing"}
                       assessment={property.assessment}
                       product="dealfindrs"
