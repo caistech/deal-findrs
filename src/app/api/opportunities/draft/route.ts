@@ -159,7 +159,14 @@ export async function POST(request: NextRequest) {
     .select()
     .single()
 
-  if (insErr) return NextResponse.json({ error: 'insert_failed', detail: insErr.message }, { status: 500 })
+  if (insErr) {
+    // The enforce_opportunity_limit trigger raises this when the company's monthly plan cap is hit.
+    // Surface it as a clear, actionable message rather than a generic insert failure.
+    if (/limit reached/i.test(insErr.message)) {
+      return NextResponse.json({ error: 'limit_reached', detail: insErr.message }, { status: 403 })
+    }
+    return NextResponse.json({ error: 'insert_failed', detail: insErr.message }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true, opportunity: created, mode: 'created' })
 }

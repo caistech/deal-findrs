@@ -280,7 +280,12 @@ export default function NewOpportunityPage() {
         // The most common cause is the account having no company linked yet
         // (RLS / membership check → 403). Translate the raw codes into an
         // actionable message instead of failing silently.
-        if (res.status === 403 || code === 'no_company' || code === 'no_profile') {
+        if (code === 'limit_reached') {
+          setDraftError(
+            "You've reached your plan's monthly limit for new opportunities. Archive an existing deal, " +
+            'or upgrade your plan, to create more.'
+          )
+        } else if (code === 'no_company' || code === 'no_profile') {
           setDraftError(
             "Your account isn't linked to a company yet, so this deal can't be saved. " +
             'Finish account setup, then try again.'

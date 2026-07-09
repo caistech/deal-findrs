@@ -116,6 +116,10 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Insert error:', insertError)
+      // Plan cap (enforce_opportunity_limit trigger) → clear, actionable message.
+      if (/limit reached/i.test(insertError.message)) {
+        return NextResponse.json({ error: 'limit_reached', detail: insertError.message }, { status: 403 })
+      }
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
