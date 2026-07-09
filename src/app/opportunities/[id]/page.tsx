@@ -396,6 +396,7 @@ export default function OpportunityDetailPage() {
   const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [sharing, setSharing] = useState(false)
   const [shareCopied, setShareCopied] = useState(false)
+  const [statusReportBusy, setStatusReportBusy] = useState(false)
 
   // Opportunity state with proper defaults
   const [opportunity, setOpportunity] = useState<Opportunity | null>(null)
@@ -548,6 +549,30 @@ export default function OpportunityDetailPage() {
     }
   }, [opportunityId, shareUrl])
 
+  // Handle Status Report — a shareable operational status snapshot (verdict + conditions progress +
+  // gaps), distinct from the marketing teaser (Share) and the IM (pitch). Opens the public link.
+  const handleStatusReport = useCallback(async () => {
+    setStatusReportBusy(true)
+    try {
+      const res = await fetch('/api/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ opportunity_id: opportunityId, kind: 'status' }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error((body as { error?: string }).error ?? 'Failed to create status report')
+      }
+      const { url } = await res.json()
+      navigator.clipboard.writeText(url).catch(() => {})
+      window.open(url, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to create status report')
+    } finally {
+      setStatusReportBusy(false)
+    }
+  }, [opportunityId])
+
   // Handle Archive
   const handleArchive = useCallback(async () => {
     if (!confirm('Are you sure you want to archive this opportunity?')) return
@@ -658,6 +683,16 @@ export default function OpportunityDetailPage() {
             <ArrowLeft className="w-4 h-4" /> Back to Opportunities
           </Link>
           <div className="flex items-center gap-2">
+            {/* Status report — shareable operational status (verdict + conditions + gaps). */}
+            <button
+              onClick={handleStatusReport}
+              disabled={statusReportBusy}
+              className="px-4 py-2 border border-gray-300 bg-white text-gray-700 rounded-lg hover:bg-gray-50 flex items-center gap-2 disabled:opacity-50 transition-colors"
+              title="Open a shareable status report (verdict, conditions progress, open gaps)"
+            >
+              {statusReportBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+              Status Report
+            </button>
             {/* Distribution loop: share button */}
             <button
               onClick={handleShare}

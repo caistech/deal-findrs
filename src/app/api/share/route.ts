@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireAuth } from '@/lib/auth/require-auth'
+import { assembleStatusSnapshot } from '@/lib/status-report/assemble'
+import type { PropertyProfile } from '@/lib/property-services'
 
 // HARD RULE: live-state route — must reflect DB changes immediately.
 export const dynamic = 'force-dynamic'
@@ -61,16 +63,21 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     )
   }
+  // 'status' = the full operational status report (/status/[token]); default = the teaser (/share).
+  const kind = body.kind === 'status' ? 'status' : 'assessment'
 
   try {
     const admin = getAdmin()
 
-    // Fetch the opportunity to snapshot its key fields.
-    // Use the user's own client (auth.supabase) so RLS scopes the read to them.
+    // Fetch the opportunity (RLS-scoped to the owner via the user's client). Fuller field set so a
+    // status report can be assembled; the teaser only uses name/address/rag/gm.
     const { data: opp, error: oppErr } = await supabase
       .from('opportunities')
       .select(
-        'id, name, address, rag_status, score, gross_margin_percent, company_id'
+        'id, name, address, rag_status, score, gross_margin_percent, company_id, num_lots, ' +
+        'property_size, property_size_unit, lifecycle_status, deal_model_stage, developed_lot_price, ' +
+        'avg_sale_price, land_purchase_price, infrastructure_costs, construction_per_unit, ' +
+        'contingency_percent, property_profile, plan_tenure'
       )
       .eq('id', opportunityId)
       .single()
@@ -83,36 +90,58 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const oppRow = opp as Record<string, unknown>
+    const oppRow = opp as unknown as Record<string, unknown>
 
-    // Fetch partner/firm name for attribution on the share page.
-    // Non-fatal: if this lookup fails we still create the share, just without a
-    // branded partner name (the share page falls back to "A DealFindrs partner").
     const { data: company, error: companyErr } = await supabase
       .from('companies')
       .select('name')
       .eq('id', oppRow.company_id as string)
       .single()
-
     if (companyErr) {
       console.warn('[share POST] partner-name lookup failed (non-fatal):', companyErr.message)
     }
     const partnerName = (company as { name?: string } | null)?.name ?? null
 
-    // Insert the share token (new table — cast payload as never per HARD RULE).
+    const insertPayload: Record<string, unknown> = {
+      opportunity_id: oppRow.id,
+      company_id: oppRow.company_id,
+      created_by: user.id,
+      opportunity_name: (oppRow.name as string | null) ?? null,
+      opportunity_address: (oppRow.address as string | null) ?? null,
+      rag_status: (oppRow.rag_status as string | null) ?? null,
+      gross_margin_pct: (oppRow.gross_margin_percent as number | null) ?? null,
+      partner_name: partnerName,
+      kind,
+    }
+
+    // For a status report, assemble the full snapshot: conditions-clearance progress + the resolved
+    // yield + the buildup's open gaps.
+    if (kind === 'status') {
+      const { data: conds } = await supabase
+        .from('development_conditions')
+        .select('category, status')
+        .eq('opportunity_id', oppRow.id)
+      const { data: referral } = await supabase
+        .from('planning_assessments')
+        .select('status, resolved_zone_code, resolved_min_lot_size, resolved_lots')
+        .eq('opportunity_id', oppRow.id)
+        .maybeSingle()
+      const ref = referral as { status?: string; resolved_zone_code?: string | null; resolved_min_lot_size?: number | null; resolved_lots?: number | null } | null
+      const operatorResolved = ref?.status === 'approved'
+        ? { zoneCode: ref.resolved_zone_code, minLotSize: ref.resolved_min_lot_size, lots: ref.resolved_lots }
+        : undefined
+      insertPayload.status_snapshot = assembleStatusSnapshot({
+        opp: { ...oppRow, property_profile: oppRow.property_profile as PropertyProfile | null },
+        conditions: (conds ?? []) as { category: string | null; status: string | null }[],
+        operatorResolved,
+        partnerName,
+        generatedAt: new Date().toISOString(),
+      })
+    }
+
     const { data: tokenRow, error: insertErr } = await admin
       .from('share_tokens')
-      .insert({
-        opportunity_id: oppRow.id,
-        company_id: oppRow.company_id,
-        created_by: user.id,
-        opportunity_name: (oppRow.name as string | null) ?? null,
-        opportunity_address: (oppRow.address as string | null) ?? null,
-        rag_status: (oppRow.rag_status as string | null) ?? null,
-        score: (oppRow.score as number | null) ?? null,
-        gross_margin_pct: (oppRow.gross_margin_percent as number | null) ?? null,
-        partner_name: partnerName,
-      } as never)
+      .insert(insertPayload as never)
       .select('token')
       .single<{ token: string }>()
 
@@ -128,7 +157,7 @@ export async function POST(request: NextRequest) {
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL ??
       `https://${request.headers.get('host') ?? 'deal-findrs.vercel.app'}`
-    const url = `${baseUrl}/share/${token}`
+    const url = `${baseUrl}/${kind === 'status' ? 'status' : 'share'}/${token}`
 
     return NextResponse.json({ token, url })
   } catch (err) {
@@ -162,17 +191,25 @@ export async function GET(request: NextRequest) {
     const { data, error } = await admin
       .from('share_tokens')
       .select(
-        'token, opportunity_name, opportunity_address, rag_status, score, gross_margin_pct, partner_name, expires_at, revoked'
+        'token, kind, status_snapshot, opportunity_name, opportunity_address, rag_status, score, gross_margin_pct, partner_name, expires_at, revoked'
       )
       .eq('token', token)
       .eq('revoked', false)
       .gt('expires_at', new Date().toISOString())
-      .single<ShareTokenRow>()
+      .single<ShareTokenRow & { kind?: string; status_snapshot?: unknown }>()
 
     if (error || !data) {
       return NextResponse.json(
         { error: 'Share link not found or has expired' },
         { status: 404 }
+      )
+    }
+
+    // A status-report token carries the full assembled snapshot.
+    if (data.kind === 'status') {
+      return NextResponse.json(
+        { kind: 'status', status_snapshot: data.status_snapshot, expires_at: data.expires_at },
+        { headers: { 'Cache-Control': 'no-store' } }
       )
     }
 
