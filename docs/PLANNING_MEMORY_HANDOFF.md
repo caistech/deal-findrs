@@ -1,7 +1,8 @@
 # Planning Memory — DealFindrs deployment handoff
 
-**Status: installed + scaffolded, NOT yet activated or wired into the feasibility narrative.**
-This note tells the next DealFindrs session exactly how to finish deploying it.
+**Status: ACTIVATED + WIRED (2026-07-10). Key set, recall folded into the feasibility risk matrix,
+live recall verified.** The three deploy steps below are complete — see "Activation log" at the end.
+This note is retained as the reference for how the leg is wired.
 
 ## What's already done (2026-07-10)
 
@@ -53,3 +54,21 @@ console.log(await recallPlanningRisk("SA", "subdivision")); // expect >=1 SA con
   `SHARED_SERVICES.md` entry.
 - Consumer reference implementation (recall + distil-on-approval): F2K-Checkpoint
   `src/lib/services/planningAssessment.ts` (`generateOne` recall + `rememberApprovedFinding` write).
+
+## Activation log (2026-07-10 — steps 1–3 complete)
+1. **Key set.** `MNEMO_API_KEY` created on the DealFindrs Vercel project via the REST API as
+   **`type: sensitive`, targets production + preview** (the portfolio Mnemo key from `~/.mnemo-token`,
+   confirmed identical to `SayFix/.env.local`). Also added to the local (gitignored) `.env.local`.
+2. **Wired.** `recallPlanningRisk(state, developmentType)` is now called inside
+   `buildRiskMatrix()` in `src/lib/devfinance/agents/feasibility-agent.ts` (made `async`). The site
+   `state` comes from `project.opportunity.state`; the development type is derived from
+   `landStage`/`numLots`/`numDwellings` via a local `deriveDevelopmentType()`. Recalled conclusions
+   are appended to the **"Planning or approval delays"** risk mitigation as
+   *"Prior resolved analysis for <state> (supporting context — re-verify, not authoritative)"* —
+   never a citation (D1/D2). Fail-soft: empty recall leaves the generic mitigation unchanged.
+3. **Verified.** Live recall against `caistech-planning-sa` returned the Checkpoint-seeded
+   Hills-Neighbourhood SA conclusion (`planningMemoryEnabled()` = true, scope
+   `caistech-planning-sa`, count ≥ 1). Typecheck clean.
+
+**Note:** the wiring code ships to prod on the next deploy of `main` — the Vercel key is already
+live, so recall activates the moment the wired code lands.
