@@ -31,12 +31,17 @@ export function AbnField({
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<AbnLookupResult | null>(null)
   const [error, setError] = useState('')
+  // A neutral "format is valid but we couldn't verify against the register" note. This is the
+  // degrade-don't-fake path: when the ABR lookup is unavailable (service down, or ABR_GUID not
+  // configured) we accept a checksum-valid ABN silently rather than surfacing a raw server error.
+  const [note, setNote] = useState('')
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const raw = value.replace(/\s/g, '')
     setResult(null)
     setError('')
+    setNote('')
 
     if (!/^\d{11}$/.test(raw)) {
       // Not yet a full ABN — show a checksum hint only once 11 digits are present.
@@ -46,25 +51,30 @@ export function AbnField({
 
     const validationError = validateAbn(raw)
     if (validationError) {
+      // Only a genuine client-side checksum failure is a hard error.
       setError(validationError)
       return
     }
+
+    // Valid format — provisionally accept it, then try to enrich with the registered entity name.
+    setNote('Valid ABN format')
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(async () => {
       setLoading(true)
       try {
         const res = await fetch(`/api/abn-lookup?abn=${raw}`)
-        const data = await res.json()
-        if (!res.ok) {
-          setError(data.error || 'ABN lookup failed')
-        } else {
+        const data = res.ok ? await res.json() : null
+        if (data && data.entityName) {
           setResult(data as AbnLookupResult)
+          setNote('')
           onResolved?.(data as AbnLookupResult)
         }
+        // Any non-resolving outcome (unconfigured lookup, ABN not found, network/service error)
+        // leaves the neutral "Valid ABN format" note — we NEVER surface the raw server error or
+        // red-flag a checksum-valid ABN. Real name resolution auto-enables once ABR_GUID is set.
       } catch {
-        // Degrade, don't fake — allow the typed ABN through if the service is unreachable.
-        setError('')
+        // Degrade, don't fake — the typed ABN stays accepted.
       } finally {
         setLoading(false)
       }
@@ -106,6 +116,8 @@ export function AbnField({
             <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
           ) : result ? (
             <Check className="w-4 h-4 text-emerald-500" />
+          ) : note ? (
+            <Check className="w-4 h-4 text-gray-400" />
           ) : error ? (
             <AlertCircle className="w-4 h-4 text-red-500" />
           ) : null}
@@ -117,6 +129,7 @@ export function AbnField({
           {result.abnStatus ? ` · ${result.abnStatus}` : ''}
         </p>
       )}
+      {!result && note && <p className="mt-1 text-xs text-gray-500">{note}</p>}
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   )
