@@ -157,6 +157,19 @@ export default function DevFinanceSetupPage() {
     setError(null)
 
     try {
+      // The form collects Interest Rate and LTV as PERCENTAGES (e.g. 6.5, 65),
+      // but the schema (ltv_target numeric(4,3), interest_rate numeric(5,4)) and
+      // the feasibility engine both expect FRACTIONS (0.065, 0.65). Sending the
+      // percent form overflowed ltv_target (65 > 9.999 → 500) and, downstream,
+      // would have computed a loan of 65× GRV. Convert once, use for both calls.
+      const financeParamsFraction = {
+        interestRate: financeParams.interestRate / 100,
+        loanTermMonths: financeParams.loanTermMonths,
+        ltvTarget: financeParams.ltvTarget / 100,
+        salesStartMonth: financeParams.salesStartMonth,
+        salesPeriodMonths: financeParams.salesPeriodMonths,
+      }
+
       // 1. Create the DevFinance project
       const projectRes = await fetch('/api/devfinance/projects', {
         method: 'POST',
@@ -182,7 +195,7 @@ export default function DevFinanceSetupPage() {
             bathrooms: u.bathrooms,
             parking: u.parking,
           })),
-          financeParams,
+          financeParams: financeParamsFraction,
           affordableHousing: affordable.enabled ? affordable : null,
         }),
       })
@@ -194,11 +207,13 @@ export default function DevFinanceSetupPage() {
 
       const { projectId } = await projectRes.json()
 
-      // 2. Kick off pack generation
+      // 2. Kick off pack generation. The pack route REQUIRES financeParams in
+      // its body (it 400s without them) — the previous { projectId }-only call
+      // would have failed here even after the project was created.
       const packRes = await fetch('/api/devfinance/pack', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectId }),
+        body: JSON.stringify({ projectId, financeParams: financeParamsFraction }),
       })
 
       if (!packRes.ok) {
