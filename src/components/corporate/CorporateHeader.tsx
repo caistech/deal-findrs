@@ -115,8 +115,11 @@ export function CorporateHeader({
                 </button>
               )}
 
-              {/* Right content on mobile (below hamburger) */}
-              {rightContent && (
+              {/* Right content on mobile — ONLY when there is no hamburger/drawer.
+                  When navItems exist the drawer already carries rightContent at its
+                  foot, so rendering it inline here too overflowed the row at ≤375px
+                  (logo + hamburger + Sign In + Get Started > viewport width). */}
+              {rightContent && navItems.length === 0 && (
                 <div className="sm:hidden flex items-center gap-2">{rightContent}</div>
               )}
             </div>

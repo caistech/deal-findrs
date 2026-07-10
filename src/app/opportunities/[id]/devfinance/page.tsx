@@ -162,11 +162,26 @@ export default function DevFinanceSetupPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // Field names MUST match the /api/devfinance/projects contract
+          // (constructionProgramMonths / unitMix) — a mismatch here silently
+          // dropped both and 400'd the whole flow. companyId is resolved
+          // server-side from the session, so it is not sent from the client.
           opportunityId,
           builderName,
           builderABN,
-          constructionMonths,
-          unitTypes,
+          constructionProgramMonths: constructionMonths,
+          // Map the form's UnitType (floorArea) to the domain UnitType
+          // (floorAreaSqm) the QS/feasibility engine reads — otherwise floor
+          // area stores null and construction cost computes as zero.
+          unitMix: unitTypes.map((u) => ({
+            code: u.code,
+            name: u.name,
+            count: u.count,
+            floorAreaSqm: u.floorArea,
+            bedrooms: u.bedrooms,
+            bathrooms: u.bathrooms,
+            parking: u.parking,
+          })),
           financeParams,
           affordableHousing: affordable.enabled ? affordable : null,
         }),
