@@ -7,6 +7,7 @@ import {
   RiskLevel,
 } from '../types';
 import { runSensitivityAnalysis, generateCashFlow, calculateLTV } from '../sensitivity';
+import { recallPlanningRisk } from '../planningMemoryEnrich';
 
 // ─── Generate Feasibility Study ────────────────────────────────
 
@@ -77,7 +78,7 @@ export async function generateFeasibilityStudy(
   });
 
   // ─── Risk Matrix ─────────────────────────────────
-  const risks = buildRiskMatrix(project, valuationReport, qsReport);
+  const risks = await buildRiskMatrix(project, valuationReport, qsReport);
 
   return {
     id: crypto.randomUUID(),
@@ -132,11 +133,26 @@ export async function generateFeasibilityStudy(
 
 // ─── Risk Matrix Builder ───────────────────────────────────────
 
-function buildRiskMatrix(
+/**
+ * Distil the opportunity into a short development-type phrase used to focus the planning-memory
+ * recall query (e.g. "land subdivision", "residential redevelopment"). Kept generic + PII-free —
+ * it only shapes the semantic search, it is not stored.
+ */
+function deriveDevelopmentType(opp: DevFinanceProject['opportunity']): string {
+  if (opp.landStage === 'needs_rezoning') return 'rezoning and residential development';
+  if (opp.landStage === 'redevelopment') return 'residential redevelopment';
+  if ((opp.numLots ?? 0) > 1 && (opp.numDwellings ?? 0) <= (opp.numLots ?? 0)) {
+    return 'land subdivision';
+  }
+  if ((opp.numDwellings ?? 0) > 1) return 'multi-dwelling residential development';
+  return 'residential development';
+}
+
+async function buildRiskMatrix(
   project: DevFinanceProject,
   valuation: ValuationReport,
   qs: QSReport
-): FeasibilityStudy['risks'] {
+): Promise<FeasibilityStudy['risks']> {
   const risks: FeasibilityStudy['risks'] = [];
 
   // Market risks
@@ -200,15 +216,33 @@ function buildRiskMatrix(
     mitigation: 'QS cost-to-complete monitoring, draw-down schedule, contingency reserves',
   });
 
-  // Timeline risks
+  // Timeline risks — enriched with distilled prior planning conclusions for the site's
+  // jurisdiction (the shared @caistech/planning-memory experiential leg). Fail-soft: returns []
+  // when Mnemo is off or the state shelf is empty, leaving the generic mitigation unchanged.
+  // Recalled conclusions are SUPPORTING context, never a citation (DATA_STANDARD D1/D2) — the
+  // authoritative planning source stays property-services + the RAG Code.
+  const planningConclusions = await recallPlanningRisk(
+    project.opportunity.state,
+    deriveDevelopmentType(project.opportunity),
+  );
+
+  let planningMitigation = project.opportunity.hasDAApproval
+    ? 'DA approved — no further planning risk'
+    : 'Allow for planning process timeline, engage planning consultant early';
+
+  if (planningConclusions.length > 0) {
+    const state = project.opportunity.state.trim();
+    planningMitigation +=
+      `. Prior resolved analysis for ${state} (supporting context — re-verify, not authoritative): ` +
+      planningConclusions.join(' | ');
+  }
+
   risks.push({
     category: 'Timeline',
     risk: 'Planning or approval delays',
     likelihood: project.opportunity.hasDAApproval ? 'low' : 'high',
     impact: 'medium' as RiskLevel,
-    mitigation: project.opportunity.hasDAApproval
-      ? 'DA approved — no further planning risk'
-      : 'Allow for planning process timeline, engage planning consultant early',
+    mitigation: planningMitigation,
   });
 
   return risks;
