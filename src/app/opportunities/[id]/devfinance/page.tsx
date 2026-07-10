@@ -15,6 +15,7 @@ import {
   Landmark,
 } from 'lucide-react'
 import { DealJourney } from '@/components/common/DealJourney'
+import { AbnField } from '@/components/common/AbnField'
 
 // --- Types ---
 
@@ -332,18 +333,14 @@ export default function DevFinanceSetupPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Builder ABN
-                </label>
-                <input
-                  type="text"
-                  value={builderABN}
-                  onChange={(e) => setBuilderABN(e.target.value)}
-                  placeholder="e.g. 99 691 530 426"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                />
-              </div>
+              <AbnField
+                label="Builder ABN"
+                value={builderABN}
+                onChange={setBuilderABN}
+                onResolved={(r) => {
+                  if (!builderName.trim() && r.entityName) setBuilderName(r.entityName)
+                }}
+              />
             </div>
           </section>
 
