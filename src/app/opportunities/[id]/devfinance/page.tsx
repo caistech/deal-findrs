@@ -205,7 +205,15 @@ export default function DevFinanceSetupPage() {
         throw new Error(errData.error || 'Failed to create DevFinance project')
       }
 
-      const { projectId } = await projectRes.json()
+      // The projects route returns { success, project } — the id lives on
+      // project.id, NOT a top-level projectId. Reading `projectId` here gave
+      // undefined, so the pack call below 400'd ("Missing required inputs:
+      // projectId and financeParams") once project creation finally succeeded.
+      const { project } = await projectRes.json()
+      const projectId = project?.id
+      if (!projectId) {
+        throw new Error('The project was created but no project id was returned.')
+      }
 
       // 2. Kick off pack generation. The pack route REQUIRES financeParams in
       // its body (it 400s without them) — the previous { projectId }-only call
