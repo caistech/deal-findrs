@@ -15,6 +15,7 @@ import {
   Landmark,
 } from 'lucide-react'
 import { DealJourney } from '@/components/common/DealJourney'
+import { AbnField } from '@/components/common/AbnField'
 
 // --- Types ---
 
@@ -205,7 +206,15 @@ export default function DevFinanceSetupPage() {
         throw new Error(errData.error || 'Failed to create DevFinance project')
       }
 
-      const { projectId } = await projectRes.json()
+      // The projects route returns { success, project } — the id lives on
+      // project.id, NOT a top-level projectId. Reading `projectId` here gave
+      // undefined, so the pack call below 400'd ("Missing required inputs:
+      // projectId and financeParams") once project creation finally succeeded.
+      const { project } = await projectRes.json()
+      const projectId = project?.id
+      if (!projectId) {
+        throw new Error('The project was created but no project id was returned.')
+      }
 
       // 2. Kick off pack generation. The pack route REQUIRES financeParams in
       // its body (it 400s without them) — the previous { projectId }-only call
@@ -324,18 +333,14 @@ export default function DevFinanceSetupPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Builder ABN
-                </label>
-                <input
-                  type="text"
-                  value={builderABN}
-                  onChange={(e) => setBuilderABN(e.target.value)}
-                  placeholder="e.g. 99 691 530 426"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                />
-              </div>
+              <AbnField
+                label="Builder ABN"
+                value={builderABN}
+                onChange={setBuilderABN}
+                onResolved={(r) => {
+                  if (!builderName.trim() && r.entityName) setBuilderName(r.entityName)
+                }}
+              />
             </div>
           </section>
 

@@ -109,7 +109,10 @@ export default function OpportunitiesPage() {
             <p className="text-gray-600 text-base">Loading opportunities...</p>
           </div>
         ) : filteredDeals.length > 0 ? (
-          <div className="grid gap-4">
+          // grid-cols-1 (Tailwind => repeat(1, minmax(0,1fr))) caps the track at
+          // the container width; a bare `grid` used an implicit auto track that
+          // grew to the widest card's content (~444px) and overflowed at 375px.
+          <div className="grid grid-cols-1 gap-4">
             {filteredDeals.map((deal) => {
               const ragStatus = deal.rag_status || 'draft'
               const location = [deal.city, deal.state].filter(Boolean).join(', ')
