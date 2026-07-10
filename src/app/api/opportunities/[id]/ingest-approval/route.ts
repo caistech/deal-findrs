@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAuth } from '@/lib/auth/require-auth'
 import { getCompanyId } from '@/lib/auth/get-company-id'
-import { extractApprovalFromPdf } from '@/lib/document-ingest/extract'
-import { stageGateFromApproval, mergeStageGates, deriveLifecycleStatus, outstandingGates, assignStage } from '@/lib/document-ingest/stage-gate'
+import {
+  extractApprovalFromPdf,
+  stageGateFromApproval,
+  mergeStageGates,
+  deriveLifecycleStatus,
+  outstandingGates,
+  assignStage,
+  type IngestResult,
+} from '@caistech/document-ingest'
 import { emptyStageGate } from '@caistech/deal-model'
 import type { StageGateTicks } from '@caistech/deal-model'
-import type { IngestResult } from '@/lib/document-ingest/types'
 
 /**
  * Ingest a development document (Phase 1: a WAPC subdivision-approval letter / plan) to establish

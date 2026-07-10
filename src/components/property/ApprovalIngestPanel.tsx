@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { FileUp, Loader2, Check, AlertTriangle, FileText } from 'lucide-react'
-import type { DocumentKind } from '@/lib/document-ingest/types'
+import type { DocumentKind } from '@caistech/document-ingest'
 
 interface IngestResult {
   kind: DocumentKind

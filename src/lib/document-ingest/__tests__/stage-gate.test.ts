@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { stageGateFromApproval, mergeStageGates, deriveLifecycleStatus, outstandingGates, assignStage } from '../stage-gate'
+import { stageGateFromApproval, mergeStageGates, deriveLifecycleStatus, outstandingGates, assignStage } from '@caistech/document-ingest'
 import { emptyStageGate } from '@caistech/deal-model'
-import type { ExtractedApproval } from '../types'
+import type { ExtractedApproval } from '@caistech/document-ingest'
 
 /** Seafields (WAPC 202888) as it comes off the decision letter + modified plan. */
 const seafields: ExtractedApproval = {
