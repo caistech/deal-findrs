@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { VoiceAssistant } from '@/components/voice/VoiceAssistant'
 import {
   ArrowLeft,
   ChevronDown,
@@ -244,6 +245,27 @@ export default function DevFinancePackPage() {
           </div>
           <p className="text-white/90 leading-relaxed whitespace-pre-wrap">{pack.executiveSummary}</p>
         </div>
+
+        {/* In-context voice clarifier (§6) — discuss the pack's numbers, verdict and risks */}
+        <VoiceAssistant
+          context="devfinance_pack"
+          title="🎙️ Discuss this Finance Pack"
+          subtitle="Tap to ask why the margin, construction cost, LTV or planning risk land where they do"
+          contextData={{
+            executiveSummary: pack.executiveSummary,
+            keyMetrics,
+            qs: {
+              constructionSubtotal: qsReport?.constructionSubtotal,
+              totalDevelopmentCost: qsReport?.totalDevelopmentCost,
+              contingency: qsReport?.contingency,
+            },
+            feasibility: {
+              profitOnCost: feasibilityStudy?.profitOnCost,
+              risks: feasibilityStudy?.risks,
+              sensitivityScenarios: feasibilityStudy?.sensitivityScenarios,
+            },
+          }}
+        />
 
         {/* ═══════ Key Metrics Grid ═══════ */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

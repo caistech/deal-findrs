@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { DealJourney } from '@/components/common/DealJourney'
 import { AbnField } from '@/components/common/AbnField'
+import { VoiceAssistant } from '@/components/voice/VoiceAssistant'
 
 // --- Types ---
 
@@ -300,6 +301,39 @@ export default function DevFinanceSetupPage() {
             Configure unit mix, builder information, and finance parameters to generate your
             development finance pack.
           </p>
+        </div>
+
+        {/* In-context voice clarifier (§6) — explains the fields, or fills them from spoken values */}
+        <div className="mb-8">
+          <VoiceAssistant
+            context="devfinance"
+            title="🎙️ DevFinance Clarifier"
+            subtitle="Tap to ask about the builder, unit mix or finance parameters — or say a value to fill it in"
+            contextData={{
+              opportunity: {
+                name: opportunity.name,
+                city: opportunity.city,
+                state: opportunity.state,
+                numDwellings: opportunity.num_dwellings,
+              },
+              builderName,
+              constructionMonths,
+              unitTypes,
+              financeParams,
+            }}
+            onFieldExtracted={(field, value) => {
+              switch (field) {
+                case 'builderName': setBuilderName(String(value)); break;
+                case 'builderABN': setBuilderABN(String(value)); break;
+                case 'constructionProgramMonths': setConstructionMonths(Number(value)); break;
+                case 'interestRate': setFinanceParams((p) => ({ ...p, interestRate: Number(value) })); break;
+                case 'ltvTarget': setFinanceParams((p) => ({ ...p, ltvTarget: Number(value) })); break;
+                case 'loanTermMonths': setFinanceParams((p) => ({ ...p, loanTermMonths: Number(value) })); break;
+                case 'salesStartMonth': setFinanceParams((p) => ({ ...p, salesStartMonth: Number(value) })); break;
+                case 'salesPeriodMonths': setFinanceParams((p) => ({ ...p, salesPeriodMonths: Number(value) })); break;
+              }
+            }}
+          />
         </div>
 
         {/* Error banner */}

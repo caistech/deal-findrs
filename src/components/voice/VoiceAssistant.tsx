@@ -12,6 +12,10 @@ interface VoiceAssistantProps {
   onFieldExtracted?: (field: string, value: any) => void;
   onClose?: () => void;
   className?: string;
+  /** Label shown on the collapsed "tap to start" bar. */
+  title?: string;
+  /** One-line explanation shown under the title on the collapsed bar. */
+  subtitle?: string;
 }
 
 interface Message {
@@ -28,6 +32,8 @@ export function VoiceAssistant({
   onFieldExtracted,
   onClose,
   className = '',
+  title = '🎙️ Voice Assistant',
+  subtitle = "Tap to start - I'll help you set up your assessment criteria",
 }: VoiceAssistantProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessingAI, setIsProcessingAI] = useState(false);
@@ -222,8 +228,8 @@ export function VoiceAssistant({
               <Mic className="w-6 h-6 text-white" />
             </div>
             <div className="text-left">
-              <p className="text-white font-semibold">🎙️ Voice Assistant</p>
-              <p className="text-white/70 text-sm">Tap to start - I'll help you set up your assessment criteria</p>
+              <p className="text-white font-semibold">{title}</p>
+              <p className="text-white/70 text-sm">{subtitle}</p>
             </div>
           </div>
           <div className="px-4 py-2 bg-white/20 rounded-lg text-white text-sm font-medium group-hover:bg-white/30 transition-colors">
