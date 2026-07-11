@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { LayoutGrid, Users, Mic, CreditCard, ArrowLeft, LogOut } from 'lucide-react'
+import { LayoutGrid, Users, Mic, CreditCard, ArrowLeft, LogOut, Building2, BarChart3, UserPlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface AdminLayoutProps {
@@ -12,9 +12,12 @@ interface AdminLayoutProps {
 
 const NAV_ITEMS = [
   { href: '/admin', label: 'Overview', icon: LayoutGrid },
-  { href: '/admin/users', label: 'User Management', icon: Users },
-  { href: '/admin/elevenlabs', label: 'Voice Agent', icon: Mic },
+  { href: '/admin/members', label: 'Members', icon: Users },
+  { href: '/admin/tenancy', label: 'Tenancy', icon: Building2 },
+  { href: '/admin/usage', label: 'Usage', icon: BarChart3 },
   { href: '/admin/stripe', label: 'Billing', icon: CreditCard },
+  { href: '/admin/users', label: 'User Management', icon: UserPlus },
+  { href: '/admin/elevenlabs', label: 'Voice Agent', icon: Mic },
 ]
 
 /**

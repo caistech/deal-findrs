@@ -1,12 +1,33 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, Mic, CreditCard, Users } from 'lucide-react'
+import { ArrowLeft, Mic, CreditCard, Users, Building2, BarChart3, UserPlus } from 'lucide-react'
 
 const ADMIN_LINKS = [
   {
-    href: '/admin/users',
+    href: '/admin/members',
     icon: Users,
+    title: 'Members',
+    description: 'Everyone with access across all organisations, and pending invites',
+    color: 'green',
+  },
+  {
+    href: '/admin/tenancy',
+    icon: Building2,
+    title: 'Tenancy',
+    description: 'Organisations on the platform — subscription tier, status and member count',
+    color: 'violet',
+  },
+  {
+    href: '/admin/usage',
+    icon: BarChart3,
+    title: 'Usage',
+    description: 'AI usage, tokens and cost attributed per organisation',
+    color: 'blue',
+  },
+  {
+    href: '/admin/users',
+    icon: UserPlus,
     title: 'User Management',
     description: 'Create and manage user accounts',
     color: 'green',
@@ -36,8 +57,8 @@ export default function AdminPage() {
         </Link>
 
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Setup</h1>
-          <p className="text-gray-600">Configure third-party integrations and services</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin</h1>
+          <p className="text-gray-600">Manage organisations, members and usage across the platform, and configure integrations.</p>
         </div>
 
         <div className="grid gap-4">
