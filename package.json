@@ -24,6 +24,7 @@
     "@caistech/property-services-sdk": "^0.7.2",
     "@caistech/report-generator": "^0.1.0",
     "@caistech/sayfix-embed": "^0.4.0",
+    "@caistech/webmcp-kit": "^0.1.0",
     "@react-pdf/renderer": "^4.5.1",
     "@supabase/ssr": "^0.1.0",
     "@supabase/supabase-js": "^2.39.0",
