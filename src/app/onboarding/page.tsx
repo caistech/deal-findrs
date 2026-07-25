@@ -78,6 +78,13 @@ export default function OnboardingPage() {
           const data = await res.json()
           if (!res.ok) {
             setAbnError(data.error || 'ABN lookup failed')
+          } else if (!data.entityName) {
+            // The shared route returns 200 { configured: false } when ABR_GUID
+            // is unset — a 200 without an entityName is NOT a resolved
+            // business. Accept the typed ABN, show no resolution, and never
+            // red-flag a checksum-valid ABN over an operator config gap.
+            setAbnResult(null)
+            setCompanyAbn(formatAbn(raw))
           } else {
             setAbnResult(data as AbnLookupResult)
             setCompanyAbn(formatAbn(raw))
@@ -148,6 +155,10 @@ export default function OnboardingPage() {
       const data = await res.json()
       if (!res.ok) {
         setAbnError(data.error || 'ABN lookup failed')
+      } else if (!data.entityName) {
+        // 200 without an entityName (e.g. { configured: false }) is not a
+        // resolution — see the same guard on the typed-ABN path above.
+        setAbnResult(null)
       } else {
         setAbnResult(data as AbnLookupResult)
       }

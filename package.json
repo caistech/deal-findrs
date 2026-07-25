@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
-    "@caistech/corporate-components": "^0.3.0",
+    "@caistech/abn-lookup": "^0.1.1",
+    "@caistech/corporate-components": "^0.5.3",
     "@caistech/deal-model": "^0.5.0",
     "@caistech/document-ingest": "^0.1.0",
     "@caistech/elevenlabs-convai": "^0.4.9",
