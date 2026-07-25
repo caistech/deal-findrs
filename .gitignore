@@ -53,3 +53,7 @@ supabase/.temp
 # QA / smoke-test configs with credentials — never commit
 session.config.json
 survey.json
+.gstack/
+
+# Generated tester artefacts â€” reports, not source
+naive-tester-reports/
