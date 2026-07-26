@@ -2,6 +2,13 @@ import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/auth/require-admin'
 
+// Admin data, read per-request with a caller-scoped auth check — never a build-time artifact.
+// Without this Next tries to PRERENDER the route, which runs getSupabaseAdmin() at build time with
+// no env and fails the build ("Your project's URL and Key are required to create a Supabase
+// client"). Same class as the ABN-lookup route note in SHARED_SERVICES.md.
+export const dynamic = 'force-dynamic'
+
+
 // Lazy service-role client (see create-user/route.ts for why it's not module-scope).
 let _admin: ReturnType<typeof createClient> | null = null
 function getSupabaseAdmin() {
