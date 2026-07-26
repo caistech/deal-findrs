@@ -1,0 +1,55 @@
+{
+  "$schema": "https://caistech.internal/regulatory-inclusions/v1",
+  "_doc": "Declares this repo's legal/consent surfaces per cais-shared-services/REGULATORY_INCLUSIONS.md. Every inclusion must be default, customised, or not-applicable WITH A REASON — silence is not acceptance.",
+
+  "operator": {
+    "_doc": "Trigger A. DealFindrs is CAS-owned, so it carries OUR canonical identity (portfolio-manifest.yaml `shared:`). Note this is NOT automatic: the property engine is a plausible white-label candidate, and if a distributor ever resells it, this block and every inclusion below must change to theirs.",
+    "entity": "Global Buildtech Australia Pty Ltd",
+    "trading_as": "Corporate AI Solutions",
+    "abn": "54672395685",
+    "postal": "76-84 Brunswick Street, Fortitude Valley QLD 4006",
+    "brand_owner": "cais",
+    "confirmed_by": "Dennis McMahon, 2026-07-27 (canonical portfolio identity, locked 2026-07-26)"
+  },
+
+  "exposure": {
+    "_doc": "Why the bar here is 'correct and honest' rather than 'launch-ready'.",
+    "status": "internal-only",
+    "note": "Currently an internal tool — access is the operator's alone. The inclusions are written correctly now rather than left until later, because the failure this standard exists to stop is a placeholder that ships when access opens and nobody re-reads it.",
+    "before_public": "Separate legal review before the product moves to public access. Re-run checks #44-#46 at that point; several 'not-applicable' declarations below become live the moment there are real customers."
+  },
+
+  "review": {
+    "status": "operational-baseline",
+    "note": "Best-fit pages, not legal advice. Reviewed properly before public exposure — see `exposure.before_public`."
+  },
+
+  "inclusions": {
+    "privacy": {
+      "state": "customised",
+      "url": "/privacy",
+      "note": "Existed with real content but named NO entity and NO ABN — it described what we do with data without ever identifying who 'we' are, which is the thing a privacy policy has to establish before the rest of it means anything. Added as §1, with the full identification block and the OAIC complaint pathway in the contact section."
+    },
+    "terms": {
+      "state": "customised",
+      "url": "/terms",
+      "note": "Acceptance / service / data / acceptable use / billing / liability / contact. Contact block now carries entity, ABN and postal address rather than a trading name alone."
+    },
+    "voice": {
+      "state": "not-applicable",
+      "reason": "No voice agent on the deployed product today. The repo has an unmerged feat/voice-clarifier-and-admin-team branch — re-declare this as `default` the moment that lands, because the ElevenLabs vendor consent modal arrives with it."
+    },
+    "ip_ack": {
+      "state": "not-applicable",
+      "reason": "Users do not create or share content built on third-party IP. Property data entered is the user's own or sourced from the canonical property-services feed under its own terms."
+    },
+    "cookies": {
+      "state": "not-applicable",
+      "reason": "Session cookie only, strictly necessary to keep a signed-in user signed in. Usage metadata mentioned in the privacy policy is first-party product telemetry, not cross-site tracking. Re-declare the moment any third-party analytics is added."
+    },
+    "sender": {
+      "state": "default",
+      "note": "Canonical CAS identity via @caistech/email-compliance. Transactional only today."
+    }
+  }
+}

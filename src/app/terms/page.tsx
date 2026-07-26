@@ -96,7 +96,8 @@ export default function TermsPage() {
           <section>
             <h2 className="text-2xl font-bold text-white mb-3">7. Contact</h2>
             <p>
-              Corporate AI Solutions · legal@corporateaisolutions.com
+              Global Buildtech Australia Pty Ltd, trading as Corporate AI Solutions · ABN 54 672 395 685
+              <br />76-84 Brunswick Street, Fortitude Valley QLD 4006 · legal@corporateaisolutions.com
             </p>
           </section>
         </div>
