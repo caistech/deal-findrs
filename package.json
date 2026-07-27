@@ -42,7 +42,7 @@
     "unpdf": "^1.6.2"
   },
   "devDependencies": {
-    "@caistech/portfolio-gate": "^0.3.0",
+    "@caistech/portfolio-gate": "^0.10.0",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
