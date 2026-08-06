@@ -70,8 +70,16 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-2xl font-bold text-white mb-3">4. Data storage and residency</h2>
             <p>
-              Data is stored in Supabase (PostgreSQL) with row-level security. Australian
-              customers&apos; data is hosted in the ap-southeast-2 (Sydney) region.
+              Data is stored in Supabase (PostgreSQL) with row-level security. Our database
+              is hosted in Supabase&apos;s ap-south-1 region, in <strong>Mumbai, India</strong>,
+              so your personal information is stored outside Australia.
+            </p>
+            <p className="mt-3">
+              Other providers that run the service also process data overseas, including in the
+              United States: Vercel (hosting), Resend (email), and the AI model providers that
+              generate assessment output. We take reasonable steps to ensure overseas recipients
+              handle your information consistently with the Australian Privacy Principles, but we
+              cannot control an overseas recipient&apos;s handling to the same degree as our own.
             </p>
           </section>
 
