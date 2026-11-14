@@ -57,3 +57,22 @@ noreply@updates.corporateaisolutions.com (only Resend-verified subdomain).
 - NO route/flag may skip auth — a test bypass is a critical vulnerability.
 - Preview behind Vercel deployment protection needs a Protection-Bypass-for-Automation token.
 - After login, save/reload browser auth state so a /browse daemon cold-restart doesn't drop it.
+
+## OPERATOR ACTION REQUIRED — Supabase service-role key migration
+
+This Supabase project (obakurzlpzisflnnjzzo) has migrated to the new `sb_secret_*` key format.
+The old `eyJ*` JWT service-role key in Vercel env is no longer valid.
+
+**Steps to fix (VT_D2/VT_D3 will pass once complete):**
+
+1. Log in to Supabase dashboard → Project Settings → API
+2. Copy the new `sb_secret_*` service-role key (not the anon key)
+3. Update `SUPABASE_SERVICE_ROLE_KEY` in Vercel env for this project
+   (production + preview; mark as sensitive)
+4. Redeploy — the `/api/admin/create-user` route will then be able to provision
+   QA accounts (VT_D2: dennis+qaadmin@factory2key.com.au, VT_D3: dennis@factory2key.com.au)
+
+**Email sender (#35):**
+After updating the service-role key, run `scripts/onboard-new-project.sh` to re-configure
+Supabase SMTP. The `smtp_admin_email` must be `noreply@updates.corporateaisolutions.com`
+(not the bare domain). This resolves check #35.
